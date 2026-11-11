@@ -1,0 +1,356 @@
+.xnetvn-agent-hub {
+	max-width: 1200px;
+	font-family: inherit;
+	--xnetvn-gap: 16px;
+}
+@media (min-width: 768px) {
+	.xnetvn-agent-hub {
+		--xnetvn-gap: 24px;
+	}
+}
+.xnetvn-agent-hub label:not(.xnetvn-choice),
+.xnetvn-agent-hub textarea {
+	display: block;
+}
+.xnetvn-agent-hub input[type="text"],
+.xnetvn-agent-hub input[type="password"],
+.xnetvn-agent-hub input[type="number"],
+.xnetvn-agent-hub input[type="search"],
+.xnetvn-agent-hub textarea,
+.xnetvn-agent-hub select,
+.xnetvn-agent-hub [data-secret] {
+	width: 32rem;
+	max-width: 100%;
+}
+.xnetvn-agent-hub fieldset {
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 4px 12px 12px;
+	/* Browsers give a fieldset a min-content width; a long option would push the page wider. */
+	min-width: 0;
+}
+.xnetvn-agent-hub legend {
+	font-weight: 600;
+	padding: 0 6px;
+}
+.xnetvn-agent-hub details {
+	margin: 0 0 var(--xnetvn-gap);
+}
+.xnetvn-agent-hub summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 4px 0;
+}
+.xnetvn-agent-hub .xnetvn-settings-group {
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 4px 12px 12px;
+	/* A group is always open: no security field may hide behind a collapsed control. */
+	min-width: 0;
+}
+.xnetvn-agent-hub .xnetvn-group-help {
+	color: #50575e;
+	margin: 0 0 12px;
+	max-width: 70ch;
+}
+.xnetvn-agent-hub .xnetvn-field {
+	margin: 0 0 12px;
+}
+.xnetvn-agent-hub .xnetvn-help {
+	color: #50575e;
+	margin: 0 0 12px;
+	max-width: 70ch;
+	overflow-wrap: anywhere;
+}
+.xnetvn-agent-hub .xnetvn-warning {
+	border-inline-start: 4px solid #d63638;
+	color: #8a2424;
+	margin: 0 0 12px;
+	max-width: 70ch;
+	overflow-wrap: anywhere;
+	padding-inline-start: 10px;
+}
+.xnetvn-agent-hub .xnetvn-settings-errors {
+	border: 1px solid #d63638;
+	border-inline-start-width: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 8px 12px;
+}
+.xnetvn-agent-hub .xnetvn-settings-errors p {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+.xnetvn-agent-hub .xnetvn-settings-errors:focus-visible {
+	outline: 2px solid #135e96;
+	outline-offset: 3px;
+}
+.xnetvn-agent-hub textarea {
+	min-height: 4.5rem;
+}
+.xnetvn-agent-hub .xnetvn-filters {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 8px 12px 12px;
+}
+.xnetvn-agent-hub .xnetvn-filters p {
+	margin: 0 0 8px;
+}
+.xnetvn-agent-hub .button {
+	min-height: 32px;
+	min-width: 24px;
+	margin: 2px;
+}
+/*
+ * The hub states the colours of its own buttons. The accent of the admin
+ * colour scheme of WordPress does not always reach the 4.5:1 of WCAG 2.2
+ * SC 1.4.3 on the background of the admin button: the scheme "light" paints
+ * #04a4cc on #f6f7f7 (2.72:1) and the scheme "midnight" paints #e14d43 on
+ * #f6f7f7 (3.66:1) on WordPress 6.9. On WordPress 7.1 the accents #007cba
+ * and #cf4339 reach only 4.19:1 and 4.08:1. One rule states the colours for
+ * every scheme so that no scheme of the core can break the contrast of the
+ * hub. #2271b1 is the accent of the default scheme of WordPress: it keeps
+ * the look of the default scheme unchanged (4.81:1 on #f6f7f7) and it
+ * reaches 4.81:1 in every scheme. The selector is more specific than the
+ * rule of the core (".wp-core-ui .button" with the specificity 0-2-0)
+ * because the stylesheet of the colour scheme is printed after the
+ * stylesheet of the plugin.
+ */
+.wp-core-ui .xnetvn-agent-hub .button {
+	background-color: #f6f7f7;
+	border-color: #2271b1;
+	color: #2271b1;
+}
+.wp-core-ui .xnetvn-agent-hub .button.button-primary {
+	background-color: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+}
+.xnetvn-agent-hub :focus-visible {
+	outline: 2px solid #135e96;
+	outline-offset: 3px;
+}
+.xnetvn-agent-hub [hidden] {
+	display: none;
+}
+.xnetvn-agent-hub .xnetvn-choice {
+	display: inline-block;
+	margin: 0 12px 8px 0;
+}
+.xnetvn-agent-hub .xnetvn-table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+}
+.xnetvn-agent-hub caption {
+	text-align: left;
+	font-weight: 600;
+	padding: 8px 0;
+}
+.xnetvn-agent-hub .xnetvn-pagination {
+	margin: 12px 0;
+}
+.xnetvn-agent-hub dialog {
+	color: #1d2327;
+	background: #fff;
+	border: 2px solid #1d2327;
+	border-radius: 4px;
+	padding: 24px;
+	width: 38rem;
+	max-width: calc(100vw - 80px);
+	max-height: calc(100vh - 80px);
+	overflow-y: auto;
+}
+.xnetvn-agent-hub dialog::backdrop {
+	background: rgb(0 0 0 / 60%);
+}
+.xnetvn-agent-hub .xnetvn-steps {
+	margin: 0 0 var(--xnetvn-gap);
+	padding-inline-start: 24px;
+	max-width: 70ch;
+}
+.xnetvn-agent-hub .xnetvn-steps li {
+	margin: 0 0 8px;
+}
+.xnetvn-agent-hub .xnetvn-help-sample {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	max-width: 70ch;
+	overflow-x: auto;
+	padding: 8px 12px;
+}
+.xnetvn-agent-hub .xnetvn-help-sample code {
+	background: none;
+	padding: 0;
+}
+.xnetvn-agent-hub .xnetvn-help-issue {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 0 0 8px;
+	max-width: 70ch;
+	padding: 4px 12px 8px;
+}
+.xnetvn-agent-hub dt {
+	font-weight: 600;
+}
+.xnetvn-agent-hub dd {
+	margin: 0 0 12px;
+}
+.xnetvn-agent-hub .xnetvn-nav ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 0;
+	list-style: none;
+}
+.xnetvn-agent-hub .xnetvn-nav a[aria-current="page"] {
+	font-weight: 700;
+}
+.xnetvn-agent-hub .xnetvn-loading {
+	margin: 0 0 var(--xnetvn-gap);
+}
+.xnetvn-agent-hub .xnetvn-error {
+	border-inline-start: 4px solid currentColor;
+	padding-inline-start: 12px;
+	margin: 0 0 var(--xnetvn-gap);
+}
+.xnetvn-agent-hub .xnetvn-empty {
+	margin: 0 0 var(--xnetvn-gap);
+}
+.xnetvn-agent-hub .xnetvn-outcome {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	background: #f6f7f7;
+	color: #1d2327;
+	font-weight: 600;
+	white-space: nowrap;
+}
+.xnetvn-agent-hub .xnetvn-outcome-success {
+	border-color: #00a32a;
+	background: #edfaef;
+	color: #1d2327;
+}
+.xnetvn-agent-hub .xnetvn-outcome-denied,
+.xnetvn-agent-hub .xnetvn-outcome-error,
+.xnetvn-agent-hub .xnetvn-outcome-auth_failed {
+	border-color: #d63638;
+	background: #fcf0f1;
+	color: #1d2327;
+}
+.xnetvn-agent-hub .xnetvn-outcome-invalid_input,
+.xnetvn-agent-hub .xnetvn-outcome-rate_limited {
+	border-color: #dba617;
+	background: #fcf9e8;
+	color: #1d2327;
+}
+.xnetvn-agent-hub [data-tools] article {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 0 0 var(--xnetvn-gap);
+	padding: 8px 12px 12px;
+	overflow-wrap: anywhere;
+}
+.xnetvn-agent-hub [data-tools] article > :last-child {
+	margin-bottom: 0;
+}
+.xnetvn-agent-hub code {
+	overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+	.xnetvn-agent-hub .xnetvn-nav ul {
+		flex-direction: column;
+	}
+	.xnetvn-agent-hub dialog {
+		width: auto;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.xnetvn-agent-hub *,
+	.xnetvn-agent-hub *::before,
+	.xnetvn-agent-hub *::after {
+		animation: none;
+		transition: none;
+	}
+	/*
+	 * The rule of the core for the check boxes and for the radio buttons
+	 * ("input[type=checkbox]" with the specificity 0-1-1) is more specific
+	 * than the rule above (0-1-0). The fields and the links of the hub are
+	 * named here with a higher specificity.
+	 */
+	.xnetvn-agent-hub a,
+	.xnetvn-agent-hub .button,
+	.xnetvn-agent-hub input[type],
+	.xnetvn-agent-hub select,
+	.xnetvn-agent-hub textarea {
+		animation: none;
+		transition: none;
+	}
+}
+@media (forced-colors: active) {
+	/*
+	 * The operating system paints the page with its own palette. The
+	 * declarations below name the colours of that palette so that the
+	 * colours of the page and the colours that a tool reads (axe) are the
+	 * same ones. Only the elements that axe reported are named.
+	 */
+	.xnetvn-agent-hub,
+	.xnetvn-agent-hub caption,
+	.xnetvn-agent-hub dd,
+	.xnetvn-agent-hub dt,
+	.xnetvn-agent-hub h1,
+	.xnetvn-agent-hub h2,
+	.xnetvn-agent-hub h3,
+	.xnetvn-agent-hub h4,
+	.xnetvn-agent-hub h5,
+	.xnetvn-agent-hub h6,
+	.xnetvn-agent-hub label,
+	.xnetvn-agent-hub legend,
+	.xnetvn-agent-hub li,
+	.xnetvn-agent-hub p,
+	.xnetvn-agent-hub span,
+	.xnetvn-agent-hub summary,
+	.xnetvn-agent-hub td,
+	.xnetvn-agent-hub th {
+		color: CanvasText;
+	}
+	.xnetvn-agent-hub a {
+		color: LinkText;
+	}
+	/*
+	 * The rule of the core for the head of a table (".widefat thead tr th"
+	 * with the specificity 0-1-3) is more specific than the rule for the
+	 * tag above so the head of the table is named here.
+	 */
+	.xnetvn-agent-hub table thead tr th,
+	.xnetvn-agent-hub table thead tr td,
+	.xnetvn-agent-hub table tfoot tr th,
+	.xnetvn-agent-hub table tfoot tr td {
+		color: CanvasText;
+	}
+	.xnetvn-agent-hub .xnetvn-group-help,
+	.xnetvn-agent-hub .xnetvn-help,
+	.xnetvn-agent-hub .xnetvn-outcome,
+	.xnetvn-agent-hub .xnetvn-warning,
+	.xnetvn-agent-hub dialog {
+		color: CanvasText;
+	}
+	.xnetvn-agent-hub input[type],
+	.xnetvn-agent-hub select,
+	.xnetvn-agent-hub textarea {
+		background-color: Canvas;
+		border-color: CanvasText;
+		color: CanvasText;
+	}
+	.wp-core-ui .xnetvn-agent-hub .button,
+	.wp-core-ui .xnetvn-agent-hub .button.button-primary {
+		background-color: ButtonFace;
+		border-color: ButtonBorder;
+		color: ButtonText;
+	}
+}

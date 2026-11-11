@@ -1,0 +1,177 @@
+services:
+  cache:
+    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    command: [redis-server, --save, '', --appendonly, 'no', --maxmemory, 128mb, --maxmemory-policy, noeviction, --requirepass, '${RTL_CACHE_PASSWORD:?Provide test values in .env.rtl}']
+    environment:
+      REDISCLI_AUTH: ${RTL_CACHE_PASSWORD:?Provide test values in .env.rtl}
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  db:
+    image: mariadb:11.4.13@sha256:1292844148b311e4ed4300022a996d39083f415a963e970cf47cad1b3b18e3a6
+    environment:
+      MARIADB_DATABASE: agent_hub_test
+      MARIADB_USER: xnetvn_test
+      MARIADB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      MARIADB_ROOT_PASSWORD: ${RTL_DB_ROOT_PASSWORD:?Provide test values in .env.rtl}
+    volumes:
+      - db_data:/var/lib/mysql
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  wp69:
+    build:
+      context: .
+      dockerfile: infra/remote/Dockerfile.wordpress
+      args:
+        WORDPRESS_VERSION: '6.9'
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: agent_hub_test
+      WORDPRESS_DB_USER: xnetvn_test
+      WORDPRESS_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_DEBUG: '1'
+      WORDPRESS_TABLE_PREFIX: site69_
+      WORDPRESS_CONFIG_EXTRA: "require '/opt/xnetvn/wordpress-extra.php';"
+      XNETVN_RTL_CACHE_HOST: cache
+      XNETVN_RTL_CACHE_PASSWORD: ${RTL_CACHE_PASSWORD:?Provide test cache values}
+      XNETVN_RTL_DOMAIN: ${RTL_DOMAIN_WP69:?Provide the test domain in .env.rtl}
+      XNETVN_RTL_ALIAS: ${RTL_ALIAS_WP69:?Provide the test alias in .env.rtl}
+      XNETVN_RTL_PROXY_CIDRS: ${RTL_PROXY_CIDRS:?Provide trusted test proxy CIDRs}
+    volumes:
+      - wp69_data:/var/www/html
+      - plugin_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp
+      - ./src:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/src:ro
+      - ./assets:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/assets:ro
+      - ./languages:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/languages:ro
+      - ./xnetvn-agent-hub-wp.php:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/xnetvn-agent-hub-wp.php:ro
+      - vendor_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/vendor:ro
+      - adapter_data:/var/www/html/wp-content/plugins/mcp-adapter:ro
+    ports: ['127.0.0.1:20880:80']
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'curl --fail --silent --output /dev/null http://127.0.0.1/wp-login.php']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  wp71:
+    build:
+      context: .
+      dockerfile: infra/remote/Dockerfile.wordpress
+      args:
+        WORDPRESS_VERSION: '7.1.2'
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: agent_hub_test
+      WORDPRESS_DB_USER: xnetvn_test
+      WORDPRESS_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_DEBUG: '1'
+      WORDPRESS_TABLE_PREFIX: site71_
+      WORDPRESS_CONFIG_EXTRA: "require '/opt/xnetvn/wordpress-extra.php';"
+      XNETVN_RTL_CACHE_HOST: cache
+      XNETVN_RTL_CACHE_PASSWORD: ${RTL_CACHE_PASSWORD:?Provide test cache values}
+      XNETVN_RTL_DOMAIN: ${RTL_DOMAIN_WP71:?Provide the test domain in .env.rtl}
+      XNETVN_RTL_ALIAS: ${RTL_ALIAS_WP71:?Provide the test alias in .env.rtl}
+      XNETVN_RTL_PROXY_CIDRS: ${RTL_PROXY_CIDRS:?Provide trusted test proxy CIDRs}
+    volumes:
+      - wp71_data:/var/www/html
+      - plugin_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp
+      - ./src:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/src:ro
+      - ./assets:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/assets:ro
+      - ./languages:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/languages:ro
+      - ./xnetvn-agent-hub-wp.php:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/xnetvn-agent-hub-wp.php:ro
+      - vendor_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/vendor:ro
+      - adapter_data:/var/www/html/wp-content/plugins/mcp-adapter:ro
+    ports: ['127.0.0.1:20881:80']
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'curl --fail --silent --output /dev/null http://127.0.0.1/wp-login.php']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  toolbox:
+    build:
+      context: .
+      dockerfile: infra/remote/Dockerfile.toolbox
+    working_dir: /work
+    command: [bash, /work/infra/remote/toolbox-start.sh]
+    environment:
+      RTL_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      RTL_ADMIN_PASSWORD: ${RTL_ADMIN_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: agent_hub_test
+      WORDPRESS_DB_USER: xnetvn_test
+      XNETVN_RTL: '1'
+      RTL_DOMAIN_WP69: ${RTL_DOMAIN_WP69:?Provide the test domain}
+      RTL_ALIAS_WP69: ${RTL_ALIAS_WP69:?Provide the test alias}
+      RTL_DOMAIN_WP71: ${RTL_DOMAIN_WP71:?Provide the test domain}
+      RTL_ALIAS_WP71: ${RTL_ALIAS_WP71:?Provide the test alias}
+      XNETVN_RTL_PROXY_CIDRS: ${RTL_PROXY_CIDRS:?Provide trusted test proxy CIDRs}
+      WORDPRESS_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_CONFIG_EXTRA: "require '/opt/xnetvn/wordpress-extra.php';"
+      XNETVN_RTL_CACHE_HOST: cache
+      XNETVN_RTL_CACHE_PASSWORD: ${RTL_CACHE_PASSWORD:?Provide test cache values}
+      NODE_OPTIONS: --no-network-family-autoselection
+    volumes:
+      - .:/work
+      - vendor_data:/work/vendor
+      - wp69_data:/sites/wp69
+      - wp71_data:/sites/wp71
+      - .:/sites/wp69/wp-content/plugins/xnetvn-agent-hub-wp
+      - .:/sites/wp71/wp-content/plugins/xnetvn-agent-hub-wp
+      - vendor_data:/sites/wp69/wp-content/plugins/xnetvn-agent-hub-wp/vendor
+      - vendor_data:/sites/wp71/wp-content/plugins/xnetvn-agent-hub-wp/vendor
+      - adapter_data:/sites/wp69/wp-content/plugins/mcp-adapter
+      - adapter_data:/sites/wp71/wp-content/plugins/mcp-adapter
+    mem_limit: 1024m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+      wp69: {condition: service_healthy}
+      wp71: {condition: service_healthy}
+      cache: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'test -f /tmp/xnetvn-toolbox-ready']
+      interval: 10s
+      timeout: 3s
+      retries: 60
+      start_period: 120s
+
+volumes:
+  db_data:
+  wp69_data:
+  wp71_data:
+  vendor_data:
+  adapter_data:
+  plugin_data:

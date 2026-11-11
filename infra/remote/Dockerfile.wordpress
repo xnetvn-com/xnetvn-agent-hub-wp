@@ -1,0 +1,20 @@
+FROM wordpress:7.1.2-php8.2-apache@sha256:219698abe159253e1faec209a9cd7c9a2bf57abee3d94b9d0b7dcc0efb753816
+ARG WORDPRESS_VERSION=7.1.2
+RUN a2disconf remoteip && a2dismod remoteip \
+    && if [ "$WORDPRESS_VERSION" = '6.9' ]; then \
+       cp /usr/src/wordpress/wp-config-docker.php /tmp/wp-config-docker.php \
+       && curl --fail --location --output /tmp/wordpress.tar.gz https://wordpress.org/wordpress-6.9.tar.gz \
+       && echo '5b36390233e32fef68cb5f66435bb32bdd50e0b3dfa5750aceb2de3c5993d720  /tmp/wordpress.tar.gz' | sha256sum --check \
+       && rm -rf /usr/src/wordpress \
+       && mkdir /usr/src/wordpress \
+       && tar --extract --gzip --file=/tmp/wordpress.tar.gz --strip-components=1 --directory=/usr/src/wordpress \
+       && cp /tmp/wp-config-docker.php /usr/src/wordpress/wp-config-docker.php \
+       && rm /tmp/wordpress.tar.gz \
+       && chown -R www-data:www-data /usr/src/wordpress; \
+       elif [ "$WORDPRESS_VERSION" != '7.1.2' ]; then exit 1; fi
+COPY infra/remote/wordpress.htaccess /usr/src/wordpress/.htaccess
+COPY infra/remote/wordpress-extra.php /opt/xnetvn/wordpress-extra.php
+COPY src/Support/Cidr.php /opt/xnetvn/Cidr.php
+
+COPY infra/remote/setup-client-tls.sh /opt/xnetvn/setup-client-tls.sh
+COPY infra/remote/fetch-fixture.php /opt/xnetvn/fetch-fixture.php

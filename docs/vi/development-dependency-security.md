@@ -1,0 +1,17 @@
+# Checkpoint bảo mật phụ thuộc phát triển
+
+Đã xác minh ngày 2026-10-06 với npm registry và cơ sở dữ liệu cảnh báo đã rà soát. Checkpoint độ bao phủ trên host 8da8474 đạt 25 job CI nhưng job audit thất bại sau khi cảnh báo mới cập nhật ảnh hưởng phụ thuộc bắc cầu của `@wordpress/env`. Kết quả Plugin Check riêng được ghi độc lập. Không báo lượt CI đó hoàn toàn xanh.
+
+Đồ thị đã giải quyết ban đầu gồm simple-git 3.36.0, argv-parser 1.1.1 và sprintf-js 1.0.3. Audit báo sáu gói bị ảnh hưởng, gồm phát hiện kế thừa ở gói cha. Cảnh báo đã rà soát yêu cầu simple-git >=4.0.1 và argv-parser >=2.0.1; sprintf-js chưa có bản vá công bố. Dự án hiện ghim wp-env 11.16.0 và giới hạn ghi đè vào simple-git 4.0.2 cùng js-yaml 5.4.3. Gói sau dùng argparse 2 không có sprintf-js, loại đường phụ thuộc dễ bị tấn công đó. Cài mới từ tệp khóa và audit báo không có cảnh báo. Ghi đè không thay đổi plugin PHP được phát hành hoặc đưa công cụ này vào ZIP phát hành.
+
+## Tương thích ràng buộc phiên bản
+
+wp-env đã cài vẫn import simple-git như một callable CommonJS. Phiên bản 4 cung cấp export có tên `simpleGit`, nên chỉ ghi đè bảo mật trực tiếp sẽ thất bại trước bước clone. Kiểm thử tương thích đã tái hiện TypeError đó trước khi sửa.
+
+`bin/prepare-wp-env.cjs` chỉ đổi hai câu import wp-env đã rà soát sang export có tên. Nó yêu cầu đúng phiên bản wp-env, thư mục/tệp cục bộ dự án không phải symlink và SHA-256 của tệp công bố gốc hoặc đúng dạng vá đã rà soát. Cả hai tệp được xác thực trước mọi thao tác ghi; gọi lại xác minh byte đã vá hiện có. Mọi sửa đổi thượng nguồn hoặc bất ngờ đều thất bại thay vì âm thầm chấp nhận phụ thuộc khác. Bản vá không tắt hoặc thay đổi bảo vệ thao tác không an toàn của simple-git.
+
+`npm ci` thông thường gọi bước chuẩn bị postinstall của dự án. Khi cố ý tắt script, chạy `npm run tooling:prepare` trước dùng wp-env. `npm run test:tooling` cũng chuẩn bị phụ thuộc rồi kiểm thử dump/load YAML cùng các API Git mà wp-env dùng: clone với option, cwd, checkIsRepo, fetch, checkout, reset và sparse-checkout/raw. Lời gọi Git gốc và thư viện dùng cùng môi trường tối thiểu, bỏ ghi đè home/config/template/editor/repository từ bên gọi và tắt cấu hình hệ thống bằng cờ cố định. Thư viện chỉ cho phép cờ cố định đó; cho phép thao tác không an toàn vẫn tắt. Kiểm thử hồi quy ghi đè GIT kế thừa cũng đạt. Repository kiểm thử là fixture local mới dùng một lần; không khởi động container/cơ sở dữ liệu/trình duyệt, không kết nối máy chủ Git từ xa và không đổi lịch sử repository dự án/tham khảo. Job audit CI chạy hợp đồng trước audit.
+
+Các kiểm tra API bổ sung cho ma trận tích hợp wp-env trên host. Đồ thị thay thế chưa được chấp nhận là tương thích trên host cho đến khi các job CI bắt buộc mới thực sự hoàn thành. Nâng cấp wp-env tương lai cần rà soát hoặc loại bản vá tương thích chính xác, cập nhật tệp khóa và lặp lại kiểm tra hợp đồng cùng kiểm tra trên host. Không hạ mức nghiêm trọng audit hoặc chặn cảnh báo để đạt kết quả xanh.
+
+Nguồn chính thức/đã rà soát: [cảnh báo bảo vệ VISUAL](https://github.com/advisories/GHSA-v5rq-49vh-5v5c), [cảnh báo cấu hình trailer](https://github.com/advisories/GHSA-x6jw-m9v5-85vh), [cảnh báo độ chính xác sprintf](https://github.com/advisories/GHSA-hp3w-g68c-fv3c), [gói môi trường WordPress](https://github.com/WordPress/gutenberg/tree/trunk/packages/env), [simple-git](https://github.com/steveukx/git-js), [js-yaml](https://github.com/nodeca/js-yaml). Cách dùng import/API chính xác được xác minh với artifact npm đã cài.

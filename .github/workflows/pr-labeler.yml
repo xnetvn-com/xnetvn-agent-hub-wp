@@ -1,0 +1,46 @@
+name: Pull request labeler
+
+# pull_request_target is required so the token can write labels. The job never
+# checks out the pull request revision and only executes the pinned labeler
+# action, so no pull request code reaches the runner. It runs on the
+# repository-scoped self-hosted runner so a hosted-minute fault cannot stop
+# labeling, and it is limited to pull requests whose head branch lives in this
+# repository: a fork pull request cannot start a write-token job on the
+# persistent machine.
+on:
+  # zizmor: ignore[dangerous-triggers]
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions: {}
+
+concurrency:
+  group: pr-labeler-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  label:
+    name: Apply path-based labels
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # A self-hosted runner keeps its workspace between jobs, and the action
+      # prefers a local config file over the base-branch copy. Remove any file
+      # left by an earlier checkout so the configuration always comes from the
+      # base branch through the API.
+      - name: Drop a leftover labeler config
+        run: rm -f -- .github/labeler.yml
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: true

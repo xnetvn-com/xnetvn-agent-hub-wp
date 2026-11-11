@@ -1,0 +1,76 @@
+name: 💡 Yêu cầu tính năng mới (Feature Request)
+description: Đề xuất tính năng hoặc cải tiến mới cho xNetVN Agent Hub WP
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cảm ơn bạn đã đề xuất ý tưởng phát triển xNetVN Agent Hub WP! Vui lòng điền đầy đủ các mục dưới đây.
+  - type: input
+    id: feature_title
+    attributes:
+      label: Tên tính năng đề xuất
+      placeholder: VD: Bổ sung khả năng quản lý Reusable Blocks trong Blocks Pack
+    validations:
+      required: true
+  - type: dropdown
+    id: toolset
+    attributes:
+      label: Thuộc Bộ công cụ (Toolset) nào?
+      options:
+        - System Pack
+        - Content Pack
+        - Taxonomy Pack
+        - Blocks Pack
+        - Media Pack
+        - Comments Pack
+        - Appearance Pack
+        - Settings Pack
+        - Khác
+    validations:
+      required: true
+  - type: dropdown
+    id: risk_tier
+    attributes:
+      label: Cấp độ rủi ro (Risk Tier) dự kiến
+      options:
+        - read (Chỉ đọc)
+        - write (Tạo / Cập nhật)
+        - destructive (Xóa vĩnh viễn)
+        - admin (Quản trị cấu hình)
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Mô tả nhu cầu & Lợi ích
+      description: Tại sao tính năng này cần thiết? Nó giải quyết vấn đề gì cho AI Agent hoặc Quản trị viên?
+      placeholder: Hiện tại AI Agent chưa thể... Tính năng này sẽ giúp...
+    validations:
+      required: true
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Kịch bản sử dụng (Use Cases)
+      description: Các bước cụ thể AI Agent hoặc người dùng thực hiện.
+      placeholder: |
+        1. Agent gọi tool xnetvn/...
+        2. Plugin trả về kết quả...
+    validations:
+      required: true
+  - type: textarea
+    id: schemas
+    attributes:
+      label: Dự thảo JSON Schema (Nếu có)
+      description: Mô tả cấu trúc tham số đầu vào và kết quả đầu ra.
+      render: json
+  - type: checkboxes
+    id: considerations
+    attributes:
+      label: Xem xét an toàn & bảo mật
+      options:
+        - label: Tính năng này tuân thủ nguyên tắc không thực thi mã tùy ý và không truy vấn SQL tự do.
+          required: true
+        - label: Dữ liệu trả về được xử lý như untrusted content data và tuân thủ JSON Schema nghiêm ngặt.
+          required: true

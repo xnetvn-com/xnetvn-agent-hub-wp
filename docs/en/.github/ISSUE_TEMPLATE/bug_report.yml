@@ -1,0 +1,91 @@
+name: 🐞 Bug Report
+description: Report a technical bug or unexpected incident in xNetVN Agent Hub WP
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting the bug! Please complete the information below to help us resolve it promptly.
+  - type: input
+    id: summary
+    attributes:
+      label: Bug summary title
+      description: Provide a brief, clear description of the observed issue.
+      placeholder: "E.g.: A 401 error when calling MCP through a reverse proxy due to a missing Authorization header"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker (Complete system outage)
+        - Critical (Affects core functionality)
+        - Major (Affects secondary functionality)
+        - Minor (Minor issue with a workaround)
+        - Trivial (UI or spelling issue)
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Related component / Module
+      options:
+        - Auth & API Keys
+        - MCP Server Gateway & Adapter
+        - System Pack Abilities
+        - Content / Taxonomy / Blocks Pack
+        - Rate Limiting
+        - Audit & Privacy / GDPR
+        - Admin UI / Profile Pages
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Affected Environment
+      description: PHP, WordPress, Nginx/Apache, MySQL, and plugin versions.
+      value: |
+        - PHP Version: 8.2.x
+        - WordPress Version: 6.9
+        - Database: MySQL 8.0 (InnoDB)
+        - Web Server: Nginx
+        - Plugin Version: v1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Detailed bug description
+      description: Actual behavior and expected result.
+      placeholder: Describe what happened and what should have happened...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: List each step in detail.
+      placeholder: |
+        1. Step 1...
+        2. Step 2...
+        3. Observe the bug...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stacktrace (Sensitive information redacted)
+      description: Paste error logs from wp-content/debug.log if available.
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Verification checklist
+      options:
+        - label: I have searched and confirmed that this bug has not been reported before.
+          required: true
+        - label: I have redacted all secret keys, tokens, and passwords from this report.
+          required: true

@@ -1,0 +1,24 @@
+name: Bug report
+description: Report reproducible behavior. Send security reports privately.
+body:
+  - type: markdown
+    attributes:
+      value: "Security reports: security@xnetvn.net. Never include API keys, passwords or authorization headers."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Plugin, WordPress, PHP and adapter versions
+    validations:
+      required: true

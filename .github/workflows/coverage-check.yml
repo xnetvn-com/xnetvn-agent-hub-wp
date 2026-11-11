@@ -1,0 +1,410 @@
+name: Native coverage validation
+
+# Coverage measurement is independent from the source gate in ci.yml. Packaging
+# and lint are already enforced there, so this workflow only runs the collectors
+# and the numeric coverage decision.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
+
+concurrency:
+  group: native-coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The coverage gate is a required check, so it must report on every pull
+  # request. This hosted job only compares paths; it never runs project code.
+  plan:
+    name: coverage-plan
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      docs_only: ${{ steps.select.outputs.docs_only }}
+    steps:
+      - name: Check out the tested revision with its base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select the source scope
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          docs_only=false
+          if [ "$EVENT_NAME" = pull_request ]; then
+            # Keep this allowlist in sync with ci.yml. An unavailable base, an
+            # empty diff or an unreadable path list must run the full gate.
+            if [ -n "$BASE_SHA" ] && [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && \
+              git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              changed="$(git diff --name-only --no-renames "$BASE_SHA" HEAD)" || changed=""
+              if [ -n "$changed" ]; then
+                docs_only=true
+                while IFS= read -r file; do
+                  case "$file" in
+                    docs/*|README.md|CONTRIBUTING.md|SECURITY.md|SUPPORT.md|CODE_OF_CONDUCT.md|CHANGELOG.md) ;;
+                    *) docs_only=false; break ;;
+                  esac
+                done <<< "$changed"
+              fi
+            fi
+          fi
+          printf 'docs_only=%s\n' "$docs_only" >> "$GITHUB_OUTPUT"
+
+  helper-tests:
+    name: Coverage collector and gate regression tests
+    needs: plan
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Keep the local evidence directory private
+        run: chmod -R go-w .local 2>/dev/null || true
+      - name: Set up PHP with coverage
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: xdebug
+      - name: Cache locked Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Install locked development tools
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Validate the new PHP helpers against the project standards
+        run: |
+          vendor/bin/phpcs --standard=phpcs.xml.dist --no-cache .github/scripts .github/tests
+          vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --level=8 --memory-limit=1G .github/scripts
+      - name: Test the native collector and JSON-only gate
+        env:
+          XDEBUG_MODE: coverage
+        run: |
+          umask 022
+          mkdir -p .local/helper-tests
+          chmod -R go-w .local 2>/dev/null || true
+          vendor/bin/phpunit --no-configuration --bootstrap vendor/autoload.php \
+            --fail-on-warning --fail-on-risky --coverage-filter .github/scripts \
+            --coverage-clover .local/helper-tests/helper-coverage.xml .github/tests
+      - name: Upload helper coverage evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-coverage-helper-tests
+          path: .local/helper-tests/helper-coverage.xml
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  unit:
+    name: Native coverage - unit PHP 8.2
+    needs: plan
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Keep the local evidence directory private
+        run: chmod -R go-w .local 2>/dev/null || true
+      - name: Set up PHP with coverage
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: xdebug
+      - name: Cache locked Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Install locked development tools
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Collect the complete unit source filter
+        env:
+          XDEBUG_MODE: coverage
+          XNETVN_CI_SUITE: unit
+          XNETVN_CI_REVISION: ${{ github.sha }}
+        run: |
+          umask 022
+          mkdir -p .local/ci
+          chmod -R go-w .local 2>/dev/null || true
+          vendor/bin/phpunit --prepend .github/scripts/CoveragePrinter.php -c phpunit.xml.dist \
+            --printer 'XNetVN\AgentHubWP\Ci\CoveragePrinter' \
+            --log-junit .local/ci/junit.xml --coverage-clover .local/ci/clover.xml
+      - name: Upload unit evidence from this revision
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-coverage-unit
+          path: .local/ci/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  integration:
+    name: Native coverage - WordPress ${{ matrix.wp }} ${{ matrix.mode }}
+    needs: plan
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true' && vars.XNETVN_CI_RUNNER_DOCKER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      # A pull request stops at the first failure; the default-branch run keeps
+      # every suite so the coverage evidence stays complete.
+      fail-fast: ${{ github.event_name == 'pull_request' }}
+      # wp-env containers on one persistent runner share the Docker host and its
+      # default ports; each self-hosted runner executes one job at a time, so the
+      # operator-set XNETVN_CI_MAX_PARALLEL (default 2) must not exceed the
+      # number of working runners. GitHub-hosted
+      # runners get an isolated VM per job, so the whole matrix may run at once.
+      max-parallel: ${{ ((inputs.self_hosted_trial || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true' && vars.XNETVN_CI_RUNNER_DOCKER == 'true')) && fromJSON(vars.XNETVN_CI_MAX_PARALLEL || '2')) || 4 }}
+      matrix:
+        wp: ['6.9', latest]
+        mode: [single, multisite]
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Keep the local evidence directory private
+        run: chmod -R go-w .local 2>/dev/null || true
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Set up the project Node runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Cache locked Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            native-coverage-composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Install locked development tools
+        run: |
+          composer install --prefer-dist --no-interaction --no-progress
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run tooling:prepare
+      - name: Configure the disposable WordPress environment
+        env:
+          TEST_WP: ${{ matrix.wp }}
+        run: |
+          umask 022
+          mkdir -p .local/ci
+          chmod -R go-w .local 2>/dev/null || true
+          node - <<'JS'
+          const fs = require('node:fs');
+          const version = process.env.TEST_WP;
+          if (!['6.9', 'latest'].includes(version)) {
+            throw new Error('Unsupported WordPress test version.');
+          }
+          fs.writeFileSync('.wp-env.override.json', JSON.stringify({
+            core: version === 'latest' ? null : 'https://wordpress.org/wordpress-6.9.zip',
+            phpVersion: '8.2',
+            plugins: ['https://downloads.wordpress.org/plugin/mcp-adapter.0.7.0.zip', '.']
+          }));
+          JS
+      - name: Clean up stale wp-env state
+        run: bash bin/cleanup-wp-env.sh --reset --volumes
+      - name: Start WordPress with the native coverage driver
+        id: start
+        run: npx --no-install wp-env start --xdebug=coverage
+      - name: Collect integration evidence inside the test container
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+          TEST_WP: ${{ matrix.wp }}
+        run: |
+          if [ "$TEST_MODE" = multisite ]; then multisite=1; else multisite=0; fi
+          suite="integration-${TEST_WP}-${TEST_MODE}"
+          chmod -R go-w .local 2>/dev/null || true
+          npx --no-install wp-env run tests-cli \
+            --env-cwd=wp-content/plugins/xnetvn-agent-hub-wp -- \
+            env "WP_MULTISITE=$multisite" "XDEBUG_MODE=coverage" \
+            "XNETVN_CI_SUITE=$suite" "XNETVN_CI_REVISION=$GITHUB_SHA" \
+            vendor/bin/phpunit --prepend .github/scripts/CoveragePrinter.php \
+            -c phpunit.integration.xml.dist \
+            --printer 'XNetVN\AgentHubWP\Ci\CoveragePrinter' \
+            --log-junit .local/ci/junit.xml --coverage-clover .local/ci/clover.xml
+      - name: Upload integration evidence from this revision
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-coverage-integration-${{ matrix.wp }}-${{ matrix.mode }}
+          path: .local/ci/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stop the disposable WordPress environment
+        if: always() && steps.start.outcome != 'skipped'
+        run: npx --no-install wp-env stop
+
+  coverage:
+    name: Complete source coverage and regression gate
+    if: always()
+    needs: [plan, helper-tests, unit, integration]
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Require successful collection jobs
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          HELPER_RESULT: ${{ needs.helper-tests.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          DOCS_ONLY: ${{ needs.plan.outputs.docs_only }}
+        run: |
+          set -euo pipefail
+          if [ "$PLAN_RESULT" != success ]; then
+            echo 'Coverage acceptance requires a successful plan job.' >&2
+            exit 1
+          fi
+          for result in "$HELPER_RESULT" "$UNIT_RESULT" "$INTEGRATION_RESULT"; do
+            case "$result" in
+              failure|cancelled)
+                echo 'Coverage acceptance rejects a failed or cancelled collection job.' >&2
+                exit 1
+                ;;
+            esac
+          done
+          if [ "$DOCS_ONLY" = true ]; then
+            echo 'Documentation-only pull request: coverage collection was intentionally skipped.'
+            exit 0
+          fi
+          for result in "$HELPER_RESULT" "$UNIT_RESULT" "$INTEGRATION_RESULT"; do
+            if [ "$result" != success ]; then
+              echo 'Coverage acceptance requires successful helper, unit and integration jobs.' >&2
+              exit 1
+            fi
+          done
+      - name: Check out this revision and its baseline history
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up the JSON gate runtime
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: Read the baseline from the base revision
+        if: needs.plan.outputs.docs_only != 'true'
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_REVISION" ] || [[ "$BASE_REVISION" =~ ^0+$ ]]; then
+            BASE_REVISION=$(git rev-parse origin/main)
+          fi
+          if [[ ! "$BASE_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'A valid base revision is required for regression evidence.' >&2
+            exit 2
+          fi
+          umask 022
+          mkdir -p .local/ci
+          if ! git cat-file -e "${BASE_REVISION}^{commit}" 2>/dev/null; then
+            echo 'The base revision must exist locally.' >&2
+            exit 2
+          fi
+          if git cat-file -e "${BASE_REVISION}:.github/coverage/M1-lines.json" 2>/dev/null; then
+            git show "${BASE_REVISION}:.github/coverage/M1-lines.json" > .local/ci/baseline.json
+          elif git cat-file -e "${BASE_REVISION}:.ecc/coverage/M1-lines.json" 2>/dev/null; then
+            git show "${BASE_REVISION}:.ecc/coverage/M1-lines.json" > .local/ci/baseline.json
+          else
+            echo 'A numeric coverage baseline is required at .github/coverage/M1-lines.json or the legacy .ecc path.' >&2
+            exit 2
+          fi
+      - name: Download the exact unit artifact
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-coverage-unit
+          path: .local/ci/input/unit
+      - name: Download WordPress 6.9 single-site evidence
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-coverage-integration-6.9-single
+          path: .local/ci/input/6.9-single
+      - name: Download WordPress 6.9 multisite evidence
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-coverage-integration-6.9-multisite
+          path: .local/ci/input/6.9-multisite
+      - name: Download current stable single-site evidence
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-coverage-integration-latest-single
+          path: .local/ci/input/latest-single
+      - name: Download current stable multisite evidence
+        if: needs.plan.outputs.docs_only != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-coverage-integration-latest-multisite
+          path: .local/ci/input/latest-multisite
+      - name: Enforce fresh complete-source thresholds and no regression
+        if: needs.plan.outputs.docs_only != 'true'
+        run: |
+          php .github/scripts/check-coverage.php . "$GITHUB_SHA" .local/ci/baseline.json \
+            .local/ci/input/unit/coverage.json \
+            .local/ci/input/6.9-single/coverage.json \
+            .local/ci/input/6.9-multisite/coverage.json \
+            .local/ci/input/latest-single/coverage.json \
+            .local/ci/input/latest-multisite/coverage.json > .local/ci/coverage-summary.json
+      - name: Upload the numeric coverage decision
+        if: always() && needs.plan.outputs.docs_only != 'true' && hashFiles('.local/ci/coverage-summary.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-coverage-decision
+          path: .local/ci/coverage-summary.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7

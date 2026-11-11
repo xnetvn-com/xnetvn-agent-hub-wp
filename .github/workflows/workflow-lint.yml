@@ -1,0 +1,191 @@
+name: Workflow lint
+
+# Independent guard for the automation itself. It lives in a different workflow
+# file from ci.yml so a broken ci.yml cannot prevent its own lint from running.
+#
+# The workflow always starts so the `workflow-lint` check reports on every pull
+# request. A path-filtered workflow would leave that check pending when nothing
+# matched, which blocks a required check; the `changes` job decides whether the
+# expensive steps are needed and the final job reports the stable result.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: workflow-lint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    name: Detect automation changes
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      automation: ${{ steps.diff.outputs.automation }}
+    steps:
+      - name: Check out the tested revision with its base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare the tested revision with its base
+        id: diff
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            # A manual run always lints: the operator asked for it explicitly.
+            printf 'automation=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = pull_request ]; then
+            base="$BASE_SHA"
+          else
+            base="$BEFORE_SHA"
+          fi
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            # An unavailable base must never be treated as "nothing to check".
+            echo "::notice title=Automation change detection::The base revision is unavailable, so every workflow is linted."
+            printf 'automation=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! changed_output="$(git diff --name-only --no-renames "$base" HEAD)"; then
+            echo "::warning title=Automation change detection::The base comparison failed, so every workflow is linted."
+            printf 'automation=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=()
+          if [ -n "$changed_output" ]; then
+            mapfile -t changed <<< "$changed_output"
+          fi
+          if [ "${#changed[@]}" -gt 0 ]; then
+            printf '%s\n' "${changed[@]}"
+          fi
+          automation=false
+          for file in "${changed[@]}"; do
+            case "$file" in
+              .github/workflows/*|.github/actionlint.yaml|.github/tests/*|.github/actions/*|.github/scripts/*|.github/CI_GUIDE.md|.github/settings.yml|.github/dependabot.yml|.github/labeler.yml|package.json|package-lock.json)
+                automation=true
+                ;;
+            esac
+          done
+          printf 'automation=%s\n' "$automation" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: actionlint, zizmor and workflow contracts
+    needs: changes
+    if: needs.changes.outputs.automation == 'true'
+    # The pinned actionlint archive is linux_amd64 only, so this job declares
+    # the architecture instead of accepting any Linux runner.
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux","x64"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up the project Node runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Download and verify actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_ARCHIVE_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$ACTIONLINT_ARCHIVE_SHA256" "$archive" | sha256sum --check --strict -
+          install_dir="$RUNNER_TEMP/actionlint"
+          mkdir -p "$install_dir"
+          tar -xzf "$archive" -C "$install_dir" actionlint
+          chmod 0755 "$install_dir/actionlint"
+          printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
+      - name: Lint every workflow
+        run: |
+          mapfile -d '' -t files < <(find .github/workflows -maxdepth 1 -type f \
+            \( -name '*.yml' -o -name '*.yaml' \) -print0)
+          "$RUNNER_TEMP/actionlint/actionlint" -no-color "${files[@]}"
+      - name: Set up the Python auditor runtime
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - name: Install the pinned workflow auditor
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/zizmor-venv"
+          python -m venv "$RUNNER_TEMP/zizmor-venv"
+          "$RUNNER_TEMP/zizmor-venv/bin/python" -m pip install \
+            --disable-pip-version-check zizmor==1.30.1
+          printf '%s\n' "$RUNNER_TEMP/zizmor-venv/bin" >> "$GITHUB_PATH"
+      - name: Audit workflow security
+        run: zizmor --offline --min-severity medium --format plain .github/workflows
+      - name: Install locked tooling without implicit lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify workflow hardening contracts
+        run: node .github/tests/workflow-hardening.cjs
+      - name: Verify the coverage acceptance contract
+        run: node .github/tests/workflow-contracts.cjs
+
+  # Stable required check. It passes when the automation files did not change
+  # and fails when the lint job failed or was cancelled.
+  workflow-lint:
+    name: workflow-lint
+    if: always()
+    needs: [changes, lint]
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail when the automation check failed, was cancelled or was unexpectedly skipped
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          AUTOMATION: ${{ needs.changes.outputs.automation }}
+        run: |
+          if [ "$CHANGES_RESULT" != success ]; then
+            echo "Automation change detection did not succeed ($CHANGES_RESULT)." >&2
+            exit 1
+          fi
+          case "$AUTOMATION" in
+            true)
+              if [ "$LINT_RESULT" != success ]; then
+                echo "Workflow lint did not succeed ($LINT_RESULT)." >&2
+                exit 1
+              fi
+              ;;
+            false)
+              if [ "$LINT_RESULT" != skipped ]; then
+                echo "Workflow lint must be skipped when no automation file changed ($LINT_RESULT)." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Change detection returned no automation result." >&2
+              exit 1
+              ;;
+          esac

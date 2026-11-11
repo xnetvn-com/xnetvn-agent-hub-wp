@@ -1,0 +1,442 @@
+name: CI
+
+# Source-change gate for every pull request and every push to the default
+# branch. Feature-branch pushes are covered by the pull_request event, so they
+# are intentionally not subscribed a second time. A newer commit on the same
+# pull request cancels the older run; default-branch runs are never cancelled.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The plan job reads the proposed revision only to compare paths and select
+  # the matrix. It holds `contents: read`, never writes, and the selector's fork
+  # guard keeps a pull request from another repository off the persistent host.
+  # It follows the self-hosted switch because a hosted `plan` that the account
+  # cannot start stops the whole workflow before any cost-free job runs.
+  plan:
+    name: plan
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      include: ${{ steps.select.outputs.include }}
+      docs_only: ${{ steps.select.outputs.docs_only }}
+    steps:
+      - name: Check out the tested revision with its base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select the integration matrix and the source scope
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          docs_only=false
+          if [ "$EVENT_NAME" = pull_request ]; then
+            # An unavailable base, an empty diff or an unreadable path list must
+            # never be read as "documentation only".
+            if [ -n "$BASE_SHA" ] && [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && \
+              git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              changed="$(git diff --name-only --no-renames "$BASE_SHA" HEAD)" || changed=""
+              if [ -n "$changed" ]; then
+                docs_only=true
+                while IFS= read -r file; do
+                  case "$file" in
+                    docs/*|README.md|CONTRIBUTING.md|SECURITY.md|SUPPORT.md|CODE_OF_CONDUCT.md|CHANGELOG.md) ;;
+                    *) docs_only=false; break ;;
+                  esac
+                done <<< "$changed"
+              fi
+            fi
+            include="$(
+              cat <<'JSON'
+          [
+            {"php":"8.2","wp":"6.9","adapter":"0.7.0","mode":"single"},
+            {"php":"8.2","wp":"6.9","adapter":"latest","mode":"single"},
+            {"php":"8.2","wp":"latest","adapter":"0.7.0","mode":"single"},
+            {"php":"8.2","wp":"latest","adapter":"latest","mode":"single"},
+            {"php":"8.4","wp":"6.9","adapter":"0.7.0","mode":"single"},
+            {"php":"8.4","wp":"6.9","adapter":"latest","mode":"single"},
+            {"php":"8.4","wp":"latest","adapter":"0.7.0","mode":"single"},
+            {"php":"8.4","wp":"latest","adapter":"latest","mode":"single"},
+            {"php":"8.2","wp":"6.9","adapter":"0.7.0","mode":"multisite"},
+            {"php":"8.4","wp":"latest","adapter":"latest","mode":"multisite"}
+          ]
+          JSON
+            )"
+          else
+            # A default-branch or manual run keeps the full matrix.
+            include="$(
+              cat <<'JSON'
+          [
+            {"php":"8.2","wp":"6.9","adapter":"0.7.0","mode":"single"},
+            {"php":"8.2","wp":"6.9","adapter":"latest","mode":"single"},
+            {"php":"8.2","wp":"latest","adapter":"0.7.0","mode":"single"},
+            {"php":"8.2","wp":"latest","adapter":"latest","mode":"single"},
+            {"php":"8.3","wp":"6.9","adapter":"0.7.0","mode":"single"},
+            {"php":"8.3","wp":"6.9","adapter":"latest","mode":"single"},
+            {"php":"8.3","wp":"latest","adapter":"0.7.0","mode":"single"},
+            {"php":"8.3","wp":"latest","adapter":"latest","mode":"single"},
+            {"php":"8.4","wp":"6.9","adapter":"0.7.0","mode":"single"},
+            {"php":"8.4","wp":"6.9","adapter":"latest","mode":"single"},
+            {"php":"8.4","wp":"latest","adapter":"0.7.0","mode":"single"},
+            {"php":"8.4","wp":"latest","adapter":"latest","mode":"single"},
+            {"php":"8.2","wp":"6.9","adapter":"0.7.0","mode":"multisite"},
+            {"php":"8.4","wp":"latest","adapter":"latest","mode":"multisite"},
+            {"php":"8.5","wp":"latest","adapter":"latest","mode":"single","experimental":true},
+            {"php":"8.4","wp":"trunk","adapter":"latest","mode":"single","experimental":true}
+          ]
+          JSON
+            )"
+          fi
+          printf 'docs_only=%s\n' "$docs_only" >> "$GITHUB_OUTPUT"
+          printf 'include=%s\n' "$(printf '%s' "$include" | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: quality
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Cache static-analysis results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            .phpstan-cache
+            .phpcs-cache
+          key: static-analysis-${{ runner.environment }}-${{ runner.os }}-${{ hashFiles('composer.lock') }}-${{ github.sha }}
+          restore-keys: |
+            static-analysis-${{ runner.environment }}-${{ runner.os }}-${{ hashFiles('composer.lock') }}-
+      - name: Install locked development tools
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Check coding standards
+        run: composer lint
+      - name: Check bootstrap compatibility
+        run: composer lint:bootstrap
+      - name: Run PHPStan without a baseline
+        run: composer analyse
+      - name: Check version consistency
+        run: composer check:version
+      - name: Set up the documentation checker runtime
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - name: Check settings and documentation parity
+        run: composer check:docs
+
+  bootstrap-syntax:
+    name: bootstrap-syntax
+    needs: [quality, plan]
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up the bootstrap syntax checker
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '7.2'
+          coverage: none
+      - name: Check files loaded before the runtime requirements gate
+        run: |
+          php -l xnetvn-agent-hub-wp.php
+          php -l uninstall.php
+          for file in src/Bootstrap/*.php; do
+            php -l "$file"
+          done
+
+  unit:
+    name: unit
+    needs: [quality, plan]
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      # A pull request stops at the first failure; the default-branch run keeps
+      # every PHP version so the evidence covers the whole matrix.
+      fail-fast: ${{ github.event_name == 'pull_request' }}
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-${{ matrix.php }}-
+      - name: Install locked development tools
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Run the unit suite
+        run: composer test:unit
+
+  integration:
+    name: integration
+    needs: [quality, plan]
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true' && vars.XNETVN_CI_RUNNER_DOCKER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      # Pull requests keep the ten boundary legs and stop at the first failure;
+      # default-branch and manual runs keep the full sixteen-leg
+      # matrix. Each self-hosted runner executes one job at a time, so wp-env
+      # jobs on different runners use different Docker hosts; the operator-set
+      # XNETVN_CI_MAX_PARALLEL must not exceed the number of working runners.
+      fail-fast: ${{ github.event_name == 'pull_request' }}
+      max-parallel: ${{ ((inputs.self_hosted_trial || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true' && vars.XNETVN_CI_RUNNER_DOCKER == 'true')) && fromJSON(vars.XNETVN_CI_MAX_PARALLEL || '2')) || 16 }}
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.include) }}
+    continue-on-error: ${{ matrix.experimental == true }}
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Set up the project Node runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Install locked development tools
+        run: |
+          composer install --prefer-dist --no-interaction --no-progress
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run tooling:prepare
+      - name: Configure the disposable WordPress environment
+        env:
+          TEST_WP: ${{ matrix.wp }}
+          TEST_PHP: ${{ matrix.php }}
+          TEST_ADAPTER: ${{ matrix.adapter }}
+        run: |
+          umask 022
+          mkdir -p .local/ci
+          node - <<'JS'
+          const fs = require('node:fs');
+          const version = process.env.TEST_WP;
+          const core = version === 'trunk'
+            ? 'WordPress/WordPress#master'
+            : version === 'latest'
+              ? null
+              : `https://wordpress.org/wordpress-${version}.zip`;
+          const adapter = process.env.TEST_ADAPTER === 'latest'
+            ? 'https://downloads.wordpress.org/plugin/mcp-adapter.zip'
+            : `https://downloads.wordpress.org/plugin/mcp-adapter.${process.env.TEST_ADAPTER}.zip`;
+          fs.writeFileSync('.wp-env.override.json', JSON.stringify({
+            core,
+            phpVersion: process.env.TEST_PHP,
+            plugins: [adapter, '.']
+          }));
+          JS
+      - name: Clean up stale wp-env state
+        run: bash bin/cleanup-wp-env.sh --reset --volumes
+      - name: Start the disposable WordPress environment
+        id: start
+        run: npx --no-install wp-env start
+      - name: Run the WordPress integration suite
+        env:
+          XNETVN_TEST_MULTISITE: ${{ matrix.mode == 'multisite' && '1' || '0' }}
+        run: composer test:integration -- --log-junit .local/ci/integration-junit.xml
+      - name: Upload integration test results
+        if: always() && hashFiles('.local/ci/integration-junit.xml') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ci-integration-${{ matrix.php }}-${{ matrix.wp }}-${{ matrix.adapter }}-${{ matrix.mode }}
+          path: .local/ci/integration-junit.xml
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop the disposable WordPress environment
+        if: always() && steps.start.outcome != 'skipped'
+        run: npx --no-install wp-env stop
+
+  build:
+    name: build
+    needs: [quality, plan]
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - name: Validate the locked dependency manifest
+        run: composer validate --strict
+      - name: Install locked development tools
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Test packaging and build the plugin ZIP
+        run: composer build
+      - name: Upload the verified package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: plugin-zip
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  tooling:
+    name: tooling
+    needs: [quality, plan]
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up the project Node runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked tooling without implicit lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run the explicit dependency preparation and contracts
+        run: npm run test:tooling
+      - name: Verify workflow hardening contracts
+        run: node .github/tests/workflow-hardening.cjs
+      - name: Verify the coverage acceptance contract
+        run: node .github/tests/workflow-contracts.cjs
+      - name: Run service-free client harness regression tests
+        run: python3 -I -B -m unittest discover -s tests/Tooling -p 'test_*.py' -v
+
+  # Single stable check for branch protection. Matrix job names include their
+  # values, so a required check that targets a matrix leg silently disappears
+  # when the matrix changes. This job only reads job results, never checks out
+  # the proposed revision and declares empty permissions, so it follows the same
+  # self-hosted switch as the jobs it summarises.
+  ci-result:
+    name: ci-result
+    if: always()
+    needs: [plan, quality, bootstrap-syntax, unit, integration, build, tooling]
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail when a required job failed or the scope is incomplete
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap-syntax.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TOOLING_RESULT: ${{ needs.tooling.result }}
+          DOCS_ONLY: ${{ needs.plan.outputs.docs_only }}
+        run: |
+          set -euo pipefail
+          if [ "$PLAN_RESULT" != success ] || [ "$QUALITY_RESULT" != success ]; then
+            echo "The plan or quality job did not succeed." >&2
+            exit 1
+          fi
+          for result in "$BOOTSTRAP_RESULT" "$UNIT_RESULT" "$INTEGRATION_RESULT" "$BUILD_RESULT" "$TOOLING_RESULT"; do
+            case "$result" in
+              failure|cancelled)
+                echo "A mandatory job failed or was cancelled ($result)." >&2
+                exit 1
+                ;;
+            esac
+          done
+          if [ "$DOCS_ONLY" = true ]; then
+            echo "Documentation-only pull request: the source matrix was intentionally skipped."
+            exit 0
+          fi
+          for result in "$BOOTSTRAP_RESULT" "$UNIT_RESULT" "$INTEGRATION_RESULT" "$BUILD_RESULT" "$TOOLING_RESULT"; do
+            if [ "$result" != success ]; then
+              echo "A mandatory job was skipped or did not succeed ($result)." >&2
+              exit 1
+            fi
+          done

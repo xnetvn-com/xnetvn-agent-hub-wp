@@ -1,0 +1,17 @@
+{
+  "core": "https://wordpress.org/wordpress-6.9.zip",
+  "phpVersion": "8.2",
+  "plugins": [
+    "https://downloads.wordpress.org/plugin/mcp-adapter.0.7.0.zip",
+    "."
+  ],
+  "testsEnvironment": true,
+  "config": {
+    "WP_DEBUG": true,
+    "WP_DEBUG_LOG": true,
+    "WP_DEBUG_DISPLAY": false,
+    "SCRIPT_DEBUG": true,
+    "WP_ENVIRONMENT_TYPE": "local",
+    "XNETVN_AGENT_HUB_WP_ALLOW_INSECURE": true
+  }
+}

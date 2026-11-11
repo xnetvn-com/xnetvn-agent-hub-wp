@@ -1,0 +1,8 @@
+parameters:
+  level: 8
+  paths:
+    - xnetvn-agent-hub-wp.php
+    - uninstall.php
+    - src
+  treatPhpDocTypesAsCertain: false
+  tmpDir: .phpstan-cache

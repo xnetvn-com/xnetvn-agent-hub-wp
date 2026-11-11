@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="xNetVN Agent Hub WP">
+  <description>WordPress style and compatibility checks.</description>
+  <file>xnetvn-agent-hub-wp.php</file>
+  <file>uninstall.php</file>
+  <file>src</file>
+  <file>tests</file>
+  <exclude-pattern>*/vendor/*</exclude-pattern>
+  <exclude-pattern>*/node_modules/*</exclude-pattern>
+  <arg name="extensions" value="php"/>
+  <arg value="ps"/>
+  <arg name="cache" value=".phpcs-cache"/>
+  <arg name="parallel" value="8"/>
+  <rule ref="WordPress-Extra"/>
+  <rule ref="WordPress-Docs"/>
+  <rule ref="PHPCompatibilityWP"/>
+  <config name="testVersion" value="8.2-"/>
+  <config name="minimum_wp_version" value="6.9"/>
+  <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+    <properties><property name="prefixes" type="array"><element value="xnetvn_agent_hub_wp"/><element value="XNetVN\AgentHubWP"/></property></properties>
+  </rule>
+  <rule ref="WordPress.WP.I18n"><properties><property name="text_domain" type="array"><element value="xnetvn-agent-hub-wp"/></property></properties></rule>
+  <rule ref="WordPress.Files.FileName.NotHyphenatedLowercase"><exclude-pattern>*/src/*</exclude-pattern><exclude-pattern>*/tests/*</exclude-pattern></rule>
+  <rule ref="WordPress.Files.FileName.InvalidClassFileName"><exclude-pattern>*/src/*</exclude-pattern><exclude-pattern>*/tests/*</exclude-pattern></rule>
+</ruleset>

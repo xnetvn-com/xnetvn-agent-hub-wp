@@ -1,0 +1,84 @@
+name: Plugin Check
+
+# Plugin Check validates the packaged plugin, so it only needs to run when a
+# file that can enter the release ZIP changes. Documentation and test-only
+# changes are covered by the source gate instead.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'languages/**'
+      - 'bin/**'
+      - 'xnetvn-agent-hub-wp.php'
+      - 'uninstall.php'
+      - 'readme.txt'
+      - 'composer.json'
+      - 'composer.lock'
+      - '.distignore'
+      - '.github/workflows/plugin-check.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'languages/**'
+      - 'bin/**'
+      - 'xnetvn-agent-hub-wp.php'
+      - 'uninstall.php'
+      - 'readme.txt'
+      - 'composer.json'
+      - 'composer.lock'
+      - '.distignore'
+      - '.github/workflows/plugin-check.yml'
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
+
+concurrency:
+  group: plugin-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: Package and run Plugin Check
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer build
+      - run: mkdir -p build && unzip -q dist/*.zip -d build
+      - name: Clean up stale wp-env state
+        run: bash bin/cleanup-wp-env.sh --reset --volumes
+      - uses: WordPress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
+        with:
+          build-dir: build/xnetvn-agent-hub-wp
+          wp-version: '6.9'

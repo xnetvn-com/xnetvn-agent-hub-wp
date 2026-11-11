@@ -1,0 +1,94 @@
+name: Refactoring request
+description: Request a code refactoring with a clear scope, motivation and acceptance criteria.
+title: "[Refactor] "
+labels: refactor
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This form contains the detailed fields needed for the AI coding assistant and developers to understand and carry out the requested refactoring.**
+
+        Security reports: send them privately to security@xnetvn.net as described in SECURITY.md.
+        Never include API keys, passwords, bearer tokens or authorization headers in this form.
+  - type: input
+    id: module
+    attributes:
+      label: Module / feature to refactor
+      description: The specific module, class or feature that should be refactored.
+      placeholder: e.g. MCP gateway, API key management, audit log
+    validations:
+      required: true
+  - type: checkboxes
+    id: reasons
+    attributes:
+      label: Reason / motivation for the refactoring
+      description: Select every motivation that applies.
+      options:
+        - label: Poor performance, needs improvement (Performance)
+        - label: Defect-prone (Bug-prone / defect density)
+        - label: Hard to test automatically (Testability)
+        - label: Hard to maintain or extend (Maintainability / scalability)
+        - label: Code standardization, quality improvement (Code quality)
+        - label: Coding convention / standard violations (Coding convention)
+        - label: Safety and security (Security / compliance)
+        - label: Reduce defects, improve stability (Reliability)
+        - label: Preparation for a new integration or feature
+        - label: Technical debt (Technical debt)
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current state
+      description: Describe the problem precisely, including the concrete impact on releases, stability or users.
+      placeholder: e.g. The handler is too slow with large data sets; error-prone when integrating a new module ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-outcome
+    attributes:
+      label: Expected outcome after refactoring
+      description: State measurable goals, for example processing time, test coverage or readability targets.
+      placeholder: e.g. Processing time under 1s for one million records; all existing tests pass ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Recorded evidence
+      description: Links to test cases, bug reports, logs, screenshots or reproduction steps. Remove all sensitive information first.
+    validations:
+      required: false
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: Expected deliverables
+      description: Select every deliverable you expect from the refactoring.
+      options:
+        - label: Clean, readable, standardized refactored code (with comments / documentation)
+        - label: Full test coverage; all existing test cases pass and missing tests are added
+        - label: A before/after comparison report (performance, test coverage, defects/warnings, security)
+        - label: Documentation describing the change, usage guidance and retest instructions
+        - label: The pull request includes a review checklist and a detailed description of the work
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Desired deadline
+      description: Format dd/mm/yyyy. Leave empty if flexible.
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional information
+      description: References, coding standards, internal guidelines or anything else the team should know.
+    validations:
+      required: false

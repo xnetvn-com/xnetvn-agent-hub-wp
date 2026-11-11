@@ -1,0 +1,49 @@
+{
+  "name": "xnetvn-com/xnetvn-agent-hub-wp",
+  "description": "A capability-scoped WordPress MCP server for AI agents.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {"php": ">=8.2"},
+  "autoload": {"psr-4": {"XNetVN\\AgentHubWP\\": "src/"}},
+  "autoload-dev": {"psr-4": {"XNetVN\\AgentHubWP\\Tests\\": "tests/"}, "exclude-from-classmap": ["/tests/Support/StandaloneWordPressError.php"]},
+  "config": {
+    "sort-packages": true,
+    "optimize-autoloader": true,
+    "platform": {"php": "8.2.0"},
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
+    }
+  },
+  "scripts": {
+    "lint": "phpcs",
+    "lint:fix": "phpcbf",
+    "lint:bootstrap": "phpcs --standard=PHPCompatibilityWP --runtime-set testVersion 7.2- xnetvn-agent-hub-wp.php uninstall.php src/Bootstrap",
+    "analyse": "phpstan analyse --memory-limit=1G",
+    "test:unit": "phpunit -c phpunit.xml.dist",
+    "test:integration": "bash bin/test-integration.sh",
+    "test:packaging": "bash tests/Packaging/verify-zip.sh",
+    "test:network": "bash bin/test-network.sh",
+    "test:http": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" exec toolbox -- bash /work/infra/remote/run-http-matrix.sh",
+    "check:docs": ["python3 -I -B bin/check-settings-docs.py", "python3 -I -B bin/check-docs-parity.py"],
+    "check:version": "bash bin/check-version-consistency.sh",
+    "check": ["@lint", "@lint:bootstrap", "@analyse", "@check:version", "@test:unit", "@check:docs"],
+    "build": ["@test:packaging", "bash bin/build-zip.sh"]
+  },
+  "require-dev": {
+    "brain/monkey": "^2.7",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+    "mockery/mockery": "^1.6",
+    "opis/json-schema": "^2.6",
+    "php-stubs/wordpress-stubs": "^7.1",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.2",
+    "phpunit/phpunit": "^9.6",
+    "slevomat/coding-standard": "^8.22",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.4",
+    "wp-phpunit/wp-phpunit": "^7.1",
+    "yoast/phpunit-polyfills": "^4.0"
+  }
+}

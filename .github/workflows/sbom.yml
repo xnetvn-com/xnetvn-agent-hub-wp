@@ -1,0 +1,304 @@
+# Software Bill of Materials (SBOM).
+#
+# Generates CycloneDX SBOMs for the production dependency tree of the
+# WordPress plugin (Composer) and the JavaScript admin bundle (npm), then
+# publishes them as workflow artifacts for release.yml to attach to a draft
+# release.
+#
+# Trigger:
+#   - dependency or SBOM-generator changes on main
+#   - pull requests targeting main that change the same paths
+#   - manual workflow_dispatch
+#   - workflow_call from release.yml on a v* tag
+#
+# Standards:
+#   - OWASP CycloneDX 1.6
+#   - SPDX 2.3  (produced alongside CycloneDX for tooling that prefers SPDX)
+#   - NTIA Minimum Elements for an SBOM (all seven fields populated)
+#
+# The workflow does NOT modify the repository; everything is uploaded as
+# artifacts. release.yml calls this workflow on a tag and attaches the
+# resulting artifacts to the draft GitHub Release.
+
+name: SBOM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - composer.json
+      - composer.lock
+      - package.json
+      - package-lock.json
+      - scripts/sbom/**
+      - .github/workflows/sbom.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - composer.json
+      - composer.lock
+      - package.json
+      - package-lock.json
+      - scripts/sbom/**
+      - .github/workflows/sbom.yml
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+# Pull requests may supersede each other; a tag or default-branch run is kept.
+concurrency:
+  group: sbom-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Composer (PHP) — production dependencies only.
+  # ---------------------------------------------------------------------------
+  composer-sbom:
+    name: Composer CycloneDX + SPDX SBOM
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install CycloneDX PHP generator
+        env:
+          CDX_TOOL_DIR: ${{ runner.temp }}/cdx-composer
+        run: |
+          rm -rf "$CDX_TOOL_DIR"
+          mkdir -p "$CDX_TOOL_DIR"
+          printf '%s\n' '{"require":{},"config":{"allow-plugins":{"cyclonedx/cyclonedx-php-composer":true}}}' > "$CDX_TOOL_DIR/composer.json"
+          composer --working-dir="$CDX_TOOL_DIR" require \
+            --no-interaction --no-progress --no-scripts \
+            cyclonedx/cyclonedx-php-composer:6.2.0
+
+      - name: Generate CycloneDX Composer SBOM (production)
+        env:
+          CDX_TOOL_DIR: ${{ runner.temp }}/cdx-composer
+        run: |
+          mkdir -p dist/sbom
+          composer --working-dir="$CDX_TOOL_DIR" CycloneDX:make-sbom \
+            "$GITHUB_WORKSPACE/composer.json" \
+            --omit=dev \
+            --spec-version=1.6 \
+            --output-format=JSON \
+            --output-file="$GITHUB_WORKSPACE/dist/sbom/composer.cdx.json" \
+            --validate \
+            --no-interaction
+          echo "PASS: composer CycloneDX SBOM generated."
+
+      - name: Validate CycloneDX Composer SBOM
+        run: python3 scripts/sbom/validate_composer_cdx.py
+
+      - name: Convert CycloneDX JSON to SPDX tag-value
+        run: python3 scripts/sbom/convert_composer_to_spdx.py
+
+      - name: Require both Composer SBOM files
+        run: |
+          set -euo pipefail
+          for file in dist/sbom/composer.cdx.json dist/sbom/composer.spdx; do
+            if [ ! -s "$file" ]; then
+              echo "FAIL: $file is missing or empty." >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Composer SBOM artifacts
+        if: always() && hashFiles('dist/sbom/composer.cdx.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sbom-composer
+          path: |
+            dist/sbom/composer.cdx.json
+            dist/sbom/composer.spdx
+          if-no-files-found: error
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # npm (JavaScript) — production dependencies only.
+  # ---------------------------------------------------------------------------
+  npm-sbom:
+    name: npm CycloneDX + SPDX SBOM
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js (per .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install CycloneDX npm generator
+        run: |
+          rm -rf "$RUNNER_TEMP/cdx-npm"
+          npm install --prefix "$RUNNER_TEMP/cdx-npm" \
+            --no-save --no-audit --no-fund --ignore-scripts \
+            @cyclonedx/cyclonedx-npm@6.0.1
+
+      - name: Generate CycloneDX npm SBOM (production)
+        run: |
+          mkdir -p dist/sbom
+          "$RUNNER_TEMP/cdx-npm/node_modules/.bin/cyclonedx-npm" \
+            --package-lock-only \
+            --omit dev \
+            --spec-version 1.6 \
+            --output-format JSON \
+            --output-file dist/sbom/npm.cdx.json \
+            --validate
+          echo "PASS: npm CycloneDX SBOM generated."
+
+      - name: Validate CycloneDX npm SBOM
+        run: python3 scripts/sbom/validate_npm_cdx.py
+
+      - name: Convert CycloneDX JSON to SPDX tag-value
+        run: python3 scripts/sbom/convert_npm_to_spdx.py
+
+      - name: Require both npm SBOM files
+        run: |
+          set -euo pipefail
+          for file in dist/sbom/npm.cdx.json dist/sbom/npm.spdx; do
+            if [ ! -s "$file" ]; then
+              echo "FAIL: $file is missing or empty." >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload npm SBOM artifacts
+        if: always() && hashFiles('dist/sbom/npm.cdx.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sbom-npm
+          path: |
+            dist/sbom/npm.cdx.json
+            dist/sbom/npm.spdx
+          if-no-files-found: error
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # Manifest — human-readable manifest of every SBOM artifact produced.
+  # ---------------------------------------------------------------------------
+  manifest:
+    name: SBOM manifest
+    needs: [composer-sbom, npm-sbom]
+    if: needs.composer-sbom.result == 'success' && needs.npm-sbom.result == 'success'
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the Composer SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom-composer
+          path: dist/sbom
+
+      - name: Download the npm SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom-npm
+          path: dist/sbom
+
+      - name: Require complete SBOM evidence
+        run: |
+          set -euo pipefail
+          missing=0
+          for file in composer.cdx.json composer.spdx npm.cdx.json npm.spdx; do
+            if [ ! -s "dist/sbom/$file" ]; then
+              echo "FAIL: dist/sbom/$file is missing or empty." >&2
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Render manifest
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ref_name="${REF_NAME//|/\\|}"
+          ref_type="${REF_TYPE//|/\\|}"
+          sha_short="${GITHUB_SHA::12}"
+          manifest="$RUNNER_TEMP/SBOM-MANIFEST.md"
+          mkdir -p dist/sbom
+          {
+            echo "# xNetVN Agent Hub WP — SBOM manifest"
+            echo ""
+            echo "Generated at: ${generated_at}"
+            echo "Reference:    ${ref_name} (${ref_type}, ${sha_short})"
+            echo ""
+            echo "## Standards"
+            echo ""
+            echo "- CycloneDX 1.6 (JSON)"
+            echo "- SPDX 2.3 (tag-value, derived)"
+            echo ""
+            echo "## Artifacts"
+            echo ""
+            echo "| Ecosystem | Format | Path |"
+            echo "| --- | --- | --- |"
+            while IFS= read -r -d '' f; do
+              case "$f" in
+                *composer.cdx.json) eco="Composer"; fmt="CycloneDX JSON 1.6" ;;
+                *composer.spdx)     eco="Composer"; fmt="SPDX 2.3 tag-value" ;;
+                *npm.cdx.json)      eco="npm";     fmt="CycloneDX JSON 1.6" ;;
+                *npm.spdx)          eco="npm";     fmt="SPDX 2.3 tag-value" ;;
+                *)                  eco="unknown"; fmt="Unknown" ;;
+              esac
+              printf '| %s | %s | %s |\n' "$eco" "$fmt" "$f"
+            done < <(find dist/sbom -maxdepth 1 -type f -print0 | sort -z)
+            echo ""
+            echo "## Distribution"
+            echo ""
+            echo "These artifacts are uploaded for 30 days; release.yml attaches"
+            echo "them to the draft GitHub release of a v* tag."
+          } > "$manifest"
+          mv "$manifest" dist/sbom/MANIFEST.md
+
+      - name: Upload manifest artifact
+        if: always() && hashFiles('dist/sbom/MANIFEST.md') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sbom-manifest
+          path: dist/sbom/MANIFEST.md
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,13 @@
+.git
+.env*
+.local
+.agents
+.codex
+.superpowers
+.worktrees
+vendor
+node_modules
+dist
+build
+coverage
+rtl.override.yml

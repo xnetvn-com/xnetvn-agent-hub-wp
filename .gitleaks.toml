@@ -1,0 +1,22 @@
+title = "Agent Hub secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Exact public correlation-ID fixture in the historical scope unit test"
+condition = "AND"
+paths = ['''(?:^|/)tests/Unit/Domain/ScopeTest\.php$''']
+regexTarget = "secret"
+regexes = ['''^0123456789abcdef$''']
+
+[[rules]]
+id = "xnetvn-agent-hub-token"
+description = "Agent Hub bearer token with a non-fixture secret"
+regex = '''xnv_[a-z2-7]{12}_([A-Za-z0-9_-]{43})'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["xnv_"]

@@ -1,0 +1,14 @@
+# Exact historical fingerprints for public Authorization-header examples in bilingual runbooks.
+3f87637395d915d16dee910d267319a6540ad49c:docs/en/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+3f87637395d915d16dee910d267319a6540ad49c:docs/vi/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+e75278dcdce014e0c81859199d108346926a5759:docs/en/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+e75278dcdce014e0c81859199d108346926a5759:docs/vi/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+c3da2b4f5920fee9317bac777f9ad09f64aebd58:docs/en/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+c3da2b4f5920fee9317bac777f9ad09f64aebd58:docs/vi/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+# Placeholder bearer token in later revisions of the same bilingual runbook example.
+8898f4f29a7238a27a25d08b149036d5bfb8bd86:docs/en/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+8898f4f29a7238a27a25d08b149036d5bfb8bd86:docs/vi/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+ae1a33a29fdff43d69496a884670a2c0bcfb8e12:docs/en/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+ae1a33a29fdff43d69496a884670a2c0bcfb8e12:docs/vi/operations/runbooks/serviceA-runbook.md:curl-auth-header:31
+# Fake credential value that the redaction regression test feeds to the parser.
+250fb91147ce535d7352ea3aa99601e76d82493e:tests/Evals/test_mcp_behavior_evals.py:generic-api-key:413

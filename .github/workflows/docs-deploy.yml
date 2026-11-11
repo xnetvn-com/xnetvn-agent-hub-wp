@@ -1,0 +1,104 @@
+name: Documentation deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "readme.txt"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CHANGELOG.md"
+      - "CODE_OF_CONDUCT.md"
+      - ".github/workflows/docs-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: docs-deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build documentation bundle
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify documentation integrity
+        run: |
+          failures=0
+          for doc in README.md CONTRIBUTING.md SECURITY.md CHANGELOG.md CODE_OF_CONDUCT.md; do
+            if [ ! -f "$doc" ]; then
+              echo "FAIL: $doc is missing." >&2
+              failures=$((failures + 1))
+            else
+              echo "PASS: $doc exists."
+            fi
+          done
+          if [ ! -d docs/en ]; then
+            echo "FAIL: docs/en is missing." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: docs/en exists ($(find docs/en -name '*.md' | wc -l) files)."
+          fi
+          if [ ! -d docs/vi ]; then
+            echo "FAIL: docs/vi is missing." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: docs/vi exists ($(find docs/vi -name '*.md' | wc -l) files)."
+          fi
+          exit "$failures"
+      - name: Assemble static documentation bundle
+        run: |
+          mkdir -p site
+          cp -r docs site/docs
+          cp README.md CONTRIBUTING.md SECURITY.md CHANGELOG.md CODE_OF_CONDUCT.md site/
+          echo "Documentation bundle assembled."
+      - name: Report a disabled deployment
+        if: vars.XNETVN_PAGES_ENABLED != 'true'
+        run: |
+          echo "::notice title=GitHub Pages disabled::Enable Pages and set the repository variable XNETVN_PAGES_ENABLED=true to deploy this bundle."
+      - name: Upload Pages artifact
+        if: vars.XNETVN_PAGES_ENABLED == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main' && vars.XNETVN_PAGES_ENABLED == 'true'
+    needs: build
+    # OIDC and the Pages write token never run on the persistent self-hosted
+    # machine: the deployment job is pinned to a GitHub-hosted runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

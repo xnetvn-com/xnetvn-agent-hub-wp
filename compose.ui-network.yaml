@@ -1,0 +1,113 @@
+# Owned multisite network lab for UI acceptance (P13). Read-only plan target:
+# rtl.py plan --compose-file compose.ui-network.yaml --site wpnetwork:80
+# Run sequentially in the main namespace after compose.yaml is down. It owns its
+# named volumes, mounts and loopback port; it never reuses the single-site
+# networks, volumes, privileged mode or the Docker socket. No object cache:
+# without cache env/host values the test plugin must not enable one.
+services:
+  db:
+    image: mariadb:11.4.13@sha256:1292844148b311e4ed4300022a996d39083f415a963e970cf47cad1b3b18e3a6
+    environment:
+      MARIADB_DATABASE: agent_hub_ui_network
+      MARIADB_USER: xnetvn_test
+      MARIADB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      MARIADB_ROOT_PASSWORD: ${RTL_DB_ROOT_PASSWORD:?Provide test values in .env.rtl}
+    volumes:
+      - ui_network_db_data:/var/lib/mysql
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  wpnetwork:
+    build:
+      context: .
+      dockerfile: infra/remote/Dockerfile.wordpress
+      args:
+        WORDPRESS_VERSION: '7.1.2'
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: agent_hub_ui_network
+      WORDPRESS_DB_USER: xnetvn_test
+      WORDPRESS_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_DEBUG: '1'
+      WORDPRESS_TABLE_PREFIX: ui_network_
+      WORDPRESS_CONFIG_EXTRA: "require '/opt/xnetvn/wordpress-extra.php'; define( 'WP_ALLOW_MULTISITE', true ); define( 'MULTISITE', true ); define( 'SUBDOMAIN_INSTALL', false ); define( 'DOMAIN_CURRENT_SITE', getenv( 'XNETVN_RTL_DOMAIN' ) ); define( 'PATH_CURRENT_SITE', '/' ); define( 'SITE_ID_CURRENT_SITE', 1 ); define( 'BLOG_ID_CURRENT_SITE', 1 );"
+      XNETVN_RTL_DOMAIN: ${RTL_DOMAIN_WPNETWORK:?Provide the test network domain in .env.rtl}
+      XNETVN_RTL_ALIAS: ${RTL_ALIAS_WPNETWORK:?Provide the test network alias in .env.rtl}
+      XNETVN_RTL_PROXY_CIDRS: ${RTL_PROXY_CIDRS:?Provide trusted test proxy CIDRs}
+    volumes:
+      - ui_network_wp_data:/var/www/html
+      - ui_network_plugin_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp
+      - ./src:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/src:ro
+      - ./assets:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/assets:ro
+      - ./languages:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/languages:ro
+      - ./xnetvn-agent-hub-wp.php:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/xnetvn-agent-hub-wp.php:ro
+      - ui_network_vendor_data:/var/www/html/wp-content/plugins/xnetvn-agent-hub-wp/vendor:ro
+      - ui_network_adapter_data:/var/www/html/wp-content/plugins/mcp-adapter:ro
+    ports: ['127.0.0.1:20882:80']
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'curl --fail --silent --output /dev/null http://127.0.0.1/wp-login.php']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  toolbox:
+    build:
+      context: .
+      dockerfile: infra/remote/Dockerfile.toolbox
+    working_dir: /work
+    command: [bash, /work/infra/remote/ui-network-start.sh]
+    environment:
+      RTL_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      RTL_ADMIN_PASSWORD: ${RTL_ADMIN_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: agent_hub_ui_network
+      WORDPRESS_DB_USER: xnetvn_test
+      XNETVN_RTL: '1'
+      RTL_DOMAIN_WPNETWORK: ${RTL_DOMAIN_WPNETWORK:?Provide the test network domain}
+      RTL_ALIAS_WPNETWORK: ${RTL_ALIAS_WPNETWORK:?Provide the test network alias}
+      XNETVN_RTL_PROXY_CIDRS: ${RTL_PROXY_CIDRS:?Provide trusted test proxy CIDRs}
+      WORDPRESS_DB_PASSWORD: ${RTL_DB_PASSWORD:?Provide test values in .env.rtl}
+      WORDPRESS_CONFIG_EXTRA: "require '/opt/xnetvn/wordpress-extra.php';"
+      NODE_OPTIONS: --no-network-family-autoselection
+    volumes:
+      - .:/work
+      - ui_network_vendor_data:/work/vendor
+      - ui_network_wp_data:/sites/wpnetwork
+      - .:/sites/wpnetwork/wp-content/plugins/xnetvn-agent-hub-wp
+      - ui_network_vendor_data:/sites/wpnetwork/wp-content/plugins/xnetvn-agent-hub-wp/vendor
+      - ui_network_adapter_data:/sites/wpnetwork/wp-content/plugins/mcp-adapter
+    mem_limit: 1024m
+    cpus: 1.0
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+      wpnetwork: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'test -f /tmp/xnetvn-toolbox-ready']
+      interval: 10s
+      timeout: 3s
+      retries: 60
+      start_period: 120s
+
+volumes:
+  ui_network_db_data:
+  ui_network_wp_data:
+  ui_network_vendor_data:
+  ui_network_adapter_data:
+  ui_network_plugin_data:

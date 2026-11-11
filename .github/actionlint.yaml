@@ -1,0 +1,8 @@
+# actionlint configuration.
+#
+# Workflows select the self-hosted runner through the documented expression
+# with the built-in `self-hosted`/`linux` labels, so no custom machine label is
+# declared here. Add a label only when a workflow literally lists it in
+# `runs-on`.
+self-hosted-runner:
+  labels: []

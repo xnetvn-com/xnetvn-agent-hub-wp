@@ -1,0 +1,58 @@
+name: Performance test
+on:
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 3 * * 1"
+permissions: {}
+concurrency:
+  group: performance-test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  benchmark-contract:
+    name: Benchmark evidence contract tests
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.2"
+          tools: composer
+          coverage: none
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.environment }}-${{ runner.os }}-php-8.2-
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Run benchmark summary contract tests
+        run: composer test:unit -- --filter BenchmarkSummaryTest
+      - name: Measure packaging duration baseline
+        run: |
+          start=$(date +%s)
+          composer build
+          end=$(date +%s)
+          duration=$((end - start))
+          echo "Packaging duration: ${duration}s"
+          if [ "$duration" -gt 300 ]; then
+            echo "FAIL: packaging exceeded the 300s budget." >&2
+            exit 1
+          fi
+          echo "PASS: packaging within the 300s budget."
+      - name: Upload benchmark evidence
+        if: always() && hashFiles('dist/*.zip') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: performance-evidence
+          path: dist/*.zip
+          retention-days: 7

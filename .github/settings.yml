@@ -1,0 +1,225 @@
+# Repository settings (auto-sync via probot/settings).
+#
+# This file is consumed by https://github.com/settings/apps/probot-settings
+# (or the equivalent GitHub App configured by the organization) to keep
+# repository-level options synchronized from a single source of truth.
+#
+# Each section maps to a GitHub REST API setting. See:
+#   https://docs.github.com/en/rest/repos/repos#update-a-repository
+#   https://docs.github.com/en/rest/branches/branch-protection#update-branch-protection
+#   https://probot.github.io/docs/github-api/#github.repos.update
+#
+# Reviewers MUST read this file before changing any option manually so that the
+# next auto-sync does not silently revert their change.
+
+# -----------------------------------------------------------------------------
+# Repository metadata
+# -----------------------------------------------------------------------------
+repository:
+  name: xnetvn-agent-hub-wp
+  description: A capability-scoped WordPress MCP server for AI agents.
+  homepage: https://github.com/xnetvn-com/xnetvn-agent-hub-wp
+  topics:
+    - wordpress
+    - wordpress-plugin
+    - mcp
+    - model-context-protocol
+    - ai-agents
+    - php
+    - phpstan
+    - security
+    - gpl-2-0
+  private: true
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_downloads: true
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: true
+  allow_rebase_merge: true
+  allow_auto_merge: true
+  delete_branch_on_merge: true
+  enable_automated_security_fixes: true
+  enable_vulnerability_alerts: true
+  archive: false
+
+# -----------------------------------------------------------------------------
+# Labels — kept in sync with .github/labeler.yml rules
+# -----------------------------------------------------------------------------
+labels:
+  - name: bug
+    color: d73a4a
+    description: Something is broken and reproducible.
+  - name: security
+    color: b60205
+    description: Security boundary, capability, scope, audit or key change.
+  - name: enhancement
+    color: a2eeef
+    description: New feature or improvement.
+  - name: refactor
+    color: fbca04
+    description: Internal refactor with no behavior change.
+  - name: documentation
+    color: 0075ca
+    description: Documentation only.
+  - name: i18n
+    color: 0e8a16
+    description: Translation template or locale change.
+  - name: tests
+    color: 5319e7
+    description: Tests only.
+  - name: dependencies
+    color: 0366d6
+    description: Dependency or lock-file update.
+  - name: php
+    color: 45229e
+    description: PHP source or dependency change.
+  - name: javascript
+    color: 168700
+    description: JavaScript source or dependency change.
+  - name: github_actions
+    color: 000000
+    description: GitHub Actions workflow or dependency change.
+  - name: ci
+    color: 1d76db
+    description: GitHub Actions or CI configuration.
+  - name: infrastructure
+    color: bfdadc
+    description: Remote test lab, Docker, wp-env or build infrastructure.
+  - name: source
+    color: c5def5
+    description: Production source change.
+  - name: breaking-change
+    color: b60205
+    description: Breaking API, schema or behavior change requiring major bump.
+  - name: needs-review
+    color: fbca04
+    description: Awaiting maintainer review.
+  - name: needs-author-feedback
+    color: e99695
+    description: Awaiting contributor response.
+  - name: do-not-merge
+    color: 000000
+    description: Blocked by a security, legal or compliance hold.
+  - name: wontfix
+    color: ffffff
+    description: Closing without action; explain why in the issue.
+
+# -----------------------------------------------------------------------------
+# Branch protection for `main` (production)
+# -----------------------------------------------------------------------------
+branches:
+  - name: main
+    protection:
+      required_status_checks:
+        strict: true
+        # Only stable, non-matrix contexts belong here. A matrix leg name
+        # ("unit (8.2)", "integration (...)") disappears when the matrix changes
+        # and then blocks every pull request waiting for a check that will never
+        # report. `ci-result` is the single aggregate for ci.yml, and
+        # `workflow-lint` is an always-running aggregate whose costly steps are
+        # gated by a change-detection job.
+        contexts:
+          - ci-result
+          - Complete source coverage and regression gate
+          - workflow-lint
+          - Secret detection (Gitleaks)
+          - Static analysis (Semgrep)
+          - Filesystem vulnerability scan (Trivy)
+          - Composer and npm advisories
+      enforce_admins: true
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: false
+      restrictions:
+        users: []
+        teams:
+          - maintainers
+      required_linear_history: true
+      allow_force_pushes: false
+      allow_deletions: false
+      required_conversation_resolution: true
+      lock_branch: false
+      block_creations: false
+
+  - name: release/*
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - ci-result
+          - Complete source coverage and regression gate
+          - workflow-lint
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        require_code_owner_reviews: true
+      restrictions:
+        teams:
+          - maintainers
+      required_linear_history: true
+      allow_force_pushes: false
+      allow_deletions: false
+
+  - name: hotfix/*
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - ci-result
+          - workflow-lint
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        require_code_owner_reviews: true
+      restrictions:
+        teams:
+          - maintainers
+      allow_force_pushes: false
+      allow_deletions: false
+
+# -----------------------------------------------------------------------------
+# Required workflows at the organization level
+# -----------------------------------------------------------------------------
+# When enabled, the workflows below run on every repository of the
+# organization and cannot be disabled by individual repository admins.
+required_workflows:
+  # Enable these once the organization-level GitHub App is configured.
+  # They are intentionally listed in alphabetical order.
+  # - ci
+  # - workflow-lint
+  # - compliance-check
+  # - security-scan
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Issue and Pull Request templates — declarative mirror of the YAML forms in
+# .github/ISSUE_TEMPLATE/ and the PR template at .github/PULL_REQUEST_TEMPLATE.md.
+# -----------------------------------------------------------------------------
+issue_templates:
+  - bug_report.yml
+  - feature_request.yml
+  - refactor.yml
+
+# -----------------------------------------------------------------------------
+# Auto-assigned reviewers for newly opened Pull Requests
+# -----------------------------------------------------------------------------
+# Maps file paths to the GitHub teams that must review changes to those paths.
+# This mirrors .github/CODEOWNERS but uses GitHub team slugs for cross-repo
+# routing when the GitHub App supports it.
+collaborators:
+  # Pull requests touching the MCP server gateway or abilities list require the
+  # core platform team review in addition to code owners.
+  # - path: src/Mcp/
+  #   reviewers:
+  #     - mcp-platform-team
+  # - path: src/Abilities/
+  #   reviewers:
+  #     - abilities-platform-team
+  enabled: true
+
+# -----------------------------------------------------------------------------
+# Webhooks (no project-side webhooks configured; managed by the org).
+# -----------------------------------------------------------------------------
+webhooks: []

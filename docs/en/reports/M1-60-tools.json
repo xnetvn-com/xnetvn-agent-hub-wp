@@ -1,0 +1,442 @@
+{
+  "format": 1,
+  "wordpress": "6.9",
+  "client_php": "8.2.34",
+  "adapter": "0.7.0",
+  "pinned_cache": "Redis 8.10.2 / Redis Object Cache 3.0.0 / Predis",
+  "visible_tools": 60,
+  "warmup_per_case": 10,
+  "http_connection_policy": "Reuse connection and DNS caches; reset credential/body/header options after every request.",
+  "request_errors": 0,
+  "memory_scope": "Peak minus MU-plugin baseline; includes ordinary plugins, core dispatch, adapter and synthetic fixture.",
+  "latencies": {
+    "valid": {
+      "http_ms": {
+        "samples": 100,
+        "p50": 55.867646,
+        "p95": 57.826444,
+        "p99": 61.50644,
+        "max": 78.918223
+      },
+      "logical_json_bytes": {
+        "samples": 100,
+        "p50": 33191,
+        "p95": 33191,
+        "p99": 33191,
+        "max": 33191
+      },
+      "dns_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "connect_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "tls_ready_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "ttfb_ms": {
+        "samples": 100,
+        "p50": 54.678,
+        "p95": 56.258,
+        "p99": 60.311,
+        "max": 77.542
+      },
+      "curl_total_ms": {
+        "samples": 100,
+        "p50": 55.472,
+        "p95": 57.463,
+        "p99": 61.148,
+        "max": 78.432
+      },
+      "new_connections": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "auth_ms": {
+        "samples": 100,
+        "p50": 3.771296,
+        "p95": 3.948196,
+        "p99": 4.016495,
+        "max": 4.025796
+      },
+      "memory_bytes": {
+        "samples": 100,
+        "p50": 5509680,
+        "p95": 5509680,
+        "p99": 5509680,
+        "max": 5509680
+      },
+      "policy_ms": {
+        "samples": 100,
+        "p50": 3.714196,
+        "p95": 3.929796,
+        "p99": 4.007396,
+        "max": 4.007496
+      },
+      "dispatch_ms": {
+        "samples": 100,
+        "p50": 12.599588,
+        "p95": 12.956088,
+        "p99": 13.165487,
+        "max": 34.600866
+      },
+      "auth_policy_ms": {
+        "samples": 100,
+        "p50": 7.494492,
+        "p95": 7.763193,
+        "p99": 7.831093,
+        "max": 7.876692
+      }
+    },
+    "unknown": {
+      "http_ms": {
+        "samples": 100,
+        "p50": 43.984857,
+        "p95": 45.633455,
+        "p99": 47.591054,
+        "max": 48.897752
+      },
+      "logical_json_bytes": {
+        "samples": 100,
+        "p50": 113,
+        "p95": 113,
+        "p99": 113,
+        "max": 113
+      },
+      "dns_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "connect_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "tls_ready_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "ttfb_ms": {
+        "samples": 100,
+        "p50": 43.82599999999999,
+        "p95": 45.474000000000004,
+        "p99": 47.433,
+        "max": 48.74
+      },
+      "curl_total_ms": {
+        "samples": 100,
+        "p50": 43.913000000000004,
+        "p95": 45.562,
+        "p99": 47.521,
+        "max": 48.828
+      },
+      "new_connections": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "auth_ms": {
+        "samples": 100,
+        "p50": 2.668197,
+        "p95": 2.822398,
+        "p99": 2.973897,
+        "max": 3.066797
+      },
+      "memory_bytes": {
+        "samples": 100,
+        "p50": 4596048,
+        "p95": 4596048,
+        "p99": 4596048,
+        "max": 4596048
+      }
+    },
+    "wrong": {
+      "http_ms": {
+        "samples": 100,
+        "p50": 42.985458,
+        "p95": 44.952856,
+        "p99": 49.417552,
+        "max": 60.222941
+      },
+      "logical_json_bytes": {
+        "samples": 100,
+        "p50": 113,
+        "p95": 113,
+        "p99": 113,
+        "max": 113
+      },
+      "dns_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "connect_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "tls_ready_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "ttfb_ms": {
+        "samples": 100,
+        "p50": 42.821999999999996,
+        "p95": 44.794,
+        "p99": 49.264,
+        "max": 60.062999999999995
+      },
+      "curl_total_ms": {
+        "samples": 100,
+        "p50": 42.916000000000004,
+        "p95": 44.883,
+        "p99": 49.349,
+        "max": 60.153999999999996
+      },
+      "new_connections": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "max": 0
+      },
+      "auth_ms": {
+        "samples": 100,
+        "p50": 2.705397,
+        "p95": 2.866397,
+        "p99": 2.901697,
+        "max": 2.921597
+      },
+      "memory_bytes": {
+        "samples": 100,
+        "p50": 4599456,
+        "p95": 4599456,
+        "p99": 4599456,
+        "max": 4599456
+      }
+    },
+    "concurrent_10": {
+      "http_ms": {
+        "samples": 100,
+        "p50": 1101.586029,
+        "p95": 1796.371054,
+        "p99": 2146.003812,
+        "max": 2150.777407
+      },
+      "logical_json_bytes": {
+        "samples": 100,
+        "p50": 33191,
+        "p95": 33191,
+        "p99": 33191,
+        "max": 33191
+      },
+      "dns_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 217.23000000000002,
+        "p99": 314.336,
+        "max": 413.361
+      },
+      "connect_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 217.45000000000002,
+        "p99": 314.47,
+        "max": 413.468
+      },
+      "tls_ready_ms": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 266.466,
+        "p99": 331.279,
+        "max": 445.082
+      },
+      "ttfb_ms": {
+        "samples": 100,
+        "p50": 1099.117,
+        "p95": 1781.3410000000001,
+        "p99": 2104.993,
+        "max": 2149.246
+      },
+      "curl_total_ms": {
+        "samples": 100,
+        "p50": 1101.21,
+        "p95": 1794.897,
+        "p99": 2144.519,
+        "max": 2150.044
+      },
+      "new_connections": {
+        "samples": 100,
+        "p50": 0,
+        "p95": 1,
+        "p99": 1,
+        "max": 1
+      },
+      "auth_ms": {
+        "samples": 100,
+        "p50": 11.377989,
+        "p95": 103.373699,
+        "p99": 185.05802,
+        "max": 186.064719
+      },
+      "memory_bytes": {
+        "samples": 100,
+        "p50": 5509680,
+        "p95": 5509848,
+        "p99": 5509848,
+        "max": 5509848
+      },
+      "policy_ms": {
+        "samples": 100,
+        "p50": 89.851513,
+        "p95": 201.838803,
+        "p99": 289.268218,
+        "max": 294.812613
+      },
+      "dispatch_ms": {
+        "samples": 100,
+        "p50": 202.532704,
+        "p95": 501.260312,
+        "p99": 592.802824,
+        "max": 811.49301
+      },
+      "auth_policy_ms": {
+        "samples": 100,
+        "p50": 100.883902,
+        "p95": 301.431207,
+        "p99": 391.202819,
+        "max": 479.870633
+      }
+    }
+  },
+  "wrong_unknown_p50_ratio": 1.0139419990353036,
+  "targets": {
+    "auth_median_lt_5_ms": true,
+    "policy_median_lt_5_ms": true,
+    "auth_policy_median_lt_5_ms": false,
+    "list_dispatch_p50_lt_50_ms": true,
+    "list_http_p50_lt_50_ms": false,
+    "memory_max_lt_8_mib": true
+  },
+  "verification_scope": "Scoped lab evidence; synthetic descriptors; no production or release acceptance.",
+  "measurement_date_utc": "2026-10-05",
+  "source_base_commit": "c98ca1cd84d3b28c4fc369822352901a2481b641",
+  "source_sha256": {
+    "src/Persistence/WpSiteSettings.php": "5f661716e4c30fc21a983657d087968011b21d4fe0d32760c2c08492c514d3ac",
+    "tests/E2E/McpClient.php": "e40e11ffd1b0f542ee166a3154f202684ee57c9e604535dbc54d427e0a73d7e2",
+    "tests/E2E/benchmark-mu-plugin.php": "8ef6837749ae969e351ba738e598ce6fd3fdfd450198bb56ad5a553a7bd28ac9",
+    "infra/remote/wordpress-extra.php": "192ee51511bd2e01186e4b07e24abf16f72bab59e7d1cb03cb9a47aae401bf5f"
+  },
+  "before_validation_memoization": {
+    "auth_ms": {
+      "samples": 100,
+      "p50": 3.874697,
+      "p95": 4.075893,
+      "p99": 4.211293,
+      "max": 4.332893
+    },
+    "policy_ms": {
+      "samples": 100,
+      "p50": 5.128291,
+      "p95": 5.308091,
+      "p99": 5.410492,
+      "max": 5.92439
+    },
+    "dispatch_ms": {
+      "samples": 100,
+      "p50": 14.011977,
+      "p95": 14.335177,
+      "p99": 14.642686,
+      "max": 15.115675
+    },
+    "auth_policy_ms": {
+      "samples": 100,
+      "p50": 9.016986,
+      "p95": 9.280485,
+      "p99": 9.439484,
+      "max": 9.473285
+    }
+  },
+  "after_memoization_fresh_connections": {
+    "auth_ms": {
+      "samples": 100,
+      "p50": 3.820695,
+      "p95": 12.348784,
+      "p99": 22.324872,
+      "max": 28.901663
+    },
+    "policy_ms": {
+      "samples": 100,
+      "p50": 3.731295,
+      "p95": 4.295694,
+      "p99": 12.268285,
+      "max": 14.239882
+    },
+    "dispatch_ms": {
+      "samples": 100,
+      "p50": 12.823884,
+      "p95": 23.232671,
+      "p99": 32.094559,
+      "max": 34.818456
+    },
+    "auth_policy_ms": {
+      "samples": 100,
+      "p50": 7.562491,
+      "p95": 16.226479,
+      "p99": 27.270164,
+      "max": 32.749658
+    }
+  },
+  "cache_acceptance": {
+    "http_negative_matrix": {
+      "passed": 35,
+      "failed": 0
+    },
+    "parallel_processes": 10,
+    "increments_per_process": 20,
+    "expected_total": 200,
+    "observed_total": 200,
+    "second_site_observed": 0,
+    "second_site_positive_control": 1,
+    "outage": {
+      "before_allowed": true,
+      "status": 500,
+      "rpc_result_exposed": false,
+      "after_allowed": true,
+      "scope": "Global cache drop-in can abort WordPress before plugin bootstrap."
+    }
+  },
+  "fingerprint_scope": "Measured production optimization, transport client, instrumentation and cache configuration; the driver subsequently documents pre-bootstrap outage500."
+}

@@ -1,0 +1,59 @@
+name: Draft release
+on:
+  push:
+    tags: ['v*']
+permissions: {}
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  sbom:
+    name: Generate release SBOMs
+    uses: ./.github/workflows/sbom.yml
+    permissions:
+      contents: read
+
+  draft:
+    needs: sbom
+    # The only job with `contents: write` builds from a clean checkout on a
+    # GitHub-hosted runner and never reads a cache written by another job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - run: composer validate --strict
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer audit --locked
+      - run: composer check
+      - run: composer build
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sbom-*
+          path: dist/sbom
+          merge-multiple: true
+      - name: Require complete SBOM evidence
+        run: |
+          set -euo pipefail
+          for file in composer.cdx.json composer.spdx npm.cdx.json npm.spdx; do
+            if [ ! -s "dist/sbom/$file" ]; then
+              echo "FAIL: dist/sbom/$file is missing or empty." >&2
+              exit 1
+            fi
+          done
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.zip
+            dist/sbom/*

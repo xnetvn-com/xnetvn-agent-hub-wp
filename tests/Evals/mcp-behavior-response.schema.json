@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MCP behaviour evaluation response",
+  "description": "The single JSON object a model must return for one behaviour case. It describes a proposal only: nothing here is executed, and no expected answer is encoded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "primary_entrypoint",
+    "references",
+    "proposed_actions",
+    "refused_actions",
+    "refusal",
+    "gates",
+    "limitations"
+  ],
+  "properties": {
+    "primary_entrypoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "references": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "proposed_actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "refused_actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refused", "reason"],
+      "properties": {
+        "refused": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    }
+  }
+}

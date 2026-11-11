@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security disclosure
+    url: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/SECURITY.md
+    about: Report security vulnerabilities privately via security@xnetvn.net. Do not open public issues for security reports.
+  - name: Technical support
+    url: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/SUPPORT.md
+    about: Get help with installation, integration and troubleshooting via support@xnetvn.net.
+  - name: Licensing inquiry
+    url: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/LICENSE
+    about: Questions about licensing or commercial use via license@xnetvn.net.

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="tests/Integration/bootstrap.php" colors="true" failOnWarning="true" failOnRisky="true" beStrictAboutOutputDuringTests="true">
+  <testsuites><testsuite name="integration"><directory>tests/Integration</directory><exclude>tests/Integration/bootstrap.php</exclude></testsuite></testsuites>
+  <coverage><include><directory suffix=".php">src</directory><file>xnetvn-agent-hub-wp.php</file><file>uninstall.php</file></include></coverage>
+</phpunit>

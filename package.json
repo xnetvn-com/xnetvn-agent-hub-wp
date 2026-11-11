@@ -1,0 +1,33 @@
+{
+  "name": "xnetvn-agent-hub-wp",
+  "private": true,
+  "scripts": {
+    "env:start": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" up",
+    "env:stop": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" stop",
+    "remote:plan": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" plan --compose-file compose.yaml --site wp69:80 --site wp71:80",
+    "remote:up": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" up",
+    "test:e2e": "python3 -I -B \"$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py\" e2e -- sh -c \"npm ci --ignore-scripts --no-audit --no-fund && npx playwright test --config=tests/E2E/playwright.remote.config.js\"",
+    "test:tooling": "npm run tooling:prepare && node tests/Tooling/dependency-contracts.cjs",
+    "postinstall": "node bin/prepare-wp-env.cjs",
+    "tooling:prepare": "node bin/prepare-wp-env.cjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@wordpress/env": "12.0.0"
+  },
+  "overrides": {
+    "ajv": "8.20.0",
+    "qs": "6.16.1",
+    "ws": "8.22.0",
+    "isomorphic-git": "1.38.6",
+    "fast-xml-parser": "5.12.0",
+    "@wordpress/env": {
+      "simple-git": "4.0.2",
+      "js-yaml": "5.4.3"
+    },
+    "glob": "14.0.2",
+    "minimatch": "11.0.1",
+    "rimraf": "6.1.3"
+  }
+}

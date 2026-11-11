@@ -1,0 +1,91 @@
+name: 🐞 Báo cáo lỗi (Bug Report)
+description: Báo cáo lỗi kỹ thuật hoặc sự cố bất thường trong xNetVN Agent Hub WP
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cảm ơn bạn đã báo cáo lỗi! Vui lòng điền đầy đủ các thông tin dưới đây để giúp chúng tôi nhanh chóng xử lý.
+  - type: input
+    id: summary
+    attributes:
+      label: Tiêu đề tóm tắt lỗi
+      description: Mô tả ngắn gọn, rõ ràng hiện tượng lỗi gặp phải.
+      placeholder: VD: Lỗi 401 khi gọi MCP qua reverse proxy do thiếu header Authorization
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Mức độ nghiêm trọng (Severity)
+      options:
+        - Blocker (Ngưng hoạt động toàn bộ hệ thống)
+        - Critical (Ảnh hưởng chức năng cốt lõi)
+        - Major (Ảnh hưởng chức năng phụ)
+        - Minor (Lỗi nhỏ, có giải pháp tạm thời)
+        - Trivial (Lỗi giao diện, chính tả)
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Thành phần / Module liên quan
+      options:
+        - Auth & API Keys
+        - MCP Server Gateway & Adapter
+        - System Pack Abilities
+        - Content / Taxonomy / Blocks Pack
+        - Rate Limiting
+        - Audit & Privacy / GDPR
+        - Admin UI / Profile Pages
+        - Khác
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Môi trường phát sinh
+      description: Phiên bản PHP, WordPress, Nginx/Apache, MySQL, Plugin version.
+      value: |
+        - PHP Version: 8.2.x
+        - WordPress Version: 6.9
+        - Database: MySQL 8.0 (InnoDB)
+        - Web Server: Nginx
+        - Plugin Version: v1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Mô tả chi tiết lỗi
+      description: Hiện tượng thực tế và kết quả mong đợi.
+      placeholder: Mô tả điều gì đã xảy ra và điều gì đáng lẽ phải xảy ra...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện lỗi (Steps to Reproduce)
+      description: Liệt kê chi tiết từng bước.
+      placeholder: |
+        1. Bước 1...
+        2. Bước 2...
+        3. Thấy lỗi xuất hiện...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stacktrace (Đã ẩn thông tin nhạy cảm)
+      description: Dán log lỗi từ wp-content/debug.log nếu có.
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist kiểm tra
+      options:
+        - label: Tôi đã tìm kiếm và xác nhận lỗi này chưa được báo cáo trước đó.
+          required: true
+        - label: Tôi đã ẩn mọi khóa bí mật, token, mật khẩu khỏi báo cáo này.
+          required: true

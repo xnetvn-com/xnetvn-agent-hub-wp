@@ -1,0 +1,62 @@
+# Pull request labeler configuration.
+# Maps labels to changed files using actions/labeler v7.0.0 syntax.
+# Labels must exist in the repository; missing labels are skipped without failing.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"
+          - "readme.txt"
+          - "languages/**"
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "languages/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+          - "phpunit.xml.dist"
+          - "phpunit.integration.xml.dist"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "composer.json"
+          - "composer.lock"
+          - "package.json"
+          - "package-lock.json"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/labeler.yml"
+          - ".github/dependabot.yml"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - ".gitleaks.toml"
+          - ".gitleaksignore"
+          - ".github/workflows/security-scan.yml"
+          - "docs/security/**"
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "infra/**"
+          - "compose.yaml"
+          - ".wp-env.json"
+          - ".dockerignore"
+
+source:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/**"
+          - "xnetvn-agent-hub-wp.php"
+          - "uninstall.php"
+          - "assets/**"

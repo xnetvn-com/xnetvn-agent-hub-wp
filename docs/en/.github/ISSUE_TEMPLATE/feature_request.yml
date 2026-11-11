@@ -1,0 +1,76 @@
+name: 💡 Feature Request
+description: Propose a new feature or improvement for xNetVN Agent Hub WP
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an idea to improve xNetVN Agent Hub WP! Please complete all sections below.
+  - type: input
+    id: feature_title
+    attributes:
+      label: Proposed feature name
+      placeholder: "E.g.: Add Reusable Blocks management to Blocks Pack"
+    validations:
+      required: true
+  - type: dropdown
+    id: toolset
+    attributes:
+      label: Which Toolset does this belong to?
+      options:
+        - System Pack
+        - Content Pack
+        - Taxonomy Pack
+        - Blocks Pack
+        - Media Pack
+        - Comments Pack
+        - Appearance Pack
+        - Settings Pack
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: risk_tier
+    attributes:
+      label: Expected Risk Tier
+      options:
+        - read (Read only)
+        - write (Create / Update)
+        - destructive (Permanently delete)
+        - admin (Configuration administration)
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Requirements & Benefits
+      description: Why is this feature needed? What problem does it solve for AI Agents or administrators?
+      placeholder: Currently, AI Agents cannot... This feature will help...
+    validations:
+      required: true
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Use Cases
+      description: Specific steps performed by the AI Agent or user.
+      placeholder: |
+        1. The Agent calls tool xnetvn/...
+        2. The plugin returns the result...
+    validations:
+      required: true
+  - type: textarea
+    id: schemas
+    attributes:
+      label: Draft JSON Schema (If Available)
+      description: Describe the input parameter and output result structures.
+      render: json
+  - type: checkboxes
+    id: considerations
+    attributes:
+      label: Safety & security considerations
+      options:
+        - label: This feature follows the principles of no arbitrary code execution and no unrestricted SQL queries.
+          required: true
+        - label: Returned data is treated as untrusted content data and follows a strict JSON Schema.
+          required: true

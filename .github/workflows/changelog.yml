@@ -1,0 +1,86 @@
+name: Changelog validation
+
+# Validates the version under release against the plugin header, readme.txt and
+# CHANGELOG.md, then publishes the matching release notes as an artifact.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to validate (without the v prefix)"
+        required: true
+        type: string
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: changelog-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: Validate version and changelog consistency
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Resolve and validate the version under validation
+        id: resolve_version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="$INPUT_VERSION"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format (expected MAJOR.MINOR.PATCH)." >&2
+            exit 1
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - name: Cross-check plugin header, runtime constant, readme stable tag and changelog
+        env:
+          VERSION: ${{ steps.resolve_version.outputs.version }}
+        run: bash bin/check-version-consistency.sh "$VERSION"
+      - name: Extract release notes
+        env:
+          VERSION: ${{ steps.resolve_version.outputs.version }}
+        run: |
+          version="$VERSION"
+          start=$(grep -n -F "## [$version]" CHANGELOG.md | head -1 | cut -d: -f1)
+          if [ -z "$start" ]; then
+            echo "No changelog section found for $version." >&2
+            exit 1
+          fi
+          end=$(awk -v s="$start" 'NR > s && /^## \[/ { print NR; exit }' CHANGELOG.md)
+          if [ -z "$end" ]; then
+            end=$(( $(wc -l < CHANGELOG.md) + 1 ))
+          fi
+          sed -n "${start},$((end - 1))p" CHANGELOG.md > "release-notes-$version.md"
+          if [ ! -s "release-notes-$version.md" ]; then
+            echo "The changelog section for $version is empty." >&2
+            exit 1
+          fi
+          echo "Extracted release notes for $version."
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-notes-${{ steps.resolve_version.outputs.version }}
+          path: release-notes-${{ steps.resolve_version.outputs.version }}.md
+          retention-days: 14

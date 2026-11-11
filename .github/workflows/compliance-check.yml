@@ -1,0 +1,94 @@
+name: Compliance check
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      self_hosted_trial:
+        description: "Run once on self-hosted runners (trial)"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+permissions: {}
+concurrency:
+  group: compliance-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compliance:
+    name: License, version and policy compliance
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check license files
+        run: |
+          failures=0
+          if [ ! -f LICENSE ]; then
+            echo "FAIL: LICENSE is missing." >&2
+            failures=$((failures + 1))
+          elif ! grep -Fq "GNU GENERAL PUBLIC LICENSE" LICENSE || ! grep -Fq "Version 2, June 1991" LICENSE; then
+            echo "FAIL: LICENSE does not contain the GPLv2 text." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: LICENSE contains the GPLv2 text."
+          fi
+          if ! grep -Fq '"license": "GPL-2.0-or-later"' composer.json; then
+            echo "FAIL: composer.json license is not GPL-2.0-or-later." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: composer.json declares GPL-2.0-or-later."
+          fi
+          if ! grep -Fq "License: GPLv2 or later" readme.txt; then
+            echo "FAIL: readme.txt license header is missing." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: readme.txt declares GPLv2 or later."
+          fi
+          exit "$failures"
+      - name: Check version consistency
+        run: bash bin/check-version-consistency.sh
+      - name: Check changelog format
+        run: |
+          failures=0
+          if ! grep -Fq "Keep a Changelog" CHANGELOG.md; then
+            echo "FAIL: CHANGELOG.md does not declare the Keep a Changelog format." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: CHANGELOG.md declares the Keep a Changelog format."
+          fi
+          if ! grep -Fq "## [Unreleased]" CHANGELOG.md; then
+            echo "FAIL: CHANGELOG.md has no [Unreleased] section." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: CHANGELOG.md has an [Unreleased] section."
+          fi
+          exit "$failures"
+      - name: Check security policy and tooling
+        run: |
+          failures=0
+          if ! grep -Fq "security@xnetvn.net" SECURITY.md; then
+            echo "FAIL: SECURITY.md does not reference security@xnetvn.net." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: SECURITY.md references the private security contact."
+          fi
+          if [ ! -f .gitleaks.toml ]; then
+            echo "FAIL: .gitleaks.toml is missing." >&2
+            failures=$((failures + 1))
+          else
+            echo "PASS: .gitleaks.toml secret scanning configuration exists."
+          fi
+          exit "$failures"
+      - name: Check translation template
+        run: |
+          if [ ! -f languages/xnetvn-agent-hub-wp.pot ]; then
+            echo "FAIL: languages/xnetvn-agent-hub-wp.pot is missing." >&2
+            exit 1
+          fi
+          echo "PASS: translation template exists."

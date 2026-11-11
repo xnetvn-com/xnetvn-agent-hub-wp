@@ -1,0 +1,1764 @@
+{
+  "format": 1,
+  "driver": "Xdebug3.5.3 / php-code-coverage9.2 / PHPUnit9.6",
+  "scope": "All src PHP files plus bootstrap/uninstall entrypoints; unit plus two single-site and two multisite integration suites. Does not include browser/HTTP coverage or prove branch/path coverage.",
+  "overall": {
+    "executable": 2795,
+    "covered": 2325,
+    "percent": 83.18425760286226
+  },
+  "groups": {
+    "Abilities": {
+      "executable": 516,
+      "covered": 461,
+      "percent": 89.34108527131782
+    },
+    "Admin": {
+      "executable": 191,
+      "covered": 160,
+      "percent": 83.7696335078534
+    },
+    "Audit": {
+      "executable": 162,
+      "covered": 125,
+      "percent": 77.1604938271605
+    },
+    "Auth": {
+      "executable": 429,
+      "covered": 387,
+      "percent": 90.20979020979021
+    },
+    "Bootstrap": {
+      "executable": 70,
+      "covered": 53,
+      "percent": 75.71428571428571
+    },
+    "Contracts": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null
+    },
+    "Domain": {
+      "executable": 67,
+      "covered": 63,
+      "percent": 94.02985074626865
+    },
+    "EntryPoints": {
+      "executable": 66,
+      "covered": 52,
+      "percent": 78.78787878787878
+    },
+    "Http": {
+      "executable": 75,
+      "covered": 52,
+      "percent": 69.33333333333333
+    },
+    "Mcp": {
+      "executable": 132,
+      "covered": 76,
+      "percent": 57.57575757575758
+    },
+    "Persistence": {
+      "executable": 465,
+      "covered": 388,
+      "percent": 83.44086021505376
+    },
+    "Plugin.php": {
+      "executable": 45,
+      "covered": 9,
+      "percent": 20
+    },
+    "Policy": {
+      "executable": 53,
+      "covered": 48,
+      "percent": 90.56603773584905
+    },
+    "RateLimit": {
+      "executable": 53,
+      "covered": 37,
+      "percent": 69.81132075471699
+    },
+    "Rest": {
+      "executable": 400,
+      "covered": 346,
+      "percent": 86.5
+    },
+    "Support": {
+      "executable": 71,
+      "covered": 68,
+      "percent": 95.77464788732394
+    }
+  },
+  "suites": {
+    "unit": {
+      "Abilities": {
+        "executable": 515,
+        "covered": 46,
+        "percent": 8.932038834951456
+      },
+      "Admin": {
+        "executable": 191,
+        "covered": 0,
+        "percent": 0
+      },
+      "Audit": {
+        "executable": 162,
+        "covered": 24,
+        "percent": 14.814814814814815
+      },
+      "Auth": {
+        "executable": 429,
+        "covered": 191,
+        "percent": 44.52214452214452
+      },
+      "Bootstrap": {
+        "executable": 70,
+        "covered": 47,
+        "percent": 67.14285714285714
+      },
+      "Contracts": {
+        "executable": 0,
+        "covered": 0,
+        "percent": null
+      },
+      "Domain": {
+        "executable": 67,
+        "covered": 63,
+        "percent": 94.02985074626865
+      },
+      "EntryPoints": {
+        "executable": 66,
+        "covered": 0,
+        "percent": 0
+      },
+      "Http": {
+        "executable": 75,
+        "covered": 44,
+        "percent": 58.666666666666664
+      },
+      "Mcp": {
+        "executable": 132,
+        "covered": 0,
+        "percent": 0
+      },
+      "Persistence": {
+        "executable": 465,
+        "covered": 38,
+        "percent": 8.172043010752688
+      },
+      "Plugin.php": {
+        "executable": 45,
+        "covered": 9,
+        "percent": 20
+      },
+      "Policy": {
+        "executable": 53,
+        "covered": 47,
+        "percent": 88.67924528301887
+      },
+      "PureAuth": {
+        "executable": 60,
+        "covered": 57,
+        "percent": 95
+      },
+      "RateLimit": {
+        "executable": 53,
+        "covered": 0,
+        "percent": 0
+      },
+      "Rest": {
+        "executable": 400,
+        "covered": 0,
+        "percent": 0
+      },
+      "Support": {
+        "executable": 71,
+        "covered": 63,
+        "percent": 88.73239436619718
+      },
+      "overall": {
+        "executable": 2794,
+        "covered": 572,
+        "percent": 20.47244094488189
+      }
+    },
+    "single-6.9": {
+      "Abilities": {
+        "executable": 513,
+        "covered": 435,
+        "percent": 84.7953216374269
+      },
+      "Admin": {
+        "executable": 191,
+        "covered": 160,
+        "percent": 83.7696335078534
+      },
+      "Audit": {
+        "executable": 162,
+        "covered": 124,
+        "percent": 76.54320987654322
+      },
+      "Auth": {
+        "executable": 429,
+        "covered": 366,
+        "percent": 85.31468531468532
+      },
+      "Bootstrap": {
+        "executable": 70,
+        "covered": 25,
+        "percent": 35.714285714285715
+      },
+      "Contracts": {
+        "executable": 0,
+        "covered": 0,
+        "percent": null
+      },
+      "Domain": {
+        "executable": 66,
+        "covered": 51,
+        "percent": 77.27272727272727
+      },
+      "EntryPoints": {
+        "executable": 65,
+        "covered": 34,
+        "percent": 52.30769230769231
+      },
+      "Http": {
+        "executable": 75,
+        "covered": 37,
+        "percent": 49.333333333333336
+      },
+      "Mcp": {
+        "executable": 132,
+        "covered": 76,
+        "percent": 57.57575757575758
+      },
+      "Persistence": {
+        "executable": 462,
+        "covered": 383,
+        "percent": 82.9004329004329
+      },
+      "Plugin.php": {
+        "executable": 44,
+        "covered": 0,
+        "percent": 0
+      },
+      "Policy": {
+        "executable": 53,
+        "covered": 29,
+        "percent": 54.716981132075475
+      },
+      "PureAuth": {
+        "executable": 60,
+        "covered": 51,
+        "percent": 85
+      },
+      "RateLimit": {
+        "executable": 53,
+        "covered": 37,
+        "percent": 69.81132075471699
+      },
+      "Rest": {
+        "executable": 400,
+        "covered": 346,
+        "percent": 86.5
+      },
+      "Support": {
+        "executable": 71,
+        "covered": 54,
+        "percent": 76.05633802816901
+      },
+      "overall": {
+        "executable": 2786,
+        "covered": 2157,
+        "percent": 77.42282842785356
+      }
+    },
+    "single-7.1.2": {
+      "Abilities": {
+        "executable": 513,
+        "covered": 435,
+        "percent": 84.7953216374269
+      },
+      "Admin": {
+        "executable": 191,
+        "covered": 160,
+        "percent": 83.7696335078534
+      },
+      "Audit": {
+        "executable": 162,
+        "covered": 124,
+        "percent": 76.54320987654322
+      },
+      "Auth": {
+        "executable": 429,
+        "covered": 366,
+        "percent": 85.31468531468532
+      },
+      "Bootstrap": {
+        "executable": 70,
+        "covered": 25,
+        "percent": 35.714285714285715
+      },
+      "Contracts": {
+        "executable": 0,
+        "covered": 0,
+        "percent": null
+      },
+      "Domain": {
+        "executable": 66,
+        "covered": 51,
+        "percent": 77.27272727272727
+      },
+      "EntryPoints": {
+        "executable": 65,
+        "covered": 34,
+        "percent": 52.30769230769231
+      },
+      "Http": {
+        "executable": 75,
+        "covered": 37,
+        "percent": 49.333333333333336
+      },
+      "Mcp": {
+        "executable": 132,
+        "covered": 76,
+        "percent": 57.57575757575758
+      },
+      "Persistence": {
+        "executable": 462,
+        "covered": 383,
+        "percent": 82.9004329004329
+      },
+      "Plugin.php": {
+        "executable": 44,
+        "covered": 0,
+        "percent": 0
+      },
+      "Policy": {
+        "executable": 53,
+        "covered": 29,
+        "percent": 54.716981132075475
+      },
+      "PureAuth": {
+        "executable": 60,
+        "covered": 51,
+        "percent": 85
+      },
+      "RateLimit": {
+        "executable": 53,
+        "covered": 37,
+        "percent": 69.81132075471699
+      },
+      "Rest": {
+        "executable": 400,
+        "covered": 346,
+        "percent": 86.5
+      },
+      "Support": {
+        "executable": 71,
+        "covered": 54,
+        "percent": 76.05633802816901
+      },
+      "overall": {
+        "executable": 2786,
+        "covered": 2157,
+        "percent": 77.42282842785356
+      }
+    },
+    "multisite-6.9": {
+      "Abilities": {
+        "executable": 513,
+        "covered": 435,
+        "percent": 84.7953216374269
+      },
+      "Admin": {
+        "executable": 191,
+        "covered": 160,
+        "percent": 83.7696335078534
+      },
+      "Audit": {
+        "executable": 162,
+        "covered": 124,
+        "percent": 76.54320987654322
+      },
+      "Auth": {
+        "executable": 429,
+        "covered": 366,
+        "percent": 85.31468531468532
+      },
+      "Bootstrap": {
+        "executable": 70,
+        "covered": 25,
+        "percent": 35.714285714285715
+      },
+      "Contracts": {
+        "executable": 0,
+        "covered": 0,
+        "percent": null
+      },
+      "Domain": {
+        "executable": 66,
+        "covered": 51,
+        "percent": 77.27272727272727
+      },
+      "EntryPoints": {
+        "executable": 65,
+        "covered": 51,
+        "percent": 78.46153846153847
+      },
+      "Http": {
+        "executable": 75,
+        "covered": 37,
+        "percent": 49.333333333333336
+      },
+      "Mcp": {
+        "executable": 132,
+        "covered": 76,
+        "percent": 57.57575757575758
+      },
+      "Persistence": {
+        "executable": 462,
+        "covered": 385,
+        "percent": 83.33333333333333
+      },
+      "Plugin.php": {
+        "executable": 44,
+        "covered": 0,
+        "percent": 0
+      },
+      "Policy": {
+        "executable": 53,
+        "covered": 29,
+        "percent": 54.716981132075475
+      },
+      "PureAuth": {
+        "executable": 60,
+        "covered": 51,
+        "percent": 85
+      },
+      "RateLimit": {
+        "executable": 53,
+        "covered": 37,
+        "percent": 69.81132075471699
+      },
+      "Rest": {
+        "executable": 400,
+        "covered": 346,
+        "percent": 86.5
+      },
+      "Support": {
+        "executable": 71,
+        "covered": 54,
+        "percent": 76.05633802816901
+      },
+      "overall": {
+        "executable": 2786,
+        "covered": 2176,
+        "percent": 78.10480976310122
+      }
+    },
+    "multisite-7.1.2": {
+      "Abilities": {
+        "executable": 513,
+        "covered": 435,
+        "percent": 84.7953216374269
+      },
+      "Admin": {
+        "executable": 191,
+        "covered": 160,
+        "percent": 83.7696335078534
+      },
+      "Audit": {
+        "executable": 162,
+        "covered": 124,
+        "percent": 76.54320987654322
+      },
+      "Auth": {
+        "executable": 429,
+        "covered": 366,
+        "percent": 85.31468531468532
+      },
+      "Bootstrap": {
+        "executable": 70,
+        "covered": 25,
+        "percent": 35.714285714285715
+      },
+      "Contracts": {
+        "executable": 0,
+        "covered": 0,
+        "percent": null
+      },
+      "Domain": {
+        "executable": 66,
+        "covered": 51,
+        "percent": 77.27272727272727
+      },
+      "EntryPoints": {
+        "executable": 65,
+        "covered": 51,
+        "percent": 78.46153846153847
+      },
+      "Http": {
+        "executable": 75,
+        "covered": 37,
+        "percent": 49.333333333333336
+      },
+      "Mcp": {
+        "executable": 132,
+        "covered": 76,
+        "percent": 57.57575757575758
+      },
+      "Persistence": {
+        "executable": 462,
+        "covered": 385,
+        "percent": 83.33333333333333
+      },
+      "Plugin.php": {
+        "executable": 44,
+        "covered": 0,
+        "percent": 0
+      },
+      "Policy": {
+        "executable": 53,
+        "covered": 29,
+        "percent": 54.716981132075475
+      },
+      "PureAuth": {
+        "executable": 60,
+        "covered": 51,
+        "percent": 85
+      },
+      "RateLimit": {
+        "executable": 53,
+        "covered": 37,
+        "percent": 69.81132075471699
+      },
+      "Rest": {
+        "executable": 400,
+        "covered": 346,
+        "percent": 86.5
+      },
+      "Support": {
+        "executable": 71,
+        "covered": 54,
+        "percent": 76.05633802816901
+      },
+      "overall": {
+        "executable": 2786,
+        "covered": 2176,
+        "percent": 78.10480976310122
+      }
+    }
+  },
+  "files": {
+    "src/Abilities/AbilityDefinition.php": {
+      "executable": 32,
+      "covered": 27,
+      "percent": 84.375,
+      "uncovered_lines": [
+        48,
+        52,
+        56,
+        64,
+        144
+      ],
+      "source_sha256": "defc90ecef44f01279d257544b001383ee9efc04b1ae518d99339a4b9056bab3"
+    },
+    "src/Abilities/DefinitionFactory.php": {
+      "executable": 1,
+      "covered": 1,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "300772f8b970cea9cc7b1d56bd6424bd4251939e7e0c5f171dde283305930502"
+    },
+    "src/Abilities/OutputPipeline.php": {
+      "executable": 66,
+      "covered": 53,
+      "percent": 80.3030303030303,
+      "uncovered_lines": [
+        36,
+        48,
+        54,
+        67,
+        68,
+        69,
+        82,
+        86,
+        110,
+        120,
+        126,
+        127,
+        134
+      ],
+      "source_sha256": "a08132c623db96d303766ba23fab4eb944e7b3bd74908bf0b368b6360733f888"
+    },
+    "src/Abilities/Packs/Content/PostProjection.php": {
+      "executable": 24,
+      "covered": 23,
+      "percent": 95.83333333333333,
+      "uncovered_lines": [
+        38
+      ],
+      "source_sha256": "903073cfe91b28f51033bf919d3ab3b95050b5a82f7b2eb999c25d9306762067"
+    },
+    "src/Abilities/Packs/System/SystemPack.php": {
+      "executable": 256,
+      "covered": 247,
+      "percent": 96.484375,
+      "uncovered_lines": [
+        260,
+        332,
+        334,
+        354,
+        355,
+        356,
+        358,
+        371,
+        372
+      ],
+      "source_sha256": "fd50c444a07c87ec22fa8fda333d475522555487580837833568bd5bc37a6c78"
+    },
+    "src/Abilities/Registry.php": {
+      "executable": 110,
+      "covered": 98,
+      "percent": 89.0909090909091,
+      "uncovered_lines": [
+        90,
+        135,
+        167,
+        168,
+        169,
+        240,
+        246,
+        247,
+        269,
+        284,
+        288,
+        289
+      ],
+      "source_sha256": "82c7e7666a4aad68cb298634d0a9e15cd578eb9dd0f4832b46b6e998bbeb8d29"
+    },
+    "src/Abilities/SchemaBuilder.php": {
+      "executable": 2,
+      "covered": 1,
+      "percent": 50,
+      "uncovered_lines": [
+        22
+      ],
+      "source_sha256": "62b85f906ce3c0c5f81e3f2f2e00f177c0fe599acaf8627f51ad3969ef94690b"
+    },
+    "src/Abilities/SchemaFactory.php": {
+      "executable": 25,
+      "covered": 11,
+      "percent": 44,
+      "uncovered_lines": [
+        22,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56
+      ],
+      "source_sha256": "0db2025f7c1801806b7ebce986a1f2b7a3d53fa53e41d1b80111a2ad38997864"
+    },
+    "src/Admin/Pages.php": {
+      "executable": 191,
+      "covered": 160,
+      "percent": 83.7696335078534,
+      "uncovered_lines": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        80,
+        81,
+        83,
+        134,
+        149,
+        150,
+        151,
+        156,
+        157,
+        159,
+        175,
+        179,
+        183,
+        188,
+        189,
+        190,
+        191,
+        193,
+        194,
+        195,
+        196,
+        275,
+        276,
+        277
+      ],
+      "source_sha256": "1e957a45812d7b5b09827df2f076901fb1f5567d88adb5a9cf7d92806fea796f"
+    },
+    "src/Audit/AuditEvent.php": {
+      "executable": 25,
+      "covered": 24,
+      "percent": 96,
+      "uncovered_lines": [
+        49
+      ],
+      "source_sha256": "44501ab7c83d9706c0b43c48668a35feeecd949f3b6a97655756e796181b0970"
+    },
+    "src/Audit/AuditLogger.php": {
+      "executable": 62,
+      "covered": 44,
+      "percent": 70.96774193548387,
+      "uncovered_lines": [
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        101,
+        102,
+        126,
+        141,
+        145,
+        171,
+        172,
+        188,
+        189,
+        201,
+        202
+      ],
+      "source_sha256": "e9ee24e0bedccbfac6c95f98d0c420a49d619eca12d4c89a2ef80eb6e7e89a7d"
+    },
+    "src/Audit/PrivacyEraser.php": {
+      "executable": 20,
+      "covered": 14,
+      "percent": 70,
+      "uncovered_lines": [
+        27,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "source_sha256": "7373f413042de564899302777642421cb87e8eac7543d653e73d443459054391"
+    },
+    "src/Audit/PrivacyExporter.php": {
+      "executable": 39,
+      "covered": 33,
+      "percent": 84.61538461538461,
+      "uncovered_lines": [
+        27,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "source_sha256": "722880daa96f5a1fd6028c5610609d290bb4b2513f946e4a3c6f5c597c1e1243"
+    },
+    "src/Audit/Retention.php": {
+      "executable": 16,
+      "covered": 10,
+      "percent": 62.5,
+      "uncovered_lines": [
+        37,
+        38,
+        39,
+        45,
+        62,
+        63
+      ],
+      "source_sha256": "5356845a9fb8b06ea056c73ced798a45690b5b402c721cc973186dac3c5941a4"
+    },
+    "src/Auth/Authenticator.php": {
+      "executable": 92,
+      "covered": 85,
+      "percent": 92.3913043478261,
+      "uncovered_lines": [
+        43,
+        44,
+        45,
+        46,
+        185,
+        188,
+        189
+      ],
+      "source_sha256": "8e08118e3f125bb6f2492d1ba2fc9f31b1df762a7a11f9e97a650ca4b36a76aa"
+    },
+    "src/Auth/Capabilities.php": {
+      "executable": 20,
+      "covered": 20,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "fadcd2efd2ffdb37ea39e6be4050cb352c5620d3db8ee122fbf28e02cd6b08d4"
+    },
+    "src/Auth/FailureReason.php": {
+      "executable": 6,
+      "covered": 6,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "8e4bb382163fee0ca113e85a911dbe0ed44c9f4b150f5b67890957fbfa2a14ab"
+    },
+    "src/Auth/GeneratedKey.php": {
+      "executable": 8,
+      "covered": 7,
+      "percent": 87.5,
+      "uncovered_lines": [
+        73
+      ],
+      "source_sha256": "9ac6e91bc00531a7c0fe8970d1932bbef3e2fbd817de3a10ace8def26cf46b40"
+    },
+    "src/Auth/HeaderExtractor.php": {
+      "executable": 15,
+      "covered": 15,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "839bcb14612cb541f156177b634c91be5e46cd4fbfcbc37a57fcacfd19092ce9"
+    },
+    "src/Auth/IssuedKey.php": {
+      "executable": 2,
+      "covered": 2,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "62b58afb82cf9015a4c3d6cab08324203960318eb1f1dc87bd9a748b8b1f6430"
+    },
+    "src/Auth/KeyGenerator.php": {
+      "executable": 6,
+      "covered": 6,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "4474d2d5e7c20a48a9f46521238d9a882380fd48b87839e1c6515fde8befc12b"
+    },
+    "src/Auth/KeyHasher.php": {
+      "executable": 2,
+      "covered": 2,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "6fa7c4423fee72cb1fd074dff3cfc730a613fe52942ab616c29eabaf7cd25a67"
+    },
+    "src/Auth/KeyService.php": {
+      "executable": 162,
+      "covered": 137,
+      "percent": 84.5679012345679,
+      "uncovered_lines": [
+        68,
+        69,
+        92,
+        95,
+        108,
+        109,
+        123,
+        131,
+        134,
+        138,
+        146,
+        147,
+        148,
+        149,
+        171,
+        172,
+        186,
+        190,
+        197,
+        201,
+        205,
+        208,
+        335,
+        336,
+        339
+      ],
+      "source_sha256": "458694b5d516cb6e92d4a6e24f2269202f87f732b1cab042abbc6dc05457da06"
+    },
+    "src/Auth/Notifications.php": {
+      "executable": 77,
+      "covered": 68,
+      "percent": 88.31168831168831,
+      "uncovered_lines": [
+        89,
+        101,
+        114,
+        123,
+        124,
+        163,
+        164,
+        199,
+        200
+      ],
+      "source_sha256": "e940cd3457a68b9b4bb835e21a4b6c630734afa054805d2b0a11edcfd9d2582c"
+    },
+    "src/Auth/ParsedToken.php": {
+      "executable": 2,
+      "covered": 2,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "8667e88aa09b8fddecd0c6cb12d08ff68e2b71e3ed932b06f1fdb78e00bd97e2"
+    },
+    "src/Auth/Pepper.php": {
+      "executable": 11,
+      "covered": 11,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "5207f5b5118d1b4d67d2cb29bb593e789557ca8a5fdda6734e68cba1ae18cf0f"
+    },
+    "src/Auth/PepperStore.php": {
+      "executable": 18,
+      "covered": 18,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "8758f8efd4864f334099ff6d57ed30925f5ddf40562a4fa7485f3fbc5a549dbc"
+    },
+    "src/Auth/StoredKey.php": {
+      "executable": 5,
+      "covered": 5,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "4a0765ebdda8909d972c36fe96f2bba977c8274bc04d6e7de8578e2a2766239c"
+    },
+    "src/Auth/TokenParser.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "cfe280f843f5d0d0c522c4b77d3367816c52114bc14db332af757fa6092c9158"
+    },
+    "src/Bootstrap/Loader.php": {
+      "executable": 15,
+      "covered": 5,
+      "percent": 33.333333333333336,
+      "uncovered_lines": [
+        25,
+        26,
+        27,
+        38,
+        39,
+        40,
+        28,
+        29,
+        30,
+        31
+      ],
+      "source_sha256": "cfe24c26da034faaf1bd06ff79fdbb650e47288f13fb75be70de2c4dcc1b2d49"
+    },
+    "src/Bootstrap/Notice.php": {
+      "executable": 17,
+      "covered": 10,
+      "percent": 58.8235294117647,
+      "uncovered_lines": [
+        29,
+        31,
+        32,
+        34,
+        35,
+        36,
+        38
+      ],
+      "source_sha256": "6ab5abf85c83594b963397bfc17295a5bcf97c265c7e2e4046300016e3685be9"
+    },
+    "src/Bootstrap/Requirements.php": {
+      "executable": 38,
+      "covered": 38,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "5479ed700c789c050c418c0a72529a39ac044ec800545f08108931bd9e1fdcfb"
+    },
+    "src/Contracts/AbilityCatalog.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "3d79078c4969d096602fedd639c02ad3402a58d138c93a2ed7c05a8bd3b9e823"
+    },
+    "src/Contracts/AbilityFactory.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "d2564c6ba636e450157b81368a3f21c21da439da1af7fb0a6c109a7357b50b56"
+    },
+    "src/Contracts/AbilityPack.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "7c8589d63a1aa39b237041411c4f83fb6e2fad3f7ce56da217627b92ab84e637"
+    },
+    "src/Contracts/AbilitySpec.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "b8fd320e31ca4b1b7214fc09cb3a9ec7f295348124ee1f826cdfb22743c9582a"
+    },
+    "src/Contracts/AuditRepository.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "96a47f1573762ba9d1fd27ef393f419413723362f63fa3ab39cb1dbe847ebb1d"
+    },
+    "src/Contracts/BucketStore.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "2df733f99ff7ecc3196d23010ec4ce41f75b723ccb1ecaac890410b832b1db24"
+    },
+    "src/Contracts/Clock.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "20e31c825d49f0ec2150a852ec51bc3831f814119da2d32c7800d539b855dbdd"
+    },
+    "src/Contracts/KeyRepository.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "22573880e2da2da36973934312d1a59078a7a07707f3312ee863a34f775ec14d"
+    },
+    "src/Contracts/OwnerLock.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "8013790cf14f26b0005b4c2cf80d07570612121aaf69171b1d330ca19c15703e"
+    },
+    "src/Contracts/PrivacyStore.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "a70bbbd5edeafd2cf2efd7b026383585d717b330377883afb454c3fa7baf1c25"
+    },
+    "src/Contracts/RateLimiter.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "7d20192bb52e13bff29e68257370abbbf2781301ad7e6cb7fdb1af5e506e355c"
+    },
+    "src/Contracts/RequestContext.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "444819295da1d6b8c3bc201166fd685dcbe87f1944ba17c87e926636b82be3f6"
+    },
+    "src/Contracts/SchemaBuilder.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "4d8f2e4686a8e9ecd6c5b5e39fa9108a26ca5820fea181b56cbd6f3bb7db8671"
+    },
+    "src/Contracts/ServiceProvider.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "6dfb02bfee7a34fd5d202d3a6b306da855641696149b3ea847f8e56be8ea6bb7"
+    },
+    "src/Contracts/SiteSettings.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "17f796e445485f67f6c71d52049b8528666cf682134152e5996a1c621207250a"
+    },
+    "src/Domain/AbilityDescriptor.php": {
+      "executable": 3,
+      "covered": 2,
+      "percent": 66.66666666666667,
+      "uncovered_lines": [
+        26
+      ],
+      "source_sha256": "9cc8eefc113a0012605e458a4713eefa3db61041e9d360b1e93368af25da4f2b"
+    },
+    "src/Domain/ApiKey.php": {
+      "executable": 3,
+      "covered": 2,
+      "percent": 66.66666666666667,
+      "uncovered_lines": [
+        43
+      ],
+      "source_sha256": "480d14b7607a7bae87895b2bcc452358036388cee78f710ac2d15b3d58fc12e3"
+    },
+    "src/Domain/AuthContext.php": {
+      "executable": 3,
+      "covered": 2,
+      "percent": 66.66666666666667,
+      "uncovered_lines": [
+        30
+      ],
+      "source_sha256": "31a4eaaf4532629641dd6d6fa7c327f96601de216c8e042750bece536829c9b8"
+    },
+    "src/Domain/Decision.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "9d3491ec97d9c0da7fc76d225449139c93bf27622b45205a426e324b606a5873"
+    },
+    "src/Domain/KeyId.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "1a94d97f16a92efb9d31f49b750ac4833da120cb40fd9e01c661e51c87b915eb"
+    },
+    "src/Domain/KeySecret.php": {
+      "executable": 10,
+      "covered": 9,
+      "percent": 90,
+      "uncovered_lines": [
+        43
+      ],
+      "source_sha256": "e26f965e655821dda7a667e8624f6709146dd6dbf6ef61c264de5d4bd2a474cf"
+    },
+    "src/Domain/RateLimitResult.php": {
+      "executable": 1,
+      "covered": 1,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "649444b02f803cabd15b4a4cc8385092548e6569e027261afdfa497b12a8a650"
+    },
+    "src/Domain/RiskTier.php": {
+      "executable": 7,
+      "covered": 7,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "fb1e0e8f57f8a338bc9b65b44f72b8b82918d35a69396ac15bd2cd1c696b7630"
+    },
+    "src/Domain/Scope.php": {
+      "executable": 31,
+      "covered": 31,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "313ec052aa2f8a48b1d2854bd369de4fb74497cf6163fe06e29bd322ff6f0b76"
+    },
+    "src/Domain/Toolset.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "28275437eb9a4d4952e005548bea71d69abd91cb336099494087159258a77652"
+    },
+    "src/Http/OriginGuard.php": {
+      "executable": 27,
+      "covered": 22,
+      "percent": 81.48148148148148,
+      "uncovered_lines": [
+        58,
+        71,
+        72,
+        73,
+        75
+      ],
+      "source_sha256": "cbbcf89e6483e4a6aa26539388866d024ebb801c19e05da02a86fc000e4bbe95"
+    },
+    "src/Http/RequestScope.php": {
+      "executable": 8,
+      "covered": 8,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "ec51770ded95fd7d56f8af59f736ed8e762abccdca9841cbdf3eaaf63541aa87"
+    },
+    "src/Http/RouteGate.php": {
+      "executable": 23,
+      "covered": 5,
+      "percent": 21.73913043478261,
+      "uncovered_lines": [
+        25,
+        29,
+        39,
+        40,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        51,
+        52,
+        53,
+        55,
+        56,
+        57,
+        58,
+        59
+      ],
+      "source_sha256": "810a457e2476e70195006c6d53b19e4172cddd3c5fddee48eeeb0787a120e2b5"
+    },
+    "src/Http/RouteMatcher.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "1ba2f507d6656f9273c99d9e3bd420535db6f9f599eb1338668dd3c3308d0475"
+    },
+    "src/Http/TransportGuard.php": {
+      "executable": 14,
+      "covered": 14,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "2074a303ae9e8f5535cd4fd9d160d197298487dc391c94921f308729fcd6d4f7"
+    },
+    "src/Mcp/ErrorMapper.php": {
+      "executable": 9,
+      "covered": 9,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "861191f2130f82aabc009a4d12149d81f06bc483ef6b2638d3db179b835774fc"
+    },
+    "src/Mcp/ServerGateway.php": {
+      "executable": 123,
+      "covered": 67,
+      "percent": 54.47154471544715,
+      "uncovered_lines": [
+        50,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        97,
+        118,
+        119,
+        124,
+        125,
+        126,
+        146,
+        147,
+        149,
+        150,
+        151,
+        152,
+        154,
+        155,
+        156,
+        157,
+        160,
+        161,
+        173,
+        174,
+        176,
+        177,
+        178,
+        179,
+        181,
+        182,
+        195,
+        196,
+        198,
+        199,
+        200,
+        211,
+        212,
+        227,
+        228,
+        229,
+        231,
+        233,
+        234,
+        235,
+        238,
+        250,
+        254,
+        286,
+        291,
+        292,
+        302
+      ],
+      "source_sha256": "fd20fedeb914d73201e161af0cfc8c0912a36925261b93e96fe5e0e2d36b7204"
+    },
+    "src/Persistence/KeyCollision.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "a32993f5ccaf3a274efce827c900e2f5d8332ae76bc420826b555dbafd7001c9"
+    },
+    "src/Persistence/MigrationProvider.php": {
+      "executable": 11,
+      "covered": 2,
+      "percent": 18.181818181818183,
+      "uncovered_lines": [
+        27,
+        28,
+        35,
+        36,
+        40,
+        37,
+        38,
+        41,
+        42
+      ],
+      "source_sha256": "8fbd943db0f555f245703c4e63098ea7962117e3c82f9bcaf22c65ea7fc56a61"
+    },
+    "src/Persistence/Migrator.php": {
+      "executable": 32,
+      "covered": 28,
+      "percent": 87.5,
+      "uncovered_lines": [
+        49,
+        58,
+        64,
+        69
+      ],
+      "source_sha256": "a7c054d2fcbda8b94d2bd97db2d538c32c964733c89ffc0fdde618ccc86d696d"
+    },
+    "src/Persistence/PreparedSql.php": {
+      "executable": 4,
+      "covered": 3,
+      "percent": 75,
+      "uncovered_lines": [
+        27
+      ],
+      "source_sha256": "66b850acd4407a2f44681b6e224de8fbede66772543d27d281d42fd34904573b"
+    },
+    "src/Persistence/RunsQueries.php": {
+      "executable": 17,
+      "covered": 11,
+      "percent": 64.70588235294117,
+      "uncovered_lines": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        57
+      ],
+      "source_sha256": "a1f4b5a82cbff3e5687132e90009d485e8f9fbdbf28f9104190d604a3b7f0c3b"
+    },
+    "src/Persistence/Schema.php": {
+      "executable": 11,
+      "covered": 10,
+      "percent": 90.9090909090909,
+      "uncovered_lines": [
+        24
+      ],
+      "source_sha256": "b5d392e76823da313014e5c7b27caaccf79c75dbb857590e36ace21d53d5674d"
+    },
+    "src/Persistence/StorageException.php": {
+      "executable": 0,
+      "covered": 0,
+      "percent": null,
+      "uncovered_lines": [],
+      "source_sha256": "7ed87700245bee50f3b9bd07e7aab1c7871dca788c49b2d172a310669ecc63a4"
+    },
+    "src/Persistence/WpOwnerLock.php": {
+      "executable": 12,
+      "covered": 11,
+      "percent": 91.66666666666667,
+      "uncovered_lines": [
+        40
+      ],
+      "source_sha256": "f48cac4630aeafaf60054c67a609c044d164db40583ebe44a08854731e8afbf9"
+    },
+    "src/Persistence/WpPrivacyStore.php": {
+      "executable": 56,
+      "covered": 48,
+      "percent": 85.71428571428571,
+      "uncovered_lines": [
+        39,
+        47,
+        67,
+        73,
+        82,
+        105,
+        115,
+        119
+      ],
+      "source_sha256": "5b0578a3fa0abfaba09b22a08c9d34a0854b7da5911b2da03861582dd6bf44ba"
+    },
+    "src/Persistence/WpSiteSettings.php": {
+      "executable": 67,
+      "covered": 56,
+      "percent": 83.58208955223881,
+      "uncovered_lines": [
+        66,
+        109,
+        165,
+        168,
+        176,
+        180,
+        183,
+        186,
+        189,
+        192,
+        195
+      ],
+      "source_sha256": "5f661716e4c30fc21a983657d087968011b21d4fe0d32760c2c08492c514d3ac"
+    },
+    "src/Persistence/WpdbAuditRepository.php": {
+      "executable": 59,
+      "covered": 49,
+      "percent": 83.05084745762711,
+      "uncovered_lines": [
+        39,
+        42,
+        51,
+        55,
+        68,
+        78,
+        90,
+        104,
+        107,
+        126
+      ],
+      "source_sha256": "6f2b0bca8a3ed848bab33e93e2ae730c6d418f94410fba417a986c0a8ed24107"
+    },
+    "src/Persistence/WpdbKeyRepository.php": {
+      "executable": 196,
+      "covered": 170,
+      "percent": 86.73469387755102,
+      "uncovered_lines": [
+        54,
+        74,
+        102,
+        120,
+        132,
+        134,
+        157,
+        158,
+        159,
+        160,
+        163,
+        211,
+        218,
+        244,
+        262,
+        263,
+        292,
+        355,
+        359,
+        408,
+        411,
+        412,
+        425,
+        429,
+        446,
+        450
+      ],
+      "source_sha256": "5427946b5fa39e1377aa1ab08a67b5c6ceb69e845f70b1a519961c7268c393f8"
+    },
+    "src/Plugin.php": {
+      "executable": 45,
+      "covered": 9,
+      "percent": 20,
+      "uncovered_lines": [
+        90,
+        91,
+        92,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        129,
+        146
+      ],
+      "source_sha256": "f5825a8067600da0d264361d376cccbc4b13f01497cc316c88a3a129bfdc7c48"
+    },
+    "src/Policy/HardDeny.php": {
+      "executable": 3,
+      "covered": 3,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "ad98153820841ed56883418cf9015f5d26bf5030848ce779e507285612e29b93"
+    },
+    "src/Policy/Policy.php": {
+      "executable": 33,
+      "covered": 31,
+      "percent": 93.93939393939394,
+      "uncovered_lines": [
+        95,
+        96
+      ],
+      "source_sha256": "d9f73402a0f78eac1e3eae5a974f59099195c88133edd8e3253b78a67143318a"
+    },
+    "src/Policy/TierResolver.php": {
+      "executable": 15,
+      "covered": 12,
+      "percent": 80,
+      "uncovered_lines": [
+        45,
+        46,
+        47
+      ],
+      "source_sha256": "76b0d9ac543f68ca72e8a07f91652eea9fbdacc7fbf0da442cf780e40c864759"
+    },
+    "src/Policy/ToolVisibility.php": {
+      "executable": 2,
+      "covered": 2,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "12b5db6aa63bddb94ccec0a2570e14a13749038cb8bd08cad36e29de4fd85066"
+    },
+    "src/RateLimit/SlidingWindowLimiter.php": {
+      "executable": 14,
+      "covered": 13,
+      "percent": 92.85714285714286,
+      "uncovered_lines": [
+        39
+      ],
+      "source_sha256": "3048a8c85338cb6ffea656718897264140062bb6462c059c9845a9a88b1089b1"
+    },
+    "src/RateLimit/WpBucketStore.php": {
+      "executable": 39,
+      "covered": 24,
+      "percent": 61.53846153846154,
+      "uncovered_lines": [
+        39,
+        40,
+        41,
+        50,
+        63,
+        64,
+        65,
+        66,
+        67,
+        69,
+        85,
+        103,
+        109,
+        113,
+        125
+      ],
+      "source_sha256": "456f9f8e734d2ec221e5ae7939bba48c46a622c4e2c5d8006b075fb1107e8295"
+    },
+    "src/Rest/AuditController.php": {
+      "executable": 51,
+      "covered": 29,
+      "percent": 56.86274509803921,
+      "uncovered_lines": [
+        27,
+        71,
+        72,
+        73,
+        75,
+        76,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        97,
+        98,
+        99,
+        100,
+        103,
+        104,
+        105,
+        106
+      ],
+      "source_sha256": "fd25c575102a99dd042adf6f4ef4ad68340ae30d8d365b28a4e4cdc8f7a5c5a1"
+    },
+    "src/Rest/KeyView.php": {
+      "executable": 16,
+      "covered": 16,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "be37a5754b2eea9d0ba8b527970b42ac6c6d746171888f798765fe741f4b342f"
+    },
+    "src/Rest/KeysController.php": {
+      "executable": 185,
+      "covered": 181,
+      "percent": 97.83783783783784,
+      "uncovered_lines": [
+        142,
+        143,
+        188,
+        219
+      ],
+      "source_sha256": "8b51245d1125b01b7eed6b4d9375472e8e05eefb6013e20f809e2fe1d487ddf1"
+    },
+    "src/Rest/ManagementController.php": {
+      "executable": 20,
+      "covered": 19,
+      "percent": 95,
+      "uncovered_lines": [
+        31
+      ],
+      "source_sha256": "43a9df9aae30d3447bc072862e07a6983ea23c3ffa9682d8b456ed9b4808e10c"
+    },
+    "src/Rest/ManagementGate.php": {
+      "executable": 12,
+      "covered": 7,
+      "percent": 58.333333333333336,
+      "uncovered_lines": [
+        23,
+        53,
+        54,
+        55,
+        57
+      ],
+      "source_sha256": "d7f54ed8268026d2a08f3ee6d3509ea7e8df9fbadd95870fd9ca23eb17c526ea"
+    },
+    "src/Rest/SettingsController.php": {
+      "executable": 116,
+      "covered": 94,
+      "percent": 81.03448275862068,
+      "uncovered_lines": [
+        38,
+        98,
+        99,
+        116,
+        117,
+        118,
+        119,
+        145,
+        146,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        186
+      ],
+      "source_sha256": "8c2b9f9be41c4337f9782fc8c71707b88e8fcb1b506f454da5c5bca1fc0c651b"
+    },
+    "src/Support/Cidr.php": {
+      "executable": 48,
+      "covered": 48,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "56ef88f2b5cd85745b5b81ec579bef47e4192dad6cefa3784d651b3bf51c45d2"
+    },
+    "src/Support/Json.php": {
+      "executable": 5,
+      "covered": 4,
+      "percent": 80,
+      "uncovered_lines": [
+        34
+      ],
+      "source_sha256": "f4781f16842a6c9fb5d1268205df4872badf1d3e0f02905052a4705d572716c7"
+    },
+    "src/Support/RequestMetadata.php": {
+      "executable": 17,
+      "covered": 15,
+      "percent": 88.23529411764706,
+      "uncovered_lines": [
+        27,
+        50
+      ],
+      "source_sha256": "702d1c9c9fc311609eb468969b5e204df2b0ba84dbd89842832d2f39fc6bc96f"
+    },
+    "src/Support/SystemClock.php": {
+      "executable": 1,
+      "covered": 1,
+      "percent": 100,
+      "uncovered_lines": [],
+      "source_sha256": "03b60dcea2b67db8a4e47ad41a75980011ab8ab0af042cdea0d480cc21c29f07"
+    },
+    "uninstall.php": {
+      "executable": 58,
+      "covered": 52,
+      "percent": 89.65517241379311,
+      "uncovered_lines": [
+        10,
+        28,
+        32,
+        39,
+        43,
+        94
+      ],
+      "source_sha256": "404352cd7b5e94a06ebbcac4e66e3ee0fac9a20fd1560d6fa42c601c136175d9"
+    },
+    "xnetvn-agent-hub-wp.php": {
+      "executable": 8,
+      "covered": 0,
+      "percent": 0,
+      "uncovered_lines": [
+        22,
+        24,
+        25,
+        26,
+        28,
+        29,
+        30,
+        32
+      ],
+      "source_sha256": "168d826692edeed6762d95d564b23e13f98e5538eaff4ae7d1264e166f3d77d3"
+    }
+  },
+  "date_utc": "2026-10-06",
+  "source_base_commit": "1a32e2a71bd94cec4f72d206638f0a0973fd1f72",
+  "pure_auth_classes": [
+    "FailureReason",
+    "GeneratedKey",
+    "HeaderExtractor",
+    "IssuedKey",
+    "KeyGenerator",
+    "KeyHasher",
+    "ParsedToken",
+    "Pepper",
+    "StoredKey",
+    "TokenParser"
+  ],
+  "targets": {
+    "combined_overall_80": true,
+    "combined_domain_90": true,
+    "combined_auth_90": true,
+    "combined_policy_90": true,
+    "unit_domain_90": true,
+    "unit_pure_auth_90": true
+  },
+  "scope_note": "Thresholds are line-coverage evidence only; no complete milestone, branch/path, client, production or release acceptance."
+}
