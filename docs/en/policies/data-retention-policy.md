@@ -16,18 +16,18 @@
 
 | Data Type | Storage Location | Default Retention Period | Disposal Mechanism |
 |---|---|---|---|
-| **Active API Keys** | `*_xnetvn_agent_hub_keys` | Up to 365 days (or the user-defined `expires_at` date) | Automatically become invalid on that date; revoked immediately upon user request |
-| **Revoked / Expired API Keys** | `*_xnetvn_agent_hub_keys` | 30 days after revocation/expiry | Automatically cleaned up by a daily Cron process |
-| **Audit Logs** | `*_xnetvn_agent_hub_audit` | **90 days** (Configurable from 30 to 365 days in Settings) | Automatically deleted in small batches by daily Cron |
+| **Active API Keys** | `*_xnetvn_agent_hub_wp_keys` | Up to 365 days (or the user-defined `expires_at` date) | Automatically become invalid on that date; revoked immediately upon user request |
+| **Revoked / Expired API Keys** | `*_xnetvn_agent_hub_wp_keys` | 30 days after revocation/expiry | Automatically cleaned up by a daily Cron process |
+| **Audit Logs** | `*_xnetvn_agent_hub_wp_audit` | **90 days** (Configurable from 30 to 365 days in Settings) | Automatically deleted in small batches by daily Cron |
 | **Rate Limit Counters** | `wp_options` / Redis Cache | 60 seconds (sliding window) | Automatically expire (TTL) or are deleted after more than 5 minutes |
-| **Personal Data of Deleted Users** | `*_xnetvn_agent_hub_keys` & `audit` | Immediately upon a deletion command | Triggered through the WordPress Erase Personal Data workflow |
+| **Personal Data of Deleted Users** | `*_xnetvn_agent_hub_wp_keys` & `audit` | Immediately upon a deletion command | Triggered through the WordPress Erase Personal Data workflow |
 
 ---
 
 ## 3. Automated Purge Workflow
 
 1. **Schedule a Cron Job:**  
-   The system registers the daily cron event `xnetvn_agent_hub_wp_retention_purge`.
+   The system registers the daily cron event `xnetvn_agent_hub_wp_purge_audit`.
 2. **Delete in Bounded Batches:**  
    - The process deletes at most **500 records** in one `DELETE ... WHERE created_at < ... LIMIT 500` statement.
    - If more than 500 records require deletion, the system automatically schedules a follow-up run to process the backlog without locking database tables for extended periods or slowing website users' queries.
@@ -39,5 +39,5 @@
 ## 4. Handling Complete Plugin Removal (Uninstallation)
 
 - When the plugin is removed through the Plugins administration menu or the `wp plugin delete` command:
-  - **Default:** The `uninstall.php` process completely deletes all database tables (`wp_xnetvn_agent_hub_keys`, `wp_xnetvn_agent_hub_audit`), the Pepper key and all related options.
+  - **Default:** The `uninstall.php` process completely deletes all database tables (`wp_xnetvn_agent_hub_wp_keys`, `wp_xnetvn_agent_hub_wp_audit`), the Pepper key and all related options.
   - **Data Preservation:** If the Administrator enabled `preserve_on_uninstall` on the Settings page, all table data remains intact for subsequent reactivation.

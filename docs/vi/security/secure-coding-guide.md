@@ -10,7 +10,7 @@
 Nối chuỗi trực tiếp vào câu lệnh `$wpdb->query` hoặc `$wpdb->get_results`:
 ```php
 // NGUY HIỂM: Lỗ hổng SQL Injection nghiêm trọng
-$sql = "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_keys WHERE key_id = '" . $key_id . "'";
+$sql = "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_wp_keys WHERE key_id = '" . $key_id . "'";
 $wpdb->query( $sql );
 ```
 
@@ -19,7 +19,7 @@ Sử dụng câu lệnh Prepared Statements với `$wpdb->prepare` và đúng b�
 ```php
 // AN TOÀN: Tham số hóa đầy đủ
 $sql = $wpdb->prepare(
-    "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_keys WHERE key_id = %s LIMIT 1",
+    "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_wp_keys WHERE key_id = %s LIMIT 1",
     $key_id
 );
 $result = $wpdb->get_row( $sql, ARRAY_A );

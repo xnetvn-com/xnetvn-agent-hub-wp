@@ -68,8 +68,8 @@ python3 -I -B "$HOME/.agents/skills/remote-test-lab/scripts/rtl.py" up
 ## 3. Quá Trình Khởi Tạo & Migration Cơ Sở Dữ Liệu
 
 Khi plugin được kích hoạt, thành phần `MigrationProvider` sẽ tự động kiểm tra phiên bản schema và khởi tạo 2 bảng dữ liệu riêng biệt:
-1. `wp_xnetvn_agent_hub_keys`: Quản lý danh sách khóa API, băm HMAC, thời hạn và phạm vi quyền.
-2. `wp_xnetvn_agent_hub_audit`: Lưu trữ nhật ký kiểm toán yêu cầu MCP.
+1. `wp_xnetvn_agent_hub_wp_keys`: Quản lý danh sách khóa API, băm HMAC, thời hạn và phạm vi quyền.
+2. `wp_xnetvn_agent_hub_wp_audit`: Lưu trữ nhật ký kiểm toán yêu cầu MCP.
 3. Sinh khóa bí mật Pepper (32 bytes ngẫu nhiên) và lưu tại option `xnetvn_agent_hub_wp_pepper` với cấu hình không autoload (`autoload = 'no'`).
 
 Nếu triển khai trên WordPress Multisite, schema sẽ tự động được tạo riêng biệt cho từng site khi site đó kích hoạt plugin hoặc khi có yêu cầu đầu tiên đến site đó.
@@ -90,5 +90,5 @@ Nếu triển khai trên WordPress Multisite, schema sẽ tự động được 
 ## 5. Gỡ Bỏ Plugin (Uninstallation)
 
 Khi xóa plugin qua giao diện WordPress hoặc lệnh `wp plugin delete`:
-- Mặc định, quy trình `uninstall.php` sẽ xóa toàn bộ các bảng cơ sở dữ liệu `*_xnetvn_agent_hub_keys`, `*_xnetvn_agent_hub_audit`, khóa Pepper và các options liên quan.
-- Nếu muốn giữ lại dữ liệu khi gỡ bỏ (để nâng cấp hoặc cài đặt lại sau này), hãy bật tùy chọn **"Bảo lưu dữ liệu khi gỡ bỏ" (Preserve data on uninstall)** trong phần Cài đặt trước khi tiến hành xóa plugin.
+- Mặc định, quy trình `uninstall.php` sẽ xóa toàn bộ các bảng cơ sở dữ liệu `*_xnetvn_agent_hub_wp_keys`, `*_xnetvn_agent_hub_wp_audit`, khóa Pepper và các options liên quan.
+- Nếu muốn giữ lại dữ liệu khi gỡ bỏ (để nâng cấp hoặc cài đặt lại sau này), hãy tắt tùy chọn **"Xóa dữ liệu plugin khi gỡ bỏ" (Delete plugin data when uninstalled)** trong phần Cài đặt trước khi tiến hành xóa plugin. Tùy chọn này mặc định bật.

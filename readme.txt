@@ -54,6 +54,7 @@ A translation template ships in languages/; no translated language packs exist y
 = Documentation and support =
 
 * User guide: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/docs/user-guide.md
+* Project wiki: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki
 * Support forum: https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/
 * Issues: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues
 

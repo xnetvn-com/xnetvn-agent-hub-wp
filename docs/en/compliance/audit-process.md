@@ -20,7 +20,7 @@
 
 ### Step 1: Extract Audit Data
 - Administrators access **Agent Hub → Audit Logs**.
-- Data can be filtered by date range or user, or the `wp_xnetvn_agent_hub_audit` table can be exported to CSV for advanced analysis.
+- Data can be filtered by date range or user, or the `wp_xnetvn_agent_hub_wp_audit` table can be exported to CSV for advanced analysis.
 
 ### Step 2: Analyze Traffic & Error Rates
 - Inspect records with `outcome = 'denied'`:

@@ -54,8 +54,8 @@ The system is organized into independent business subsystems that communicate th
 - **`HardDeny`:** A hard-deny list that blocks dangerous tool calls.
 
 ### 2.4 Persistence and Database Subsystem (`src/Persistence/`)
-- **`WpdbKeyRepository`:** Operate on `wp_xnetvn_agent_hub_keys` using 100% Prepared Statements (`$wpdb->prepare`).
-- **`WpdbAuditRepository`:** Operate on `wp_xnetvn_agent_hub_audit`, supporting batch writes at the shutdown hook.
+- **`WpdbKeyRepository`:** Operate on `wp_xnetvn_agent_hub_wp_keys` using 100% Prepared Statements (`$wpdb->prepare`).
+- **`WpdbAuditRepository`:** Operate on `wp_xnetvn_agent_hub_wp_audit`, supporting batch writes at the shutdown hook.
 - **`WpOwnerLock`:** Implement MySQL `GET_LOCK()` to protect concurrent user writes.
 - **`Migrator`:** Manage forward-only database table schema versions.
 

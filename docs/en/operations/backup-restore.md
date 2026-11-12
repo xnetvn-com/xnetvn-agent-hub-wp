@@ -8,12 +8,12 @@
 
 To restore 100% of xNetVN Agent Hub WP functionality without losing users' keys:
 1. **Database Tables:**
-   - `{$wpdb->prefix}xnetvn_agent_hub_keys`: Contains API key information and hashes.
-   - `{$wpdb->prefix}xnetvn_agent_hub_audit`: Contains audit logs.
+   - `{$wpdb->prefix}xnetvn_agent_hub_wp_keys`: Contains API key information and hashes.
+   - `{$wpdb->prefix}xnetvn_agent_hub_wp_audit`: Contains audit logs.
 2. **Option Records in the `wp_options` Table:**
    - `xnetvn_agent_hub_wp_pepper`: **Critical.** Losing this value prevents all existing API keys from authenticating.
    - `xnetvn_agent_hub_wp_settings`: Site-wide configuration (risk ceiling, proxy IP ranges, origins).
-   - `xnetvn_agent_hub_wp_schema_version`: Current database table schema version.
+   - `xnetvn_agent_hub_wp_db_version`: Current database table schema version.
 
 ---
 
@@ -37,8 +37,8 @@ echo "Starting xNetVN Agent Hub table backup..."
 
 # 1. Back up dedicated data tables
 mysqldump -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" \
-  "${WP_PREFIX}xnetvn_agent_hub_keys" \
-  "${WP_PREFIX}xnetvn_agent_hub_audit" \
+  "${WP_PREFIX}xnetvn_agent_hub_wp_keys" \
+  "${WP_PREFIX}xnetvn_agent_hub_wp_audit" \
   > "$BACKUP_DIR/tables_backup.sql"
 
 # 2. Back up critical options (including the pepper)

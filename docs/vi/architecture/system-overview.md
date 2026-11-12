@@ -54,8 +54,8 @@ Hệ thống được tổ chức theo các phân hệ nghiệp vụ độc lậ
 - **`HardDeny`:** Danh sách cấm cứng nhằm chặn đứng các hành vi gọi công cụ nguy hiểm.
 
 ### 2.4 Phân Hệ Lưu Trữ & Cơ Sở Dữ Liệu (`src/Persistence/`)
-- **`WpdbKeyRepository`:** Thao tác bảng `wp_xnetvn_agent_hub_keys` sử dụng 100% Prepared Statements (`$wpdb->prepare`).
-- **`WpdbAuditRepository`:** Thao tác bảng `wp_xnetvn_agent_hub_audit`, hỗ trợ ghi theo lô tại shutdown hook.
+- **`WpdbKeyRepository`:** Thao tác bảng `wp_xnetvn_agent_hub_wp_keys` sử dụng 100% Prepared Statements (`$wpdb->prepare`).
+- **`WpdbAuditRepository`:** Thao tác bảng `wp_xnetvn_agent_hub_wp_audit`, hỗ trợ ghi theo lô tại shutdown hook.
 - **`WpOwnerLock`:** Triển khai hàm `GET_LOCK()` của MySQL bảo vệ thao tác ghi đồng thời của người dùng.
 - **`Migrator`:** Quản lý phiên bản cấu trúc bảng cơ sở dữ liệu forward-only.
 
