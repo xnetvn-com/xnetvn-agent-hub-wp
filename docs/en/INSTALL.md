@@ -18,7 +18,7 @@
   - Nginx, Apache or LiteSpeed with **HTTPS/TLS** support.
   - MCP requires a secure HTTPS connection (except in development when a testing constant is defined).
 - **Plugin dependency:**
-  - The **`mcp-adapter`** plugin (WordPress Official MCP Adapter) must be installed and activated beforehand or simultaneously.
+  - The **`mcp-adapter`** plugin (WordPress Official MCP Adapter) is required to use MCP. You can activate xNetVN Agent Hub first; it shows an admin notice and keeps MCP disabled until a supported adapter is active.
 
 ---
 

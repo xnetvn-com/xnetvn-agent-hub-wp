@@ -144,6 +144,22 @@ final class NoticeTest extends TestCase {
 		);
 	}
 
+	/** A bootstrap failure shows a safe recovery step without exception details. */
+	public function test_bootstrap_failure_renders_safe_recovery_step(): void {
+		$notice = $this->render_admin_notices(
+			array(
+				array(
+					'code'     => 'bootstrap',
+					'required' => 'plugin bootstrap',
+					'actual'   => 'failed',
+				),
+			)
+		);
+		self::assertStringContainsString( 'could not start', $notice );
+		self::assertStringContainsString( 'reinstall', $notice );
+		self::assertStringNotContainsString( 'plugin bootstrap', $notice );
+	}
+
 	/** Unknown codes keep a safe generic message without echoing the code. */
 	public function test_unknown_code_renders_safe_message(): void {
 		$notice = $this->render_admin_notices(

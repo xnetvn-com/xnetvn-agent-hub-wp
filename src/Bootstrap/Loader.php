@@ -35,8 +35,21 @@ final class Loader {
 			Notice::register( $failures );
 			return false;
 		}
-		require_once $autoload;
-		\XNetVN\AgentHubWP\Plugin::boot( $plugin_file );
-		return true;
+		try {
+			require_once $autoload;
+			\XNetVN\AgentHubWP\Plugin::boot( $plugin_file );
+			return true;
+		} catch ( \Throwable $error ) {
+			Notice::register(
+				array(
+					array(
+						'code'     => 'bootstrap',
+						'required' => 'plugin bootstrap',
+						'actual'   => 'failed',
+					),
+				)
+			);
+			return false;
+		}
 	}
 }
