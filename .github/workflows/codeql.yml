@@ -2,20 +2,15 @@ name: CodeQL
 
 # Code scanning for the source languages this repository actually ships. The
 # default-branch ruleset requires code scanning, so the workflow must report on
-# every pull request and every default-branch push. Analysis needs no build and
-# no write token beyond the security-events upload.
+# every pull request and every default-branch push. The analysis uploads to code
+# scanning, which needs `security-events: write`, so the job is pinned to the
+# GitHub-hosted runner and never runs on the persistent machine.
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
     - cron: "40 18 * * 5"
-  workflow_dispatch:
-    inputs:
-      self_hosted_trial:
-        description: "Run once on self-hosted runners (trial)"
-        type: boolean
-        default: false
 
 permissions: {}
 
@@ -26,7 +21,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
