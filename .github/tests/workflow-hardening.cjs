@@ -50,6 +50,7 @@ const x64Jobs = {
 const hostedOnlyJobs = {
   'release.yml': ['draft'],
   'docs-deploy.yml': ['deploy'],
+  'codeql.yml': ['analyze'],
 };
 const selfHostedPullRequestTargetJobs = {
   'pr-labeler.yml': ['label'],
