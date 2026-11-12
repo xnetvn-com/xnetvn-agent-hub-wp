@@ -6,7 +6,7 @@
 
 ## Tương thích ràng buộc phiên bản
 
-wp-env đã cài vẫn import simple-git như một callable CommonJS. Phiên bản 4 cung cấp export có tên `simpleGit`, nên chỉ ghi đè bảo mật trực tiếp sẽ thất bại trước bước clone. Kiểm thử tương thích đã tái hiện TypeError đó trước khi sửa.
+Tại mốc 2026-10, wp-env 11.16.0 đã cài import simple-git như một callable CommonJS. Phiên bản 4 cung cấp export có tên `simpleGit`, nên chỉ ghi đè bảo mật trực tiếp đã thất bại trước bước clone; kiểm thử tương thích đã tái hiện TypeError đó trước khi sửa. wp-env 12.1.0 tự có import có tên, nên `bin/prepare-wp-env.cjs` hiện xác thực dạng đó thay vì vá.
 
 `bin/prepare-wp-env.cjs` xác thực ranh giới wp-env đã rà soát và không bao giờ ghi đè gói đã cài. Nó yêu cầu đúng phiên bản đã ghim, bản cài cục bộ dự án không phải symlink, và import có tên `simpleGit` đã rà soát trong `lib/download-sources.js` và `lib/runtime/docker/download-wp-phpunit.js`. Phiên bản khác, bản cài symlink hoặc dạng import bất ngờ đều thất bại thay vì chấp nhận phụ thuộc chưa rà soát. Guard không tắt hoặc thay đổi bảo vệ thao tác không an toàn của simple-git.
 

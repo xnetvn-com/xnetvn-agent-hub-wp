@@ -6,7 +6,7 @@ The resolved graph originally included simple-git3.36.0, argv-parser1.1.1 and sp
 
 ## Version-bound compatibility
 
-The installed wp-env still imports simple-git as a CommonJS callable. Version4 provides the named `simpleGit` export, so a direct security override alone fails before cloning. The compatibility test reproduced that TypeError before correction.
+At the 2026-10 checkpoint the installed wp-env11.16.0 imported simple-git as a CommonJS callable. Version4 provides the named `simpleGit` export, so a direct security override alone failed before cloning; the compatibility test reproduced that TypeError before correction. wp-env12.1.0 ships the named import itself, so `bin/prepare-wp-env.cjs` now validates that shape instead of patching it.
 
 `bin/prepare-wp-env.cjs` validates the reviewed wp-env boundary and never rewrites the installed package. It requires the exact pinned version, a project-local non-symlink install, and the reviewed named `simpleGit` import in `lib/download-sources.js` and `lib/runtime/docker/download-wp-phpunit.js`. A different version, a symlinked install or an unexpected import shape fails instead of accepting an unreviewed dependency. The guard does not disable or alter simple-git's unsafe-operation protections.
 
