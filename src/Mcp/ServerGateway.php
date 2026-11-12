@@ -58,7 +58,7 @@ final class ServerGateway implements ServiceProvider {
 	}
 	/** Register only versioned facade hooks; other adapter servers remain unaffected. */
 	public function register(): void {
-		add_action( 'mcp_adapter_init', array( $this, 'create' ) );
+		add_action( 'mcp_adapter_init', array( $this, 'create' ), 10, 1 );
 		add_filter( 'mcp_adapter_tools_list', array( $this, 'tools_list' ), 10, 3 );
 		add_filter( 'mcp_adapter_pre_tool_call', array( $this, 'pre_call' ), 10, 4 );
 		add_filter( 'mcp_adapter_tool_call_result', array( $this, 'tool_result' ), 10, 5 );
@@ -83,11 +83,11 @@ final class ServerGateway implements ServiceProvider {
 	/**
 	 * Create the exact server only when the verified runtime is compatible.
 	 *
-	 * @param object $adapter Installed adapter registry.
+	 * @param mixed $adapter Installed adapter registry, when the hook supplied one.
 	 */
-	public function create( object $adapter ): void {
+	public function create( mixed $adapter = null ): void {
 		$failures = Requirements::adapter_failures( ( $this->version )() );
-		if ( $failures || ! is_callable( array( $adapter, 'create_server' ) ) ) {
+		if ( $failures || ! is_object( $adapter ) || ! is_callable( array( $adapter, 'create_server' ) ) ) {
 			Notice::register(
 				$failures ? $failures : array(
 					array(

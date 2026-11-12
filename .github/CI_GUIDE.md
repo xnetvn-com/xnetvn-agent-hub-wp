@@ -276,8 +276,9 @@ open: `true` would be looked up as a runner label there.
 - Workflow-level `permissions: {}`; each job opens only `contents: read`.
   Write access is limited to the labeler (`pull-requests: write`, on the
   self-hosted runner under the same-repository guard), the draft release job
-  (`contents: write`) and the Pages deploy job (`pages: write`,
-  `id-token: write`).
+  (`contents: write`), the Pages deploy job (`pages: write`,
+  `id-token: write`) and the CodeQL analysis job (`security-events: write`,
+  pinned to the GitHub-hosted runner).
 - Third-party actions are pinned to full commit SHAs. Dependabot updates are
   reviewed like code.
 - `security-scan.yml` scans the pull-request commit range (`base..merge`) and the

@@ -1,13 +1,13 @@
 # xNetVN Agent Hub WP user guide
 
-Version 1.0.0 · last checked against the code on 2026-11-10
+Version 1.0.0 · last checked against the code on 2026-11-12
 
 xNetVN Agent Hub WP adds a private Model Context Protocol (MCP) server to WordPress. An AI agent connects with a key that belongs to a WordPress user; every request is checked against that user's current permissions and the key's own scope, and each call can be recorded in the activity log. The plugin also gives administrators and key owners the screens needed to create, scope, review and revoke that access.
 
 ## Requirements
 
 - WordPress 6.9 or later, PHP 8.2 or later.
-- The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), installed and active.
+- The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), installed and active to use MCP. The plugin itself can be activated without it.
 - HTTPS on the site that serves the MCP endpoint. The plugin refuses an insecure transport.
 - An MCP client that can send a bearer token in the `Authorization` header. OAuth is not supported.
 
@@ -17,7 +17,7 @@ xNetVN Agent Hub WP adds a private Model Context Protocol (MCP) server to WordPr
 2. Search for "xNetVN Agent Hub WP", select Install Now, then Activate.
 3. For a source checkout, run `composer install` inside the plugin directory before activation.
 
-If the MCP Adapter is missing or outside 0.7.x, WordPress reports the dependency, and the plugin shows an admin notice instead of starting the server.
+If the MCP Adapter is missing or outside 0.7.x, the plugin still activates, shows an admin notice, and does not start the MCP server.
 
 ## First setup
 
