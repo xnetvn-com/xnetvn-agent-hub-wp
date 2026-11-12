@@ -6,7 +6,6 @@
  * Version: 1.0.0
  * Requires at least: 6.9
  * Requires PHP: 8.2
- * Requires Plugins: mcp-adapter
  * Author: xNetVN
  * Author URI: https://xnetvn.com/
  * License: GPL-2.0-or-later
