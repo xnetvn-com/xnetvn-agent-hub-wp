@@ -9,7 +9,7 @@ const expectedDirectory = path.join(project, 'node_modules', '@wordpress', 'env'
 if (directory !== expectedDirectory || fs.realpathSync(directory) !== expectedDirectory) {
   throw new Error('wp-env must be installed in this project, without dependency directory symlinks.');
 }
-if (JSON.parse(fs.readFileSync(manifest, 'utf8')).version !== '12.0.0') {
+if (JSON.parse(fs.readFileSync(manifest, 'utf8')).version !== '12.1.0') {
   throw new Error('Review wp-env compatibility for the newly installed version.');
 }
 // wp-env 12 already imports simple-git through its named export, so this
