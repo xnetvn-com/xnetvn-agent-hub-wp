@@ -167,17 +167,19 @@ change in that pull request.
   evidence from the exact revision, not proof that a later revision passed.
 - A full pull-request run measured on 2026-11-03 (run `41671145824` and its
   siblings) consumed about 90 job-minutes before Plugin Check and dependency
-  audit (CI 62, coverage 20, security 3, SBOM 3, workflow lint 2). The Free plan
-  includes 2,000 minutes per month; confirm the budget or enable an isolated
-  runner when appropriate. Running the hosted matrix at full width changes the
-  wall-clock time, not the billed job-minutes.
+  audit (CI 62, coverage 20, security 3, SBOM 3, workflow lint 2). Standard
+  GitHub-hosted runner compute is free for this public repository and does not
+  consume private-repository included compute usage; larger runners and storage
+  have separate billing conditions. Job-minutes remain useful resource
+  measurements, not a budget ceiling. Running the hosted matrix at full width
+  changes the wall-clock time, not the billed job-minutes.
 - The 2026-11-04 selector cuts a pull-request run to ten integration legs and
   skips the source matrix for documentation-only pull requests. Those savings
   are expected, not measured; measure them with `gh run list` after merge.
 
 ## Security and resource boundaries
 
-The repository is private. `XNETVN_CI_RUNNER` is a **switch**, not a label: a
+The repository is public. `XNETVN_CI_RUNNER` is a **switch**, not a label: a
 trusted job runs on the self-hosted runner only when the variable equals `true`
 (GitHub compares strings case-insensitively) and the pull request comes from
 this repository. The labels live in code,
