@@ -33,7 +33,7 @@ wp plugin status xnetvn-agent-hub-wp
 wp eval 'var_dump( (new \XNetVN\AgentHubWP\Persistence\WpdbKeyRepository($GLOBALS["wpdb"], new \XNetVN\AgentHubWP\Support\SystemClock()))->list_for_user(1) );'
 
 # Kích hoạt chạy thủ công tiến trình dọn dẹp kiểm toán
-wp cron event run xnetvn_agent_hub_wp_retention_purge
+wp cron event run xnetvn_agent_hub_wp_purge_audit
 
 # Xóa cache đối tượng WordPress sau khi thay đổi cấu hình
 wp cache flush

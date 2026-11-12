@@ -80,4 +80,4 @@ The non-autoloaded WordPress option stores a PHP array, not a separate JSON docu
 - HTTPS/TLS with a valid certificate is mandatory.
 - Keep the maximum site ceiling at `destructive` (do not enable `admin` unless truly necessary and closely monitored).
 - Configure Proxy/CDN IP ranges accurately to protect against IP Spoofing.
-- Ensure the MySQL database uses InnoDB and scheduled backups are configured for `wp_xnetvn_agent_hub_keys` and the Pepper option.
+- Ensure the MySQL database uses InnoDB and scheduled backups are configured for `wp_xnetvn_agent_hub_wp_keys` and the Pepper option.

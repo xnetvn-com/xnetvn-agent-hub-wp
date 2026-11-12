@@ -100,8 +100,8 @@ Khi website đặt sau CDN hoặc Proxy trung gian:
 ## 4. Kế Hoạch Sao Lưu & Khôi Phục (Backup & Rollback)
 
 ### 4.1 Dữ Liệu Cần Sao Lưu
-- Bảng `wp_xnetvn_agent_hub_keys`: Chứa danh sách khóa API của người dùng.
-- Bảng `wp_xnetvn_agent_hub_audit`: Chứa nhật ký kiểm toán.
+- Bảng `wp_xnetvn_agent_hub_wp_keys`: Chứa danh sách khóa API của người dùng.
+- Bảng `wp_xnetvn_agent_hub_wp_audit`: Chứa nhật ký kiểm toán.
 - Option `xnetvn_agent_hub_wp_pepper`: Chứa khóa Pepper bí mật của site. **Mất khóa Pepper này sẽ khiến toàn bộ các khóa API hiện có không thể giải mã/xác thực được!**
 - Option `xnetvn_agent_hub_wp_settings`: Cấu hình toàn site.
 

@@ -19,25 +19,19 @@ Hệ thống cung cấp các chỉ số kỹ thuật quan trọng phục vụ t�
 
 ---
 
-## 2. Truy Vết Yêu Cầu Phân Tán (Request Tracing với Request ID)
+## 2. Truy vết yêu cầu
 
-- Mỗi yêu cầu MCP khi gửi đến hệ thống đều được cấp phát một mã định danh duy nhất **`request_id`** (định dạng UUID v4).
-- Mã này xuất hiện trong:
-  1. Phản hồi JSON-RPC của MCP.
-  2. Bảng nhật ký kiểm toán `wp_xnetvn_agent_hub_audit.request_id`.
-  3. Tiêu đề phản hồi HTTP: `X-Request-ID: <uuid>`.
-- Khi người dùng hoặc AI Agent gặp sự cố, việc cung cấp `request_id` cho Quản trị viên sẽ giúp tra cứu tức thì toàn bộ bối cảnh xử lý của yêu cầu đó trong tích tắc.
+- Audit logger gán cho mỗi yêu cầu một mã ngắn (`request_id`, 16 ký tự hex sinh từ 8 byte ngẫu nhiên) khi ghi bản ghi (`src/Audit/AuditLogger.php`).
+- Mã được lưu trong bảng audit `{prefix}xnetvn_agent_hub_wp_audit` và hiển thị tại **Agent Hub > Activity**.
+- Mã không được trả về dưới dạng header HTTP, nên khi báo sự cố hãy ghi lại thời điểm gần đúng, key ID và tên ability, rồi tra bản ghi trong Activity hoặc trong bảng.
 
 ---
 
-## 3. Cấu Hình Health Checks & Probes
+## 3. Health check và probe
 
-Hệ thống cung cấp endpoint kiểm tra sức khỏe hoạt động cho bộ cân bằng tải (Load Balancer) và Kubernetes/Docker:
+Plugin không đăng ký endpoint health riêng. Dùng tín hiệu chuẩn của WordPress cùng dữ liệu trạng thái của plugin:
 
-- **Liveness Probe (Kiểm tra tiến trình còn sống):**
-  - Gửi `GET /wp-json/xnetvn-agent-hub-wp/v1/health` (hoặc kiểm tra route REST API cơ bản).
-  - Trả về HTTP `200 OK` chứng minh máy chủ PHP-FPM và WordPress đang nhận yêu cầu bình thường.
-- **Readiness Probe (Kiểm tra sẵn sàng nhận tải):**
-  - Kiểm tra xem kết nối cơ sở dữ liệu MySQL có thông suốt không và bảng `*_keys` có truy vấn được không.
-  - Kiểm tra trạng thái kích hoạt của plugin `mcp-adapter`.
-  - Nếu bất kỳ thành phần nào gặp sự cố, trả về HTTP `503 Service Unavailable` để Load Balancer tạm thời cô lập node đó.
+- **Liveness:** gọi REST index của site (`/wp-json/`) trả `200` khi PHP và WordPress nhận yêu cầu.
+- **Readiness:** cơ sở dữ liệu trả lời, hai bảng `{prefix}xnetvn_agent_hub_wp_keys` và `{prefix}xnetvn_agent_hub_wp_audit` truy vấn được, và MCP Adapter chính thức đang hoạt động. **Agent Hub > Overview** hiển thị phiên bản adapter và việc server đã được tạo hay chưa.
+- Plugin không trả `503` khi thiếu phụ thuộc; adapter thiếu hoặc ngoài khoảng sẽ tắt MCP server trong khi phần còn lại vẫn hoạt động (`src/Bootstrap/Requirements.php`).
+

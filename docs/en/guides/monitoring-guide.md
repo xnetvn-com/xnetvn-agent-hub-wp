@@ -19,25 +19,19 @@ The system provides important technical metrics for integration with Prometheus,
 
 ---
 
-## 2. Distributed Request Tracing with Request ID
+## 2. Request tracing
 
-- Each MCP request sent to the system is assigned a unique **`request_id`** (UUID v4 format).
-- This identifier appears in:
-  1. The MCP JSON-RPC response.
-  2. The audit log table `wp_xnetvn_agent_hub_audit.request_id`.
-  3. The HTTP response header: `X-Request-ID: <uuid>`.
-- When a user or AI Agent encounters an issue, providing the `request_id` to the administrator enables immediate lookup of the request's full processing context.
+- The audit logger assigns each request a short identifier (`request_id`, 16 hex characters from 8 random bytes) when it writes the row (`src/Audit/AuditLogger.php`).
+- The identifier is stored in the audit table `{prefix}xnetvn_agent_hub_wp_audit` and is visible in **Agent Hub > Activity**.
+- It is not emitted as an HTTP response header, so record the approximate time, the key ID and the ability name when you report an issue, then locate the row in Activity or in the table.
 
 ---
 
-## 3. Health Check and Probe Configuration
+## 3. Health checks and probes
 
-The system provides a health check endpoint for Load Balancers and Kubernetes/Docker:
+The plugin does not register a dedicated health endpoint. Use standard WordPress signals together with the plugin's own status data:
 
-- **Liveness Probe:**
-  - Send `GET /wp-json/xnetvn-agent-hub-wp/v1/health` (or check a basic REST API route).
-  - HTTP `200 OK` indicates that PHP-FPM and WordPress are accepting requests normally.
-- **Readiness Probe:**
-  - Check that the MySQL database connection works and that the `*_keys` table can be queried.
-  - Check that the `mcp-adapter` plugin is active.
-  - If any component fails, return HTTP `503 Service Unavailable` so that the Load Balancer temporarily isolates that node.
+- **Liveness:** a request to the site's REST index (`/wp-json/`) returns `200` when PHP and WordPress accept requests.
+- **Readiness:** the database answers, the `{prefix}xnetvn_agent_hub_wp_keys` and `{prefix}xnetvn_agent_hub_wp_audit` tables are queryable, and the official MCP Adapter is active. **Agent Hub > Overview** reports the adapter version and whether the server was created.
+- The plugin returns no `503` for dependency failures; a missing or out-of-range adapter disables the MCP server while the rest of the plugin keeps working (`src/Bootstrap/Requirements.php`).
+

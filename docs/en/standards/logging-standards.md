@@ -18,7 +18,7 @@
 
 ---
 
-## 2. Audit Record Structure (`wp_xnetvn_agent_hub_audit`)
+## 2. Audit Record Structure (`wp_xnetvn_agent_hub_wp_audit`)
 
 Every audit record created must include all of the following standard structured fields:
 
@@ -50,4 +50,4 @@ Every audit record created must include all of the following standard structured
 ## 4. Retention & Disposal Policy (Retention Policy)
 
 - By default, audit logs are retained for **90 days**.
-- A daily cron job (`xnetvn_agent_hub_wp_retention_purge`) deletes records older than the configured number of days in bounded batches, at most 500 records per batch, to avoid extended database table locks.
+- A daily cron job (`xnetvn_agent_hub_wp_purge_audit`) deletes records older than the configured number of days in bounded batches, at most 500 records per batch, to avoid extended database table locks.

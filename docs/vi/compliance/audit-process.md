@@ -20,7 +20,7 @@
 
 ### Bước 1: Trích Xuất Dữ Liệu Kiểm Toán
 - Quản trị viên truy cập màn hình **Agent Hub → Nhật ký (Audit Logs)**.
-- Có thể lọc theo khoảng thời gian, theo người dùng hoặc xuất dữ liệu bảng `wp_xnetvn_agent_hub_audit` ra tệp CSV để phân tích nâng cao.
+- Có thể lọc theo khoảng thời gian, theo người dùng hoặc xuất dữ liệu bảng `wp_xnetvn_agent_hub_wp_audit` ra tệp CSV để phân tích nâng cao.
 
 ### Bước 2: Phân Tích Lưu Lượng & Tỷ Lệ Lỗi
 - Kiểm tra các bản ghi có trạng thái `outcome = 'denied'`:

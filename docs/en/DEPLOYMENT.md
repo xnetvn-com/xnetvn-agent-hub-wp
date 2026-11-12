@@ -100,8 +100,8 @@ When a website is behind a CDN or intermediary Proxy:
 ## 4. Backup & Rollback Plan
 
 ### 4.1 Data to Back Up
-- `wp_xnetvn_agent_hub_keys` table: Contains the users' API key list.
-- `wp_xnetvn_agent_hub_audit` table: Contains audit logs.
+- `wp_xnetvn_agent_hub_wp_keys` table: Contains the users' API key list.
+- `wp_xnetvn_agent_hub_wp_audit` table: Contains audit logs.
 - `xnetvn_agent_hub_wp_pepper` option: Contains the site's secret Pepper. **Losing this Pepper makes all existing API keys impossible to decrypt/authenticate!**
 - `xnetvn_agent_hub_wp_settings` option: Site-wide configuration.
 

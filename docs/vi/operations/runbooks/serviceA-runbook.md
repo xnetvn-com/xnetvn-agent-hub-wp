@@ -57,7 +57,7 @@ tail -n 100 /var/log/php8.2-fpm.log
 2. **Lỗi 500 xuất hiện trên tuyến MCP:**
    - Hành động: Kiểm tra ngay `wp-content/debug.log` để xem có lỗi PHP Fatal hoặc lỗi cú pháp trong plugin hay không.
 3. **Bộ nhớ RAM của MySQL tăng cao bất thường:**
-   - Hành động: Kiểm tra số lượng dòng của bảng `wp_xnetvn_agent_hub_audit`. Nếu quá lớn, kích hoạt chạy lệnh cron dọn dẹp:
+   - Hành động: Kiểm tra số lượng dòng của bảng `wp_xnetvn_agent_hub_wp_audit`. Nếu quá lớn, kích hoạt chạy lệnh cron dọn dẹp:
      ```bash
-     wp cron event run xnetvn_agent_hub_wp_retention_purge
+     wp cron event run xnetvn_agent_hub_wp_purge_audit
      ```

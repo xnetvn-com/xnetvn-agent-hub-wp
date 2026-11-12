@@ -37,7 +37,7 @@
   - Block malicious IP ranges immediately at the Web Server (Nginx) or CDN (Cloudflare) layer.
 
 ### Step 3: Root Cause Analysis (RCA)
-- Inspect all audit logs in `wp_xnetvn_agent_hub_audit` and the system log file `debug.log`.
+- Inspect all audit logs in `wp_xnetvn_agent_hub_wp_audit` and the system log file `debug.log`.
 - Reproduce the failure in an isolated environment (Sandbox / Remote Test Lab).
 - Identify weaknesses in logic, configuration or authorization boundaries.
 

@@ -57,7 +57,7 @@ tail -n 100 /var/log/php8.2-fpm.log
 2. **500 errors on the MCP route:**
    - Action: Immediately check `wp-content/debug.log` for PHP Fatal errors or plugin syntax errors.
 3. **Unusually high MySQL RAM usage:**
-   - Action: Check the row count in `wp_xnetvn_agent_hub_audit`. If excessive, trigger the cleanup cron command:
+   - Action: Check the row count in `wp_xnetvn_agent_hub_wp_audit`. If excessive, trigger the cleanup cron command:
      ```bash
-     wp cron event run xnetvn_agent_hub_wp_retention_purge
+     wp cron event run xnetvn_agent_hub_wp_purge_audit
      ```

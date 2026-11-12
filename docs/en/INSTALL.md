@@ -68,8 +68,8 @@ python3 -I -B "$HOME/.agents/skills/remote-test-lab/scripts/rtl.py" up
 ## 3. Database Initialization & Migration
 
 When the plugin is activated, `MigrationProvider` automatically checks the schema version and initializes 2 separate data tables:
-1. `wp_xnetvn_agent_hub_keys`: Manages API keys, HMAC hashes, expiry and permission scopes.
-2. `wp_xnetvn_agent_hub_audit`: Stores MCP request audit logs.
+1. `wp_xnetvn_agent_hub_wp_keys`: Manages API keys, HMAC hashes, expiry and permission scopes.
+2. `wp_xnetvn_agent_hub_wp_audit`: Stores MCP request audit logs.
 3. Generates a secret Pepper (32 random bytes) and stores it in `xnetvn_agent_hub_wp_pepper` without autoload (`autoload = 'no'`).
 
 On WordPress Multisite, the schema is automatically created separately for each site when it activates the plugin or receives its first request.
@@ -90,5 +90,5 @@ On WordPress Multisite, the schema is automatically created separately for each 
 ## 5. Uninstallation
 
 When deleting the plugin through the WordPress interface or `wp plugin delete`:
-- By default, `uninstall.php` removes all `*_xnetvn_agent_hub_keys`, `*_xnetvn_agent_hub_audit` database tables, Pepper and related options.
-- To retain data when uninstalling (for upgrading or later reinstallation), enable **"Preserve data on uninstall"** in Settings before deleting the plugin.
+- By default, `uninstall.php` removes all `*_xnetvn_agent_hub_wp_keys`, `*_xnetvn_agent_hub_wp_audit` database tables, Pepper and related options.
+- To retain data when uninstalling (for upgrading or later reinstallation), turn off **"Delete plugin data when uninstalled"** in Settings before deleting the plugin. That switch is on by default.

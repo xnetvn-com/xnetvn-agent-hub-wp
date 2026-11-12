@@ -37,7 +37,7 @@
   - Chặn dải IP độc hại ngay tại tầng Web Server (Nginx) hoặc CDN (Cloudflare).
 
 ### Bước 3: Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis - RCA)
-- Kiểm tra toàn bộ nhật ký kiểm toán `wp_xnetvn_agent_hub_audit` và file log hệ thống `debug.log`.
+- Kiểm tra toàn bộ nhật ký kiểm toán `wp_xnetvn_agent_hub_wp_audit` và file log hệ thống `debug.log`.
 - Tái hiện lỗi trên môi trường cô lập (Sandbox / Remote Test Lab).
 - Xác định điểm yếu trong logic, cấu hình hoặc ranh giới phân quyền.
 

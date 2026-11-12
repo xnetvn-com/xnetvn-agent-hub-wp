@@ -111,6 +111,7 @@ The system, content, taxonomy, media, comments and users packs are implemented. 
 ## Documentation
 
 - [Documentation index](docs/en/README.md) and [Vietnamese translations](docs/vi/README.md)
+- [Project wiki](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki) for the task-oriented guide, the security model and the engineering pages
 - [User guide](docs/user-guide.md) for WordPress.org users
 - [Development guide](docs/en/development.md) and [testing guide](docs/en/TESTING.md)
 - [API key design](docs/en/architecture/api-keys.md) and [operations](docs/en/operations.md)

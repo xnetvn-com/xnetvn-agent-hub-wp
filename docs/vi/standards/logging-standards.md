@@ -18,7 +18,7 @@
 
 ---
 
-## 2. Cấu Trúc Bản Ghi Kiểm Toán (`wp_xnetvn_agent_hub_audit`)
+## 2. Cấu Trúc Bản Ghi Kiểm Toán (`wp_xnetvn_agent_hub_wp_audit`)
 
 Mỗi bản ghi kiểm toán được tạo ra phải chứa đầy đủ các trường thông tin có cấu trúc chuẩn sau:
 
@@ -50,4 +50,4 @@ Mỗi bản ghi kiểm toán được tạo ra phải chứa đầy đủ các t
 ## 4. Chính Sách Lưu Trữ & Hủy Bỏ (Retention Policy)
 
 - Mặc định, nhật ký kiểm toán được lưu trữ trong vòng **90 ngày**.
-- Một cron job định kỳ hàng ngày (`xnetvn_agent_hub_wp_retention_purge`) sẽ xóa các bản ghi cũ hơn số ngày quy định theo từng lô nhỏ (bounded batches, tối đa 500 bản ghi/lô) để tránh khóa bảng cơ sở dữ liệu lâu.
+- Một cron job định kỳ hàng ngày (`xnetvn_agent_hub_wp_purge_audit`) sẽ xóa các bản ghi cũ hơn số ngày quy định theo từng lô nhỏ (bounded batches, tối đa 500 bản ghi/lô) để tránh khóa bảng cơ sở dữ liệu lâu.

@@ -33,7 +33,7 @@ wp plugin status xnetvn-agent-hub-wp
 wp eval 'var_dump( (new \XNetVN\AgentHubWP\Persistence\WpdbKeyRepository($GLOBALS["wpdb"], new \XNetVN\AgentHubWP\Support\SystemClock()))->list_for_user(1) );'
 
 # Manually run the audit cleanup process
-wp cron event run xnetvn_agent_hub_wp_retention_purge
+wp cron event run xnetvn_agent_hub_wp_purge_audit
 
 # Clear the WordPress object cache after configuration changes
 wp cache flush

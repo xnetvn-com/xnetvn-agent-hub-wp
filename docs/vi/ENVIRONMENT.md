@@ -80,4 +80,4 @@ Option WordPress không autoload lưu mảng PHP. Các mặc định trên lấy
 - Bắt buộc HTTPS/TLS với chứng chỉ hợp lệ.
 - Trần site tối đa giữ nguyên mức `destructive` (không mở `admin` trừ khi thực sự cần thiết và có giám sát chặt chẽ).
 - Cấu hình dải IP Proxy/CDN chính xác để bảo vệ chống giả mạo IP (IP Spoofing).
-- Đảm bảo cơ sở dữ liệu MySQL sử dụng bộ máy InnoDB và đã cấu hình sao lưu định kỳ cho bảng `wp_xnetvn_agent_hub_keys` và option Pepper.
+- Đảm bảo cơ sở dữ liệu MySQL sử dụng bộ máy InnoDB và đã cấu hình sao lưu định kỳ cho bảng `wp_xnetvn_agent_hub_wp_keys` và option Pepper.

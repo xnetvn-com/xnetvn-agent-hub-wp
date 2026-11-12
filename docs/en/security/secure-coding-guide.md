@@ -10,7 +10,7 @@
 Concatenate strings directly into `$wpdb->query` or `$wpdb->get_results` statements:
 ```php
 // DANGEROUS: Severe SQL Injection vulnerability
-$sql = "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_keys WHERE key_id = '" . $key_id . "'";
+$sql = "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_wp_keys WHERE key_id = '" . $key_id . "'";
 $wpdb->query( $sql );
 ```
 
@@ -19,7 +19,7 @@ Use Prepared Statements with `$wpdb->prepare` and the correct type specifiers (`
 ```php
 // SAFE: Fully parameterized
 $sql = $wpdb->prepare(
-    "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_keys WHERE key_id = %s LIMIT 1",
+    "SELECT * FROM {$wpdb->prefix}xnetvn_agent_hub_wp_keys WHERE key_id = %s LIMIT 1",
     $key_id
 );
 $result = $wpdb->get_row( $sql, ARRAY_A );
