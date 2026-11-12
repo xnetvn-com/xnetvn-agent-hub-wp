@@ -33,7 +33,7 @@ xNetVN Agent Hub adds that control layer as a WordPress plugin. Each MCP key bel
 
 - WordPress 6.9 or later (tested against 7.1.2).
 - PHP 8.2 or later.
-- The official [MCP Adapter](https://wordpress.org/plugins/mcp-adapter/) plugin, version `>=0.7.0 <0.8.0`, installed and active before this plugin.
+- The official [MCP Adapter](https://wordpress.org/plugins/mcp-adapter/) plugin, version `>=0.7.0 <0.8.0`, installed and active to use MCP. The plugin can be activated first; MCP stays disabled with an admin notice until a supported adapter is active.
 - MySQL 8.0 or later, or MariaDB 10.6 or later, with InnoDB.
 - HTTPS in production; insecure transport is a development-only opt-in.
 - For development: Composer 2.4+ and Node.js 24. Integration, browser and E2E suites run in a separate lab environment, not on a workstation.

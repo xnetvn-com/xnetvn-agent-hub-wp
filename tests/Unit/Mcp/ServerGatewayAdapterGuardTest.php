@@ -52,6 +52,28 @@ final class ServerGatewayAdapterGuardTest extends TestCase {
 		self::assertFalse( $gateway->ready() );
 	}
 
+	/** An argument-less hook call is the operative fail-closed path. */
+	public function test_zero_argument_hook_call_fails_closed(): void {
+		Actions\expectAdded( 'admin_notices' )->once();
+		Actions\expectAdded( 'network_admin_notices' )->once();
+		$gateway = $this->gateway( '0.7.0' );
+
+		$gateway->create();
+
+		self::assertFalse( $gateway->ready() );
+	}
+
+	/** An object without the facade method is reported, never invoked. */
+	public function test_object_without_create_server_is_rejected(): void {
+		Actions\expectAdded( 'admin_notices' )->once();
+		Actions\expectAdded( 'network_admin_notices' )->once();
+		$gateway = $this->gateway( '0.7.0' );
+
+		$gateway->create( new \stdClass() );
+
+		self::assertFalse( $gateway->ready() );
+	}
+
 	/** An unsupported runtime version never reaches create_server. */
 	public function test_unsupported_adapter_is_not_invoked(): void {
 		Actions\expectAdded( 'admin_notices' )->once();

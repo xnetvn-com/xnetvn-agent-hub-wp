@@ -156,7 +156,7 @@ final class NoticeTest extends TestCase {
 			)
 		);
 		self::assertStringContainsString( 'could not start', $notice );
-		self::assertStringContainsString( 'error log', $notice );
+		self::assertStringContainsString( 'reinstall', $notice );
 		self::assertStringNotContainsString( 'plugin bootstrap', $notice );
 	}
 
