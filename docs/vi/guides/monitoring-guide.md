@@ -22,7 +22,7 @@ Hệ thống cung cấp các chỉ số kỹ thuật quan trọng phục vụ t�
 ## 2. Truy vết yêu cầu
 
 - Audit logger gán cho mỗi yêu cầu một mã ngắn (`request_id`, 16 ký tự hex sinh từ 8 byte ngẫu nhiên) khi ghi bản ghi (`src/Audit/AuditLogger.php`).
-- Mã được lưu trong bảng audit `{prefix}xnetvn_agent_hub_wp_audit` và hiển thị tại **Agent Hub > Activity**.
+- Mã được lưu trong bảng audit `{prefix}xnetvn_agent_hub_wp_audit`; bảng Activity không hiển thị mã này, nên truy vấn trực tiếp bảng khi cần.
 - Mã không được trả về dưới dạng header HTTP, nên khi báo sự cố hãy ghi lại thời điểm gần đúng, key ID và tên ability, rồi tra bản ghi trong Activity hoặc trong bảng.
 
 ---
@@ -32,6 +32,6 @@ Hệ thống cung cấp các chỉ số kỹ thuật quan trọng phục vụ t�
 Plugin không đăng ký endpoint health riêng. Dùng tín hiệu chuẩn của WordPress cùng dữ liệu trạng thái của plugin:
 
 - **Liveness:** gọi REST index của site (`/wp-json/`) trả `200` khi PHP và WordPress nhận yêu cầu.
-- **Readiness:** cơ sở dữ liệu trả lời, hai bảng `{prefix}xnetvn_agent_hub_wp_keys` và `{prefix}xnetvn_agent_hub_wp_audit` truy vấn được, và MCP Adapter chính thức đang hoạt động. **Agent Hub > Overview** hiển thị phiên bản adapter và việc server đã được tạo hay chưa.
+- **Readiness:** cơ sở dữ liệu trả lời, hai bảng `{prefix}xnetvn_agent_hub_wp_keys` và `{prefix}xnetvn_agent_hub_wp_audit` truy vấn được, và MCP Adapter chính thức đang hoạt động. **Agent Hub > Overview** hiển thị phiên bản adapter; route `/status` (cần xác thực) báo thêm việc server đã được tạo hay chưa.
 - Plugin không trả `503` khi thiếu phụ thuộc; adapter thiếu hoặc ngoài khoảng sẽ tắt MCP server trong khi phần còn lại vẫn hoạt động (`src/Bootstrap/Requirements.php`).
 
