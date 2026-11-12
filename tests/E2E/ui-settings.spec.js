@@ -260,7 +260,7 @@ test('UI-ST-03 invalid input never submits and a rejected save stays readable', 
 			headers: { 'X-WP-Nonce': window.xnetvnAgentHubConfig.nonce },
 		});
 		const body = await response.json();
-		return !(Array.isArray(body.allowed_origins) && body.allowed_origins.includes('example.com'));
+		return !(Array.isArray(body.allowed_origins) && body.allowed_origins.some((origin) => origin === 'example.com'));
 	})).toBe(true);
 	const errors = page.locator('.xnetvn-settings-errors');
 	await expect(errors).toBeVisible();

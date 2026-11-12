@@ -66,6 +66,9 @@ def main():
     if not certificate.is_file() or certificate.stat().st_mode & 0o777 != 0o600:
         raise RuntimeError("Trusted lab certificate unavailable")
     context = ssl.create_default_context(cafile=str(certificate))
+    # Pin the protocol floor explicitly so the reviewed policy does not depend on
+    # the interpreter default.
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     with socket.create_connection((host, 443), timeout=10) as connection:
         with context.wrap_socket(connection, server_hostname=host):
             pass
