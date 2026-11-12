@@ -25,7 +25,7 @@ xNetVN Agent Hub WP gives an AI agent a reviewed set of WordPress tools without 
 
 = Get started in minutes =
 
-1. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/.
+1. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/ to enable MCP. You can activate xNetVN Agent Hub WP first; it shows a notice and keeps MCP disabled until the adapter is active.
 2. Install and activate xNetVN Agent Hub WP, then create a key on your profile with the lowest tier and toolsets the client needs.
 3. Point the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp and send the key as a bearer token.
 
@@ -37,7 +37,7 @@ Site owners, agencies and developers who want an AI agent to work with posts, me
 
 * WordPress 6.9 or later, PHP 8.2 or later.
 * Single-site and Multisite test suites target WordPress 6.9 and 7.1.2.
-* The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), installed and active.
+* The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), installed and active to use MCP. The plugin can be activated without it; MCP stays disabled and an admin notice explains the missing dependency.
 * Clients that send a bearer token; OAuth is not implemented. The client gate covers MCP Inspector 2.9.0 and FastMCP Slim 4.0.11 CLI, not desktop GUI clients.
 
 = Privacy, security and your data =
@@ -91,7 +91,7 @@ The plugin has no vendor service and contacts none on its own. It can make one k
 
 = After activation =
 
-1. Install and activate the official MCP Adapter 0.7.x first. This plugin declares "Requires Plugins: mcp-adapter", so WordPress will not activate it until the adapter is active.
+1. Install and activate the official MCP Adapter 0.7.x to enable MCP. The plugin can be activated without it; MCP stays disabled and an admin notice explains the missing dependency.
 2. Create a key on your own Profile page, store it in the client secret store, and configure the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp with the key as a bearer token.
 
 For a source checkout, run composer install before activation.
@@ -100,7 +100,7 @@ For a source checkout, run composer install before activation.
 
 = Do I need another plugin? =
 
-Yes. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/ first. This plugin also checks the adapter version before it starts the server.
+Yes, to use MCP. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/. The plugin can be activated without it; it shows an admin notice and keeps the MCP server disabled until the adapter is active. It also checks the adapter version before starting the server.
 
 = Which WordPress and PHP versions do I need? =
 
@@ -163,6 +163,7 @@ Use https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/ or open an issue a
 
 = 1.0.0 =
 * First 1.0 release: 62 private abilities across six toolsets, user-owned keys with per-key scope, audit and privacy tooling, and guarded MCP transport through the official MCP Adapter 0.7.x.
+* The plugin can be activated before the MCP Adapter is installed; MCP stays disabled with an admin notice until a supported adapter is active.
 * Deactivation clears the plugin's owned scheduled events on the current site, and on every site for network-wide deactivation.
 * Remote media fetch honors the site's WP_HTTP_BLOCK_EXTERNAL and WP_ACCESSIBLE_HOSTS settings on every request and redirect hop.
 

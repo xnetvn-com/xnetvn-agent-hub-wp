@@ -15,6 +15,7 @@ Changes use Semantic Versioning and the Keep a Changelog format.
 - Move the `workflow-lint.yml` jobs onto the same guarded switch, so the automation guard runs instead of failing at a hosted job the account cannot start. The draft release and the Pages deployment stay on hosted runners because they hold a write token or an OIDC identity; the labeler is handled in the entry above.
 
 ### Fixed
+- Keep activation independent of the MCP Adapter: the plugin no longer declares the hard `Requires Plugins` header, so a site without the adapter can activate it, see the requirement notice, and keep MCP disabled until a supported adapter is active.
 - Unslash the last-used user agent once at the request boundary, so a user agent containing quotes or backslashes is stored consistently with the audit row instead of keeping WordPress slashes.
 
 ### Security

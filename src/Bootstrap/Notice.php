@@ -44,6 +44,8 @@ final class Notice {
 				} elseif ( 'abilities_api' === $code ) {
 					/* translators: 1: Required API name, 2: Actual API status. */
 					$message = sprintf( __( 'Requirement not met. xNetVN Agent Hub requires the WordPress Abilities API (required: %1$s; current: %2$s). Next step: update WordPress to a version that includes the core Abilities API.', 'xnetvn-agent-hub-wp' ), $required, $actual );
+				} elseif ( 'bootstrap' === $code ) {
+					$message = __( 'Requirement not met. xNetVN Agent Hub could not start. Next step: check the site error log and reinstall the production release ZIP.', 'xnetvn-agent-hub-wp' );
 				} else {
 					$message = __( 'Requirement not met. An environment requirement is not met. Next step: contact your administrator.', 'xnetvn-agent-hub-wp' );
 				}
