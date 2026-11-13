@@ -85,7 +85,7 @@ The 2026-07-28 profile is sessionless: every JSON-RPC request is its own `POST`,
 }
 ```
 
-Both commands below read the JSON body from a file, so the key and the payload never appear in the command line:
+Both commands below read the JSON body from a file, so the payload never appears in the command line. The shell still expands the bearer key into the `curl` argument list, which a process listing on the same host can read; take the value from a secret store, keep the command out of shell history, and treat the host as trusted:
 
 ```bash
 curl -sS "$XNETVN_MCP_URL" \
@@ -108,7 +108,7 @@ curl -sS "$XNETVN_MCP_URL" \
   --data-binary @tools-call.json
 ```
 
-The no-token health check is the same `tools/list` request with the `Authorization` header removed: a 401 proves that the route exists and that the web server forwards the header. Read the full contract, all five request bodies and the SSE rule in [the connection guide](references/connect.md).
+The no-token health check is the same `tools/list` request with the `Authorization` header removed: a 401 proves that the route exists and that the plugin answered; it does not prove that a valid key would be accepted. The same request with the key returning 200 proves that the web server forwards the header. Read the full contract, all five request bodies and the SSE rule in [the connection guide](references/connect.md).
 
 ## Ability model
 
