@@ -77,7 +77,7 @@ Expected result: `composer build` writes `dist/xnetvn-agent-hub-wp-1.0.0.zip`, a
 ## Installation
 
 <details>
-<summary><strong>From a release ZIP</strong></summary>
+<summary><strong>From a locally built ZIP</strong></summary>
 
 1. Build the ZIP from a checkout with `composer build` (written to `dist/`).
 2. In WordPress, open **Plugins → Add New Plugin → Upload Plugin**, choose the ZIP and select **Install Now**.
@@ -125,10 +125,23 @@ curl -sS https://example.com/wp-json/xnetvn-agent-hub-wp/mcp \
   -H "Authorization: Bearer $XNETVN_KEY" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+  -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: tools/list" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { "name": "example-agent", "version": "1.0.0" },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }'
 ```
 
-Expected result: a JSON-RPC response whose tool list contains only the abilities the key's tier, toolsets and scope allow. A client that needs an OAuth flow cannot connect; only bearer keys are supported.
+Expected result: a JSON-RPC response whose tool list contains only the abilities the key's tier, toolsets and scope allow. The `2026-07-28` profile is sessionless, so every request repeats these headers and the `_meta` block; the older `2025-11-25` handshake needs `initialize` and `Mcp-Session-Id` instead. The full envelope, including the `tools/call` variant with `Mcp-Name`, is in the [AI agent skill pack](docs/en/guides/agent-skill-pack.md) and its [connection guide](skills/xnetvn-agent-hub-wp/references/connect.md).
 
 ## A look inside
 
@@ -168,7 +181,7 @@ flowchart LR
   output --> audit[(Activity log)]
 ```
 
-Only `src/Mcp/ServerGateway.php` references the MCP Adapter, so an adapter upgrade stays inside one facade. See [the architecture overview](docs/en/architecture/overview.md) for the request lifecycle and layer boundaries.
+Only `src/Mcp/ServerGateway.php` holds the adapter class and hook dependencies, so an adapter upgrade stays inside one facade. See [the architecture overview](docs/en/architecture/overview.md) for the request lifecycle and layer boundaries.
 
 ## Documentation
 
@@ -206,7 +219,7 @@ A key is 60 characters in the form `xnv_<key_id>_<secret>`. The plaintext is sho
 <details>
 <summary><strong>Which MCP clients work?</strong></summary>
 
-Any client that can send a bearer token in the `Authorization` header. OAuth is not implemented, so a client that requires an OAuth flow cannot connect; the tested client gate covers MCP Inspector 2.9.0 and the FastMCP Slim 4.0.11 CLI, not desktop GUI clients.
+Any client that can send a bearer token in the `Authorization` header **and** speaks an MCP HTTP profile the adapter supports: the `2026-07-28` sessionless profile, or the `2025-11-25` handshake with `initialize` and `Mcp-Session-Id`. OAuth is not implemented, so a client that requires an OAuth flow cannot connect. The client gate is prepared for MCP Inspector 2.9.0 and the FastMCP Slim 4.0.11 CLI, not desktop GUI clients; runtime acceptance of those clients remains unverified.
 
 </details>
 
