@@ -13,7 +13,7 @@ docs/vi/
 ├── 2. Vận hành & Cấu hình: ENVIRONMENT.md | GLOSSARY.md | TROUBLESHOOTING.md | FAQ.md | SUPPORT.md
 ├── 3. Tiêu chuẩn kỹ thuật: standards/ (coding, api, ui-ux, testing, logging, issue-storage)
 ├── 4. Chính sách: policies/ (security, privacy, incident, access, data-retention)
-├── 5. Hướng dẫn nghiệp vụ: guides/ (developer, operation, deployment, scaling, monitoring)
+├── 5. Hướng dẫn nghiệp vụ: guides/ (developer, operation, deployment, scaling, monitoring, agent-skill-pack)
 ├── 6. Tuân thủ quốc tế: compliance/ (gdpr, iso27001, pci-dss, audit)
 ├── 7. Kiến trúc & Thiết kế: architecture/ (overview, system-overview, DFD, ADR) | specs/
 ├── 8. An toàn thông tin: security/ (threat-modeling, threat-model, vulnerability, secure-coding, http-acceptance)
@@ -72,6 +72,7 @@ docs/vi/
 - **[guides/deployment-guide.md](guides/deployment-guide.md):** Hướng dẫn thiết lập CI/CD pipeline tự động hóa.
 - **[guides/scaling-guide.md](guides/scaling-guide.md):** Hướng dẫn mở rộng hệ thống theo chiều ngang phục vụ tải lớn.
 - **[guides/monitoring-guide.md](guides/monitoring-guide.md):** Hướng dẫn giám sát hiệu năng, độ trễ p95/p99 và cảnh báo sự cố.
+- **[guides/agent-skill-pack.md](guides/agent-skill-pack.md):** Hướng dẫn công khai cách kết nối AI agent tới máy chủ MCP và dùng các năng lực một cách an toàn.
 
 ### 5. Tuân Thủ & Pháp Lý (`compliance/` & `legal/`)
 - **[compliance/gdpr-compliance.md](compliance/gdpr-compliance.md):** Đáp ứng các điều khoản GDPR (Quyền được biết, Quyền được quên).

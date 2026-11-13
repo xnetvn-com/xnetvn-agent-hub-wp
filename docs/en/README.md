@@ -201,7 +201,7 @@ English documentation is organized in `docs/en/`, with corresponding Vietnamese 
 - **[Detailed documentation index (index.md)](index.md)**
 - **Technical standards (`standards/`):** [Coding Standards](standards/coding-standards.md), [API Standards](standards/api-standards.md), [Testing Standards](standards/testing-standards.md).
 - **Policies (`policies/`):** [Security Policy](policies/security-policy.md), [Privacy Policy](policies/privacy-policy.md), [Data Retention](policies/data-retention-policy.md).
-- **Guides (`guides/`):** [Developer Guide](guides/developer-guide.md), [Operation Guide](guides/operation-guide.md), [Deployment Guide](guides/deployment-guide.md).
+- **Guides (`guides/`):** [Developer Guide](guides/developer-guide.md), [Operation Guide](guides/operation-guide.md), [Deployment Guide](guides/deployment-guide.md), [AI Agent Skill Pack](guides/agent-skill-pack.md).
 - **Compliance (`compliance/`):** [GDPR Compliance](compliance/gdpr-compliance.md), [ISO 27001](compliance/iso27001-compliance.md), [PCI DSS](compliance/pci-dss-compliance.md).
 - **Operations & Incident Response (`operations/`):** [Runbook](operations/runbooks/serviceA-runbook.md), [Incident Response](operations/incident-response.md), [Backup & Restore](operations/backup-restore.md).
 

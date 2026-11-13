@@ -113,6 +113,7 @@ The system, content, taxonomy, media, comments and users packs are implemented. 
 - [Documentation index](docs/en/README.md) and [Vietnamese translations](docs/vi/README.md)
 - [Project wiki](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki) for the task-oriented guide, the security model and the engineering pages
 - [User guide](docs/user-guide.md) for WordPress.org users
+- **[AI agent skill pack](docs/en/guides/agent-skill-pack.md):** public guidance for connecting an AI agent to the MCP server and using its abilities safely.
 - [Development guide](docs/en/development.md) and [testing guide](docs/en/TESTING.md)
 - [API key design](docs/en/architecture/api-keys.md) and [operations](docs/en/operations.md)
 - [Plugin readme for WordPress](readme.txt)

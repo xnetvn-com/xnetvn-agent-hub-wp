@@ -13,7 +13,7 @@ docs/en/
 ├── 2. Operations & Configuration: ENVIRONMENT.md | GLOSSARY.md | TROUBLESHOOTING.md | FAQ.md | SUPPORT.md
 ├── 3. Technical standards: standards/ (coding, api, ui-ux, testing, logging, issue-storage)
 ├── 4. Policies: policies/ (security, privacy, incident, access, data-retention)
-├── 5. Business guides: guides/ (developer, operation, deployment, scaling, monitoring)
+├── 5. Business guides: guides/ (developer, operation, deployment, scaling, monitoring, agent-skill-pack)
 ├── 6. International compliance: compliance/ (gdpr, iso27001, pci-dss, audit)
 ├── 7. Architecture & Design: architecture/ (overview, system-overview, DFD, ADR) | specs/
 ├── 8. Information security: security/ (threat-modeling, threat-model, vulnerability, secure-coding, http-acceptance)
@@ -72,6 +72,7 @@ docs/en/
 - **[guides/deployment-guide.md](guides/deployment-guide.md):** Guide to setting up automated CI/CD pipelines.
 - **[guides/scaling-guide.md](guides/scaling-guide.md):** Guide to horizontal system scaling for large loads.
 - **[guides/monitoring-guide.md](guides/monitoring-guide.md):** Performance monitoring, p95/p99 latency and incident alerts.
+- **[guides/agent-skill-pack.md](guides/agent-skill-pack.md):** Public guidance for connecting an AI agent to the MCP server and using its abilities safely.
 
 ### 5. Compliance & Legal (`compliance/` & `legal/`)
 - **[compliance/gdpr-compliance.md](compliance/gdpr-compliance.md):** Meeting GDPR provisions (Right to Know, Right to Be Forgotten).
