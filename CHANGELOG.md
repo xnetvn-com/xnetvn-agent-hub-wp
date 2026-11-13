@@ -5,6 +5,7 @@ Changes use Semantic Versioning and the Keep a Changelog format.
 ## [Unreleased]
 
 ### Added
+- Public AI-agent skill pack under `skills/xnetvn-agent-hub-wp/` that explains the MCP endpoint, the ability model, the workflow rules, the safety contract and the troubleshooting vocabulary, using placeholders only.
 - WordPress.org listing preparation for the 1.0.0 submission: rewritten public readme, English user guide, banner and icon, ten captured screenshots, Live Preview blueprint and a lab capture fixture; `.wordpress-org` stays out of the release ZIP.
 
 ### Changed
