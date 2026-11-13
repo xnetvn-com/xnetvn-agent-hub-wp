@@ -160,6 +160,8 @@ jobs:
         run: composer analyse
       - name: Check version consistency
         run: composer check:version
+      - name: Check repository invariants
+        run: composer check:repo
       - name: Set up the documentation checker runtime
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:

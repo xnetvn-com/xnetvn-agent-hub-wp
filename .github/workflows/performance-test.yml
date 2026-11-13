@@ -6,8 +6,6 @@ on:
         description: "Run once on self-hosted runners (trial)"
         type: boolean
         default: false
-  schedule:
-    - cron: "0 3 * * 1"
 permissions: {}
 concurrency:
   group: performance-test-${{ github.workflow }}-${{ github.ref }}
