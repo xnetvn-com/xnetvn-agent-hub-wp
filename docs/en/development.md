@@ -11,6 +11,7 @@ Use PHP 8.2+, Composer 2.4+ for security auditing, Node 24, npm, Docker and WP-C
 | Unit tests | `composer test:unit` |
 | All static/unit gates | `composer check` |
 | Documentation gates | `composer check:docs` |
+| Public skill pack | `composer check:skills` |
 | Start disposable WordPress | `npm run env:start` |
 | Real WordPress integration | `composer test:integration` |
 | Remote HTTP rejection matrix | `composer test:http` |

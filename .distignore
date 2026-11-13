@@ -17,6 +17,7 @@
 tests
 bin
 docs
+skills
 node_modules
 build
 dist

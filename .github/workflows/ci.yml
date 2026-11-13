@@ -166,6 +166,8 @@ jobs:
           python-version: "3.12"
       - name: Check settings and documentation parity
         run: composer check:docs
+      - name: Check the public skill pack
+        run: composer check:skills
 
   bootstrap-syntax:
     name: bootstrap-syntax

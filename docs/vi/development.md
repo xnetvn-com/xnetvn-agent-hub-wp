@@ -11,6 +11,7 @@ Sử dụng PHP 8.2+, Composer 2.4+ để kiểm toán bảo mật, Node 24, npm
 | Kiểm thử đơn vị | `composer test:unit` |
 | Toàn bộ cửa kiểm tra tĩnh/đơn vị | `composer check` |
 | Cửa kiểm tra tài liệu | `composer check:docs` |
+| Gói kỹ năng công khai | `composer check:skills` |
 | Khởi động WordPress dùng một lần | `npm run env:start` |
 | Tích hợp WordPress thực tế | `composer test:integration` |
 | Ma trận từ chối HTTP từ xa | `composer test:http` |
