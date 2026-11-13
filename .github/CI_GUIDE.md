@@ -189,8 +189,9 @@ so a mistyped variable value cannot send a job to an arbitrary label:
 runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
 ```
 
-Two jobs start containers, not just tools: `ci.yml:integration` and
-`coverage-check.yml:integration` both run `wp-env`. They need a second switch,
+Three jobs start containers, not just tools: `ci.yml:integration` and
+`coverage-check.yml:integration` run `wp-env`, and `plugin-check.yml:check`
+runs Plugin Check in a `wp-env` environment. They need a second switch,
 `XNETVN_CI_RUNNER_DOCKER`, so a host whose container network cannot reach its
 own containers keeps them hosted while every other job moves:
 
@@ -256,8 +257,9 @@ gh variable delete XNETVN_CI_MAX_PARALLEL --repo OWNER/REPO             # back t
 ```
 
 Roll out in two stages. First set `XNETVN_CI_RUNNER`: the jobs that only need
-PHP, Node and Composer move, and the two `wp-env` matrices stay hosted. Then
-set `XNETVN_CI_RUNNER_DOCKER` only after a probe on that host proves two
+PHP, Node and Composer move, and the container jobs stay hosted: the two
+`wp-env` matrices and `plugin-check.yml:check`. Then set
+`XNETVN_CI_RUNNER_DOCKER` only after a probe on that host proves two
 containers can reach each other over TCP: a runner can pass every tool step and
 still fail `wp-env start` with `Error establishing a database connection` when a
 residual Docker `raw`-table `DROP` rule covers the subnet Docker hands to the

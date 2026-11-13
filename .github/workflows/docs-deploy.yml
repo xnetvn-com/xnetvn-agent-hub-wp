@@ -7,7 +7,6 @@ on:
     paths:
       - "docs/**"
       - "README.md"
-      - "readme.txt"
       - "CONTRIBUTING.md"
       - "SECURITY.md"
       - "CHANGELOG.md"
