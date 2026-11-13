@@ -201,7 +201,7 @@ Tài liệu tiếng Việt nằm tại `docs/vi/`; bản tiếng Anh tương ứ
 - **[Mục lục chi tiết tài liệu (index.md)](index.md)**
 - **Tiêu chuẩn kỹ thuật (`standards/`):** [Coding Standards](standards/coding-standards.md), [API Standards](standards/api-standards.md), [Testing Standards](standards/testing-standards.md).
 - **Chính sách (`policies/`):** [Security Policy](policies/security-policy.md), [Privacy Policy](policies/privacy-policy.md), [Data Retention](policies/data-retention-policy.md).
-- **Hướng dẫn (`guides/`):** [Developer Guide](guides/developer-guide.md), [Operation Guide](guides/operation-guide.md), [Deployment Guide](guides/deployment-guide.md).
+- **Hướng dẫn (`guides/`):** [Developer Guide](guides/developer-guide.md), [Operation Guide](guides/operation-guide.md), [Deployment Guide](guides/deployment-guide.md), [AI Agent Skill Pack](guides/agent-skill-pack.md).
 - **Tuân thủ (`compliance/`):** [GDPR Compliance](compliance/gdpr-compliance.md), [ISO 27001](compliance/iso27001-compliance.md), [PCI DSS](compliance/pci-dss-compliance.md).
 - **Vận hành & Ứng phó sự cố (`operations/`):** [Runbook](operations/runbooks/serviceA-runbook.md), [Incident Response](operations/incident-response.md), [Backup & Restore](operations/backup-restore.md).
 

@@ -159,6 +159,10 @@ Only public HTTPS URLs are accepted, and every redirect is checked against the s
 
 ![Media settings with remote download and size limits](../.wordpress-org/screenshot-9.png)
 
+## AI agent skill pack
+
+If you let an AI agent work through the MCP server, the public [AI agent skill pack](en/guides/agent-skill-pack.md) explains what the pack contains, how to load it, the safety rules and its limits. The pack is documentation only: it grants no permission, cannot manage a key and is not shipped in the WordPress release ZIP.
+
 ## Troubleshooting
 
 | You see | Why | What to do |
