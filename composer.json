@@ -28,7 +28,7 @@
     "check:docs": ["python3 -I -B bin/check-settings-docs.py", "python3 -I -B bin/check-docs-parity.py"],
     "check:skills": ["python3 -I -B bin/check-skills.py --self-test", "python3 -I -B bin/check-skills.py"],
     "check:version": "bash bin/check-version-consistency.sh",
-    "check:repo": "bash bin/check-repo-invariants.sh",
+    "check:repo": ["bash bin/check-repo-invariants.sh --self-test", "bash bin/check-repo-invariants.sh"],
     "check": ["@lint", "@lint:bootstrap", "@analyse", "@check:version", "@check:repo", "@test:unit", "@check:docs", "@check:skills"],
     "build": ["@test:packaging", "bash bin/build-zip.sh"]
   },

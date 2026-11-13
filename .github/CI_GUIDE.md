@@ -150,8 +150,10 @@ change in that pull request.
 
 - Pull requests cancel an older run of the same workflow and ref.
 - `main` runs are not cancelled: a completed default-branch run is evidence.
-- Release, changelog, Pages deployment and the weekly compliance/performance
-  runs never cancel each other.
+- Release, changelog, Pages deployment, the weekly `compliance-check.yml` run
+  and the manually dispatched `performance-test.yml` run never cancel each
+  other: each sets `cancel-in-progress: false` and keeps its own concurrency
+  group.
 - `sbom.yml` and `plugin-check.yml` are path-filtered because they only depend
   on dependency files and files that can enter the release ZIP. They are not
   required checks.
@@ -350,13 +352,18 @@ A `v*` tag starts three independent workflows:
 
 1. `changelog.yml` validates the version against the plugin header,
    `readme.txt` and `CHANGELOG.md`, and uploads the matching release notes.
-2. `compliance-check.yml` verifies the license text, version consistency,
-   changelog format, security policy and translation template.
-3. `release.yml` generates CycloneDX/SPDX SBOMs, validates the manifest and
-   Composer advisories, verifies that both generators produced all four files,
-   and creates a **draft** GitHub Release with the plugin ZIP and SBOM assets.
-   If either SBOM generator fails, the draft job is skipped rather than
-   publishing an incomplete set.
+2. `compliance-check.yml` runs `bin/check-repo-invariants.sh` for the license
+   text, license declarations, changelog format, security contact, Gitleaks
+   configuration and translation template, and then runs
+   `bin/check-version-consistency.sh`.
+3. `release.yml` generates CycloneDX/SPDX SBOMs in its `sbom` job. After that
+   job succeeds, the `draft` job validates that the tag matches
+   `vMAJOR.MINOR.PATCH` and cross-checks it with the plugin version before
+   that job installs project dependencies. The draft job validates the
+   manifest and Composer advisories, verifies that both generators produced
+   all four files, and creates a **draft** GitHub Release with the plugin ZIP
+   and SBOM assets. If either SBOM generator fails, the draft job is skipped
+   rather than publishing an incomplete set.
 
 Publishing the draft is a manual owner action. The draft workflow does not wait
 for the changelog workflow; inspect both runs before publishing. The release
