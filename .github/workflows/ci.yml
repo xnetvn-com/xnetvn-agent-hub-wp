@@ -327,6 +327,15 @@ jobs:
       - name: Stop the disposable WordPress environment
         if: always() && steps.start.outcome != 'skipped'
         run: npx --no-install wp-env stop
+      - name: Report the tolerated experimental failure
+        if: failure() && matrix.experimental == true
+        env:
+          MATRIX_PHP: ${{ matrix.php }}
+          MATRIX_WP: ${{ matrix.wp }}
+          MATRIX_ADAPTER: ${{ matrix.adapter }}
+          MATRIX_MODE: ${{ matrix.mode }}
+        run: |
+          echo "::warning title=Experimental integration failure::The experimental integration leg php=${MATRIX_PHP}, wp=${MATRIX_WP}, adapter=${MATRIX_ADAPTER}, mode=${MATRIX_MODE} failed. This leg is tolerated on this branch because the matrix marks it experimental, and the ci-result aggregate has no field that names this failure. Read this annotation and the failed leg log."
 
   build:
     name: build
