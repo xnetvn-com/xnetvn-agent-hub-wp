@@ -385,6 +385,27 @@ WordPress.org directory acceptance. Independent security review remains a
 separate gate. Publishing and repository/server setting changes require
 explicit authorization.
 
+### Evidence and protection boundaries
+
+- The documentation-only fast path is a pull-request control. A merge to `main`
+  still runs the full source and coverage matrices, because the merged revision
+  is release evidence and `release.yml` does not require a matrix result for the
+  tagged commit. Measure a change before widening this exemption.
+- Repository artifact retention is the repository default (90 days). Workflows
+  that upload their own evidence set shorter retention, and artifacts published
+  by third-party actions inherit the repository default. Shortening the
+  repository default also shortens check, workflow-run and status retention, so
+  it is an evidence-policy decision, not only a storage cleanup.
+- The `main` ruleset enforces linear history, required signatures and CodeQL,
+  but it declares no required status checks. The seven contexts listed in
+  [`settings.yml`](settings.yml) are the intended required set, and every one of
+  them reports on a source pull request. Enabling them is a repository-setting
+  change that must also satisfy the declared approval rule; `ci-result` and
+  `workflow-lint` are the aggregates designed for that role.
+- An experimental integration leg is tolerated by `continue-on-error` and emits
+  a warning annotation when it fails. `ci-result` reads job results only, so the
+  annotation, not the aggregate, is where that failure is visible.
+
 ## Official references
 
 - [Reusable workflows and same-commit local references](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
