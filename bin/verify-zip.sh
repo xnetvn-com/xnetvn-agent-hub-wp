@@ -8,7 +8,7 @@ for required in xnetvn-agent-hub-wp.php vendor/autoload.php readme.txt LICENSE u
     exit 1
   fi
 done
-if grep -Eq '^xnetvn-agent-hub-wp/(AGENTS\.md$|CLAUDE\.md$|opencode\.jsonc?$|SUPPORT\.md$|CHANGELOG\.md$|README\.md$|SECURITY\.md$|tests/|scripts/|\.distignore$|\.[^/]+|docs/|bin/|infra/|node_modules/|compose[^/]*\.ya?ml$|rtl\.override\.yml$|phpunit|phpcs|phpstan|composer\.lock$|package(-lock)?\.json|vendor/(phpunit|squizlabs|brain|mockery|phpstan|wp-phpunit|yoast|sebastian|wp-coding-standards|phpcompatibility|slevomat|dealerdirect)/)' <<< "$entries"; then
+if grep -Eq '^xnetvn-agent-hub-wp/(AGENTS\.md$|CLAUDE\.md$|opencode\.jsonc?$|SUPPORT\.md$|CHANGELOG\.md$|README\.md$|SECURITY\.md$|tests/|scripts/|\.distignore$|\.[^/]+|docs/|skills/|bin/|infra/|node_modules/|compose[^/]*\.ya?ml$|rtl\.override\.yml$|phpunit|phpcs|phpstan|composer\.lock$|package(-lock)?\.json|vendor/(phpunit|squizlabs|brain|mockery|phpstan|wp-phpunit|yoast|sebastian|wp-coding-standards|phpcompatibility|slevomat|dealerdirect)/)' <<< "$entries"; then
   echo 'Release contains excluded development files.' >&2
   exit 1
 fi

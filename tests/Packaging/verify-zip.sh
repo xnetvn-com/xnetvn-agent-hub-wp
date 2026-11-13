@@ -6,6 +6,10 @@ if ! grep -Fxq '.gitleaksignore' .distignore; then
   printf 'Distribution ignore rules must exclude .gitleaksignore.\n' >&2
   exit 1
 fi
+if ! grep -Fxq 'skills' .distignore; then
+  printf 'Distribution ignore rules must exclude skills.\n' >&2
+  exit 1
+fi
 fixture=$(mktemp -d)
 trap 'rm -rf -- "$fixture"' EXIT
 mkdir -p "$fixture/xnetvn-agent-hub-wp/vendor" "$fixture/xnetvn-agent-hub-wp/src/Bootstrap" "$fixture/xnetvn-agent-hub-wp/assets" "$fixture/xnetvn-agent-hub-wp/languages"
@@ -21,7 +25,7 @@ if bash bin/verify-zip.sh "$fixture/missing-src.zip" >/dev/null 2>&1; then
   exit 1
 fi
 rm -f -- "$fixture/missing-src.zip"
-for excluded in AGENTS.md CLAUDE.md opencode.json opencode.jsonc .agents/README.md .claude/skills/example/SKILL.md .github/copilot-instructions.md SUPPORT.md CHANGELOG.md README.md SECURITY.md scripts/sbom/convert_composer_to_spdx.py .env .env.rtl .dockerignore .distignore .gitleaks.toml .gitleaksignore compose.yaml compose.ui-network.yaml rtl.override.yml infra/remote/config.php; do
+for excluded in AGENTS.md CLAUDE.md opencode.json opencode.jsonc .agents/README.md .claude/skills/example/SKILL.md .github/copilot-instructions.md SUPPORT.md CHANGELOG.md README.md SECURITY.md scripts/sbom/convert_composer_to_spdx.py skills/xnetvn-agent-hub-wp/SKILL.md .env .env.rtl .dockerignore .distignore .gitleaks.toml .gitleaksignore compose.yaml compose.ui-network.yaml rtl.override.yml infra/remote/config.php; do
   mkdir -p "$(dirname "$fixture/xnetvn-agent-hub-wp/$excluded")"
   touch "$fixture/xnetvn-agent-hub-wp/$excluded"
   cp "$fixture/valid.zip" "$fixture/invalid.zip"
