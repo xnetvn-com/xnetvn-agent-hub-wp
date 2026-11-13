@@ -29,6 +29,7 @@ const trustedDockerRunner =
 const dockerJobs = {
   'ci.yml': ['integration'],
   'coverage-check.yml': ['integration'],
+  'plugin-check.yml': ['check'],
 };
 // Jobs that download an amd64/x64-only binary declare the architecture so an
 // ARM self-hosted runner is never selected.

@@ -1,8 +1,10 @@
 name: Plugin Check
 
-# Plugin Check validates the packaged plugin, so it only needs to run when a
-# file that can enter the release ZIP changes. Documentation and test-only
-# changes are covered by the source gate instead.
+# Plugin Check validates the packaged plugin, so the filter follows the paths
+# that bin/build-zip.sh copies into the package: a path under bin/ is never
+# copied and must not be listed, and a copied path such as LICENSE must be
+# listed because it changes the package. Documentation and test-only changes
+# are covered by the source gate instead.
 on:
   push:
     branches: [main]
@@ -10,10 +12,10 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'languages/**'
-      - 'bin/**'
       - 'xnetvn-agent-hub-wp.php'
       - 'uninstall.php'
       - 'readme.txt'
+      - 'LICENSE'
       - 'composer.json'
       - 'composer.lock'
       - '.distignore'
@@ -23,10 +25,10 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'languages/**'
-      - 'bin/**'
       - 'xnetvn-agent-hub-wp.php'
       - 'uninstall.php'
       - 'readme.txt'
+      - 'LICENSE'
       - 'composer.json'
       - 'composer.lock'
       - '.distignore'
@@ -54,7 +56,7 @@ defaults:
 jobs:
   check:
     name: Package and run Plugin Check
-    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
+    runs-on: ${{ fromJSON(((inputs.self_hosted_trial) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.XNETVN_CI_RUNNER == 'true' && vars.XNETVN_CI_RUNNER_DOCKER == 'true')) && '["self-hosted","linux"]' || '"ubuntu-24.04"') }}
     timeout-minutes: 25
     permissions:
       contents: read
