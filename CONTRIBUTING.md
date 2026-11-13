@@ -183,7 +183,7 @@ Security-sensitive changes require:
    - Validation steps (local + relevant integration tests).
    - Risks, limitations, migration, rollback.
    - Security invariants L-01 → L-20 that were reviewed.
-4. **Wait for the required checks**: `ci-result`, `Complete source coverage and regression gate`, `workflow-lint`, `Secret detection (Gitleaks)`, `Static analysis (Semgrep)`, `Filesystem vulnerability scan (Trivy)` and `Composer and npm advisories`. Path-filtered `plugin-check` and `sbom` runs report when their inputs change; release, changelog, compliance, documentation deploy and performance gates run on tags, schedules or manual dispatch.
+4. **Wait for the required checks**: `ci-result`, `Complete source coverage and regression gate`, `workflow-lint`, `Secret detection (Gitleaks)`, `Static analysis (Semgrep)`, `Filesystem vulnerability scan (Trivy)` and `Composer and npm advisories`. Path-filtered `plugin-check` and `sbom` runs report when their inputs change; release and changelog run on tags, compliance runs weekly, documentation deploy runs on documentation changes, and the performance gate runs only on manual dispatch.
 5. **Wait for code-owner review** (CODEOWNERS review is required). No self-merge.
 6. **Address review feedback** in additional commits (do not force-push after review started).
 7. **Once approved**, a maintainer will squash-merge. Delete your branch after merge.
