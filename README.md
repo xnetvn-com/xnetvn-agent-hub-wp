@@ -2,47 +2,51 @@
 
 <div align="center">
 
-<img src=".wordpress-org/icon-256x256.png" alt="xNetVN Agent Hub WP icon" width="96">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img src="docs/assets/banner-light.svg" alt="xNetVN Agent Hub WP banner" width="100%">
+</picture>
 
 # xNetVN Agent Hub WP
 
 **A capability-scoped MCP server that keeps AI agents within the permissions of the user who issued the key.**
 
-[![CI](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/ci.yml/badge.svg)](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/codeql.yml/badge.svg)](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/codeql.yml)
-[![PHP 8.2+](https://img.shields.io/badge/php-8.2%2B-777bb4)](composer.json)
-[![License](https://img.shields.io/github/license/xnetvn-com/xnetvn-agent-hub-wp)](LICENSE)
+**[Wiki][wiki]** · **[User guide][user-guide]** · **[Report a bug][bug]** · **[Request a feature][feature]** · **[Discussions][discussions]**
 
-[Wiki](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki) · [User guide](docs/user-guide.md) · [Report a bug](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues/new?template=feature_request.yml)
+[![CI][badge-ci]][link-ci] [![CodeQL][badge-codeql]][link-codeql] [![Security Scan][badge-security]][link-security]
+
+[![PHP][badge-php]][composer] [![Version][badge-version]][changelog] [![License][badge-license]][license]
+
+[![Discussions][badge-discussions]][discussions] [![Stars][badge-stars]][stargazers] [![Contributors][badge-contributors]][contributors]
+
+[![Share on X][img-share-x]][share-x] [![Share on Facebook][img-share-facebook]][share-facebook] [![Share on LinkedIn][img-share-linkedin]][share-linkedin] [![Share on Reddit][img-share-reddit]][share-reddit] [![Share on Telegram][img-share-telegram]][share-telegram] [![Share on WhatsApp][img-share-whatsapp]][share-whatsapp] [![Share on Bluesky][img-share-bluesky]][share-bluesky] [![Share on Mastodon][img-share-mastodon]][share-mastodon]
 
 </div>
-
-<p align="center">
-  <img src=".wordpress-org/screenshot-1.png" alt="Agent Hub overview screen with the MCP endpoint, a connection check and key shortcuts" width="760">
-</p>
 
 <details>
 <summary><strong>Table of contents</strong></summary>
 
-- [Why](#why)
-- [Features](#features)
-- [Quick start](#quick-start)
-- [Installation](#installation)
-- [Usage](#usage)
-- [A look inside](#a-look-inside)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-- [Documentation](#documentation)
-- [FAQ](#faq)
-- [Roadmap and changelog](#roadmap-and-changelog)
-- [Contributing](#contributing)
-- [Support](#support)
-- [Security](#security)
-- [License](#license)
+- **[Overview](#overview)**
+- **[Key Features](#key-features)**
+- **[Demo](#demo)**
+- **[How It Works](#how-it-works)**
+- **[Quick Start](#quick-start)**
+- **[Installation](#installation)**
+- **[Usage](#usage)**
+- **[Configuration](#configuration)**
+- **[Documentation](#documentation)**
+- **[FAQ](#faq)**
+- **[Roadmap & Changelog](#roadmap--changelog)**
+- **[Join Our Community](#join-our-community)**
+- **[Contributing](#contributing)**
+- **[Security](#security)**
+- **[Contact](#contact)**
+- **[Acknowledgments](#acknowledgments)**
+- **[License](#license)**
 
 </details>
 
-## Why
+## Overview
 
 An MCP client gives an AI agent hands. The hard part is not connecting it; it is keeping those hands inside the permissions of the person who asked for the work, and being able to prove afterwards what happened. A shared token with broad rights is easy to set up and impossible to defend.
 
@@ -52,18 +56,43 @@ xNetVN Agent Hub WP adds that control layer to WordPress 6.9 and later. Every ke
 - **Split authentication**: the MCP route accepts bearer keys only; key management accepts a login cookie plus a REST nonce only, and a cookie identity never substitutes for a key (`src/Rest/ManagementGate.php`).
 - **Privacy-shaped audit**: records keep identity, outcome, timing, transport and top-level argument names, never argument values, tokens, hashes or cookies (`src/Audit/AuditEvent.php`).
 
-## Features
+## Key Features
 
 | | Feature | What you get |
 |---|---|---|
 | 🔑 | User-owned keys | `xnv_…` keys bound to one WordPress user; the secret is shown once and stored as HMAC-SHA256 with a separate random per-site pepper. |
 | 🛡️ | Capability intersection | A call succeeds only when core capabilities, key scope, tier ceiling, toolset and site settings all allow it. The `admin` tier is off by default. |
 | 🔀 | Split authentication | Bearer keys on the MCP route; cookie plus `wp_rest` nonce on management routes. Neither credential works on the other surface. |
-| 🧰 | 62 reviewed abilities | Six toolsets: system (5), content (19), taxonomy (9), media (7), comments (10) and users (12), each with a strict input and output schema. |
+| 🧰 | 62 reviewed abilities | Six toolsets: system (5), content (19), taxonomy (9), media (7), comments (10) and users (12), each with a strict input and output schema. **[See the catalog][catalog]**. |
 | 🧾 | Audit and privacy | Top-level argument names only, bounded retention, optional IP anonymisation, and WordPress personal-data export and erasure support. |
 | 🚫 | Permanent exclusions | No arbitrary PHP, SQL or shell execution, no file editors, no secret or key-management tools, and no public abilities. |
 
-## Quick start
+## Demo
+
+<img src=".wordpress-org/screenshot-1.png" alt="Agent Hub overview screen with the MCP endpoint, a connection check and key shortcuts" width="720">
+
+**From a fresh install to a first authenticated call in a few minutes.** The screens below show the key lifecycle, the activity log and the access settings; the **[project wiki][wiki]** walks through every screen.
+
+| Keys | Activity | Access settings |
+|---|---|---|
+| <img src=".wordpress-org/screenshot-4.png" alt="Keys screen filtered by state and owner with rotate and revoke actions" width="300"> | <img src=".wordpress-org/screenshot-6.png" alt="Activity screen listing each request with user, ability, outcome and transport" width="300"> | <img src=".wordpress-org/screenshot-8.png" alt="Access settings with the site risk ceiling and connection options" width="300"> |
+
+## How It Works
+
+```mermaid
+flowchart LR
+  client([MCP client]) --> route[Exact MCP route]
+  route --> auth[Bearer auth and HMAC]
+  auth --> policy[Policy and key scope]
+  policy --> registry[Ability registry]
+  registry --> packs[Six ability packs]
+  registry --> output[Output pipeline]
+  output --> audit[(Activity log)]
+```
+
+Only `src/Mcp/ServerGateway.php` holds the adapter class and hook dependencies, so an adapter upgrade stays inside one facade. **[The architecture overview][architecture]** describes the request lifecycle and the layer boundaries.
+
+## Quick Start
 
 **Requirements:** WordPress 6.9+, PHP 8.2+, MySQL 8.0+ or MariaDB 10.6+ with InnoDB, HTTPS in production, and the official MCP Adapter `>=0.7.0 <0.8.0` to enable MCP.
 
@@ -72,7 +101,7 @@ composer install
 composer build
 ```
 
-Expected result: `composer build` writes `dist/xnetvn-agent-hub-wp-1.0.0.zip`, a release archive that already contains the Composer autoloader. Upload that ZIP in **Plugins → Add New Plugin → Upload Plugin**, activate it, then install and activate the official MCP Adapter.
+Expected result: `composer build` writes `dist/xnetvn-agent-hub-wp-1.0.0.zip`, a release archive that already contains the Composer autoloader.
 
 ## Installation
 
@@ -81,7 +110,7 @@ Expected result: `composer build` writes `dist/xnetvn-agent-hub-wp-1.0.0.zip`, a
 
 1. Build the ZIP from a checkout with `composer build` (written to `dist/`).
 2. In WordPress, open **Plugins → Add New Plugin → Upload Plugin**, choose the ZIP and select **Install Now**.
-3. Activate the plugin, then activate the official MCP Adapter `0.7.x` to enable MCP (`docs/en/INSTALL.md`).
+3. Activate the plugin, then activate the official MCP Adapter `0.7.x` to enable MCP (**[installation guide][install]**).
 
 </details>
 
@@ -141,15 +170,7 @@ curl -sS https://example.com/wp-json/xnetvn-agent-hub-wp/mcp \
   }'
 ```
 
-Expected result: a JSON-RPC response whose tool list contains only the abilities the key's tier, toolsets and scope allow. The `2026-07-28` profile is sessionless, so every request repeats these headers and the `_meta` block; the older `2025-11-25` handshake needs `initialize` and `Mcp-Session-Id` instead. The full envelope, including the `tools/call` variant with `Mcp-Name`, is in the [AI agent skill pack](docs/en/guides/agent-skill-pack.md) and its [connection guide](skills/xnetvn-agent-hub-wp/references/connect.md).
-
-## A look inside
-
-| Keys | Activity | Access settings |
-|---|---|---|
-| <img src=".wordpress-org/screenshot-4.png" alt="Keys screen filtered by state and owner with rotate and revoke actions" width="300"> | <img src=".wordpress-org/screenshot-6.png" alt="Activity screen listing each request with user, ability, outcome and transport" width="300"> | <img src=".wordpress-org/screenshot-8.png" alt="Access settings with the site risk ceiling and connection options" width="300"> |
-
-The [project wiki](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki) walks through every screen, the security model and the engineering pages.
+Expected result: a JSON-RPC response whose tool list contains only the abilities the key's tier, toolsets and scope allow. The `2026-07-28` profile is sessionless, so every request repeats these headers and the `_meta` block; the older `2025-11-25` handshake needs `initialize` and `Mcp-Session-Id` instead. The full envelope, including the `tools/call` variant with `Mcp-Name`, is in the **[AI agent skill pack][skill-pack]** and its **[connection guide][skill-connect]**.
 
 ## Configuration
 
@@ -166,32 +187,17 @@ All settings live under **Agent Hub → Settings** and are stored per site.
 | `media_remote_fetch_enabled` | `false` | Whether media abilities may download from a remote URL. |
 | `delete_data_on_uninstall` | `true` | Whether deleting the plugin removes its keys, activity rows and settings. |
 
-The full list, with ranges and defaults, is in [docs/en/ENVIRONMENT.md](docs/en/ENVIRONMENT.md).
-
-## Architecture
-
-```mermaid
-flowchart LR
-  client([MCP client]) --> route[Exact MCP route]
-  route --> auth[Bearer auth and HMAC]
-  auth --> policy[Policy and key scope]
-  policy --> registry[Ability registry]
-  registry --> packs[Six ability packs]
-  registry --> output[Output pipeline]
-  output --> audit[(Activity log)]
-```
-
-Only `src/Mcp/ServerGateway.php` holds the adapter class and hook dependencies, so an adapter upgrade stays inside one facade. See [the architecture overview](docs/en/architecture/overview.md) for the request lifecycle and layer boundaries.
+Every setting, with ranges and defaults: **[environment reference][environment]**.
 
 ## Documentation
 
-- [Project wiki](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki) — task-oriented guide, security model and engineering pages
-- [AI agent skill pack](docs/en/guides/agent-skill-pack.md) — how an agent connects, chooses scope and handles failures
-- [User guide](docs/user-guide.md) — every screen and setting
-- [Installation](docs/en/INSTALL.md) and [environment reference](docs/en/ENVIRONMENT.md)
-- [Architecture](docs/en/architecture/overview.md), [API key design](docs/en/architecture/api-keys.md) and [threat model](docs/en/security/threat-model.md)
-- [Development](docs/en/development.md), [testing](docs/en/TESTING.md) and [operations](docs/en/operations.md)
-- [Changelog](CHANGELOG.md) and [roadmap](docs/en/roadmap.md)
+- **[Documentation index][docs]** and the Vietnamese translations
+- **[Project wiki][wiki]** for the task-oriented guide, the security model and the engineering pages
+- **[User guide][user-guide]** for every screen and setting
+- **[Installation][install]**, **[environment reference][environment]** and **[operations][operations]**
+- **[Architecture][architecture]**, **[API key design][api-keys]** and **[threat model][threat-model]**
+- **[AI agent skill pack][skill-pack]** for connecting an agent, choosing scope and recovering from failures
+- **[Development][development]**, **[testing][testing]**, **[changelog][changelog]** and **[roadmap][roadmap]**
 
 ## FAQ
 
@@ -230,24 +236,104 @@ By default, deleting the plugin drops its keys and activity tables and removes i
 
 </details>
 
-## Roadmap and changelog
+<p align="right"><a href="#readme-top"><strong>Back to top</strong></a></p>
 
-The content, taxonomy, media, comments, users and system packs are implemented. Blocks, appearance, settings, plugins and maintenance remain planned. Status per milestone is tracked in the [roadmap](docs/en/roadmap.md), and every released change is recorded in [CHANGELOG.md](CHANGELOG.md).
+## Roadmap & Changelog
+
+The content, taxonomy, media, comments, users and system packs are implemented. Blocks, appearance, settings, plugins and maintenance remain planned. Status per milestone is tracked in the **[roadmap][roadmap]**, every released change is recorded in **[CHANGELOG.md][changelog]**, and every ability is listed in the **[catalog][catalog]**.
+
+## Join Our Community
+
+- Ask and answer questions in **[GitHub Discussions][discussions]**.
+- Read the **[Code of Conduct][code-of-conduct]** and **[how to get support][support]**.
+- Report a reproducible bug with the **[bug form][bug]** and propose a change with the **[feature form][feature]**.
 
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, keep commits in Conventional Commits form, and run `composer check` locally. New here? Start with an issue labelled [good first issue](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/labels/good%20first%20issue).
-
-## Support
-
-Ask a question in [Discussions](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/discussions) or open an [issue](https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues). Use the issue forms so the report arrives with the details needed to reproduce it.
+Contributions are welcome. Read **[CONTRIBUTING.md][contributing]** before opening a pull request, keep commits in Conventional Commits form, and run `composer check` locally. New here? Start with an issue labelled **[good first issue][good-first-issue]**. Thanks to **[every contributor][contributors]**.
 
 ## Security
 
-Please do not report vulnerabilities in public issues. See [SECURITY.md](SECURITY.md) for private reporting to security@xnetvn.net. Remove keys, passwords, personal data and authorization headers from every report.
+Please do not report vulnerabilities in public issues. Read the **[security policy][security-policy]** and **[report a vulnerability privately][advisory]**. Remove keys, passwords, personal data and authorization headers from every report.
 
-<p align="right"><a href="#readme-top">back to top</a></p>
+## Contact
+
+- Security: **[security@xnetvn.net][contact]**
+- Website: **[xnetvn.com][website]**
+
+## Acknowledgments
+
+The plugin is built on the WordPress Abilities API and the official MCP Adapter. It also relies on Composer, PHPUnit, PHPStan, PHP_CodeSniffer and the WordPress coding standards; the **[composer.json][composer]** lists every development dependency.
+
+<p align="right"><a href="#readme-top"><strong>Back to top</strong></a></p>
 
 ## License
 
-Released under the GNU General Public License v2.0 or later by xNetVN Inc. See [LICENSE](LICENSE).
+Released under the GNU General Public License v2.0 or later by xNetVN Inc. See **[LICENSE][license]**.
+
+<!-- Link registry: every reference link and image of this README. [repo] is the URL the share links must carry. -->
+
+[repo]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp
+[wiki]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki
+[user-guide]: docs/user-guide.md
+[bug]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues/new?template=bug_report.yml
+[feature]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues/new?template=feature_request.yml
+[discussions]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/discussions
+[issues]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues
+[milestones]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/milestones
+[good-first-issue]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/labels/good%20first%20issue
+[stargazers]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/stargazers
+[contributors]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/graphs/contributors
+[advisory]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/security/advisories/new
+[website]: https://xnetvn.com/
+[contact]: mailto:security@xnetvn.net
+[docs]: docs/en/README.md
+[install]: docs/en/INSTALL.md
+[environment]: docs/en/ENVIRONMENT.md
+[architecture]: docs/en/architecture/overview.md
+[api-keys]: docs/en/architecture/api-keys.md
+[threat-model]: docs/en/security/threat-model.md
+[catalog]: docs/en/architecture/ability-catalog.md
+[development]: docs/en/development.md
+[testing]: docs/en/TESTING.md
+[operations]: docs/en/operations.md
+[roadmap]: docs/en/roadmap.md
+[skill-pack]: docs/en/guides/agent-skill-pack.md
+[skill-connect]: skills/xnetvn-agent-hub-wp/references/connect.md
+[changelog]: CHANGELOG.md
+[contributing]: CONTRIBUTING.md
+[code-of-conduct]: CODE_OF_CONDUCT.md
+[support]: SUPPORT.md
+[security-policy]: SECURITY.md
+[license]: LICENSE
+[composer]: composer.json
+
+[link-ci]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/ci.yml
+[link-codeql]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/codeql.yml
+[link-security]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/security-scan.yml
+[badge-ci]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/ci.yml/badge.svg
+[badge-codeql]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/codeql.yml/badge.svg
+[badge-security]: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/actions/workflows/security-scan.yml/badge.svg
+[badge-php]: https://img.shields.io/badge/php-8.2+-777bb4
+[badge-version]: https://img.shields.io/badge/version-1.0.0-2f6f4e
+[badge-license]: https://img.shields.io/github/license/xnetvn-com/xnetvn-agent-hub-wp
+[badge-discussions]: https://img.shields.io/github/discussions/xnetvn-com/xnetvn-agent-hub-wp
+[badge-stars]: https://img.shields.io/github/stars/xnetvn-com/xnetvn-agent-hub-wp
+[badge-contributors]: https://img.shields.io/github/contributors/xnetvn-com/xnetvn-agent-hub-wp
+
+[share-x]: https://x.com/intent/tweet?text=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress&url=https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[share-facebook]: https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[share-linkedin]: https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[share-reddit]: https://www.reddit.com/submit?url=https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp&title=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress
+[share-telegram]: https://t.me/share/url?url=https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp&text=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress
+[share-whatsapp]: https://wa.me/?text=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress%20https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[share-bluesky]: https://bsky.app/intent/compose?text=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress%20https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[share-mastodon]: https://mastodon.social/share?text=xNetVN%20Agent%20Hub%20WP%20%E2%80%94%20a%20capability-scoped%20MCP%20server%20for%20WordPress%20https%3A%2F%2Fgithub.com%2Fxnetvn-com%2Fxnetvn-agent-hub-wp
+[img-share-x]: https://img.shields.io/badge/Share%20on-X-000000?logo=x&logoColor=white
+[img-share-facebook]: https://img.shields.io/badge/Share%20on-Facebook-1877F2?logo=facebook&logoColor=white
+[img-share-linkedin]: https://img.shields.io/badge/Share%20on-LinkedIn-0A66C2?logo=linkedin&logoColor=white
+[img-share-reddit]: https://img.shields.io/badge/Share%20on-Reddit-FF4500?logo=reddit&logoColor=white
+[img-share-telegram]: https://img.shields.io/badge/Share%20on-Telegram-26A5E4?logo=telegram&logoColor=white
+[img-share-whatsapp]: https://img.shields.io/badge/Share%20on-WhatsApp-25D366?logo=whatsapp&logoColor=white
+[img-share-bluesky]: https://img.shields.io/badge/Share%20on-Bluesky-0285FF?logo=bluesky&logoColor=white
+[img-share-mastodon]: https://img.shields.io/badge/Share%20on-Mastodon-6364FF?logo=mastodon&logoColor=white

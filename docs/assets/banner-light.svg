@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">xNetVN Agent Hub WP</title>
+  <desc id="desc">Capability-scoped MCP server for WordPress</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f9fc"/>
+      <stop offset="1" stop-color="#e8eef7"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2271b1"/>
+      <stop offset="1" stop-color="#135e96"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <g fill="none" stroke="#c3d2e6" stroke-width="2">
+    <path d="M120 470 L320 380 L520 470 L720 380 L920 470 L1120 380"/>
+    <path d="M320 380 L520 290 L720 380 L920 290 L1120 200"/>
+  </g>
+  <g fill="#2271b1">
+    <circle cx="120" cy="470" r="9"/><circle cx="320" cy="380" r="9"/><circle cx="520" cy="470" r="9"/>
+    <circle cx="720" cy="380" r="9"/><circle cx="920" cy="470" r="9"/><circle cx="1120" cy="380" r="9"/>
+    <circle cx="520" cy="290" r="9"/><circle cx="920" cy="290" r="9"/><circle cx="1120" cy="200" r="9"/>
+  </g>
+  <g>
+    <rect x="96" y="96" width="88" height="88" rx="20" fill="url(#accent)"/>
+    <text x="140" y="152" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="44" font-weight="700" fill="#ffffff" text-anchor="middle">xN</text>
+  </g>
+  <text x="96" y="248" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#0b1b2b">xNetVN Agent Hub WP</text>
+  <text x="96" y="310" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">A capability-scoped MCP server that keeps AI agents</text>
+  <text x="96" y="350" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">within the permissions of the user who issued the key.</text>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#135e96">
+    <text x="96" y="418">62 reviewed abilities</text>
+    <text x="330" y="418">Bearer-only MCP route</text>
+    <text x="590" y="418">Audited by design</text>
+  </g>
+</svg>
