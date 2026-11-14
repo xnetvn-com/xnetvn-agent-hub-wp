@@ -9,7 +9,7 @@
 
 # xNetVN Agent Hub WP
 
-**A capability-scoped MCP server that keeps AI agents within the permissions of the user who issued the key.**
+**Give AI agents real WordPress access — without giving away the site. A capability-scoped MCP server.**
 
 **[Wiki][wiki]** · **[User guide][user-guide]** · **[Report a bug][bug]** · **[Request a feature][feature]** · **[Discussions][discussions]**
 
