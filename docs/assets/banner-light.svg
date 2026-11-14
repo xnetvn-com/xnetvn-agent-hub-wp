@@ -12,25 +12,23 @@
     </linearGradient>
   </defs>
   <rect width="1280" height="640" fill="url(#bg)"/>
-  <g fill="none" stroke="#c3d2e6" stroke-width="2">
-    <path d="M120 470 L320 380 L520 470 L720 380 L920 470 L1120 380"/>
-    <path d="M320 380 L520 290 L720 380 L920 290 L1120 200"/>
+  <g fill="none" stroke="#c3d2e6" stroke-width="2" opacity="0.9">
+    <path d="M900 168 L1060 250 L912 336 L1078 420 L918 508"/>
+    <path d="M1060 250 L1188 318 L1078 420"/>
   </g>
   <g fill="#2271b1">
-    <circle cx="120" cy="470" r="9"/><circle cx="320" cy="380" r="9"/><circle cx="520" cy="470" r="9"/>
-    <circle cx="720" cy="380" r="9"/><circle cx="920" cy="470" r="9"/><circle cx="1120" cy="380" r="9"/>
-    <circle cx="520" cy="290" r="9"/><circle cx="920" cy="290" r="9"/><circle cx="1120" cy="200" r="9"/>
+    <circle cx="900" cy="168" r="10"/><circle cx="1060" cy="250" r="10"/>
+    <circle cx="912" cy="336" r="10"/><circle cx="1078" cy="420" r="10"/>
+    <circle cx="918" cy="508" r="10"/><circle cx="1188" cy="318" r="10"/>
   </g>
-  <g>
-    <rect x="96" y="96" width="88" height="88" rx="20" fill="url(#accent)"/>
-    <text x="140" y="152" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="44" font-weight="700" fill="#ffffff" text-anchor="middle">xN</text>
-  </g>
-  <text x="96" y="248" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#0b1b2b">xNetVN Agent Hub WP</text>
-  <text x="96" y="310" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">A capability-scoped MCP server that keeps AI agents</text>
-  <text x="96" y="350" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">within the permissions of the user who issued the key.</text>
+  <rect x="96" y="96" width="88" height="88" rx="20" fill="url(#accent)"/>
+  <text x="140" y="152" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="44" font-weight="700" fill="#ffffff" text-anchor="middle">xN</text>
+  <text x="96" y="252" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#0b1b2b">xNetVN Agent Hub WP</text>
+  <text x="96" y="316" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">A capability-scoped MCP server that keeps AI agents</text>
+  <text x="96" y="356" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#33475b">within the permissions of the user who issued the key.</text>
   <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#135e96">
-    <text x="96" y="418">62 reviewed abilities</text>
-    <text x="330" y="418">Bearer-only MCP route</text>
-    <text x="590" y="418">Audited by design</text>
+    <text x="96" y="430">62 reviewed abilities</text>
+    <text x="330" y="430">Bearer-only MCP route</text>
+    <text x="596" y="430">Audited by design</text>
   </g>
 </svg>
