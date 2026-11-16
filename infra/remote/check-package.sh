@@ -32,7 +32,7 @@ $table_prefix = 'package_site_';
 if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }
 require_once ABSPATH . 'wp-settings.php';
 PHP
-sed -i "s/package_site_/package${site#wp}_/" "$site_path/wp-config.php"
+sed -i "s/package_site_/package_${site}_/" "$site_path/wp-config.php"
 chmod 600 "$site_path/wp-config.php"
 cat > "$site_path/wp-content/mu-plugins/mail-sink.php" <<'PHP'
 <?php

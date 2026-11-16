@@ -12,8 +12,8 @@
 ```bash
 # Kiểm tra metadata phụ thuộc và cảnh báo đã biết trước.
 composer validate --strict
-# Composer >=2.4; dùng PHAR cục bộ đã rà soát khi Composer hệ thống cũ hơn.
-php .local/tools/composer.phar audit --locked --no-dev
+# Dùng Composer >=2.4 đã rà soát (PHAR cục bộ là tùy chọn):
+# php /path/to/composer.phar audit --locked --no-dev
 # Đảm bảo 100% kiểm tra thành công
 composer check
 ```

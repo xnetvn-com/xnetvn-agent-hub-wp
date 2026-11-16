@@ -12,8 +12,8 @@ To create a release ready for deployment to Production, follow these steps:
 ```bash
 # Ensure dependency metadata and known advisories are checked first.
 composer validate --strict
-# Composer >=2.4; use a reviewed project-local PHAR when the system Composer is older.
-php .local/tools/composer.phar audit --locked --no-dev
+# Use any reviewed Composer >=2.4 (a project-local PHAR is optional):
+# php /path/to/composer.phar audit --locked --no-dev
 # Ensure 100% of checks succeed
 composer check
 ```

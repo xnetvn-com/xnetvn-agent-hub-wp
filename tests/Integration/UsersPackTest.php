@@ -345,6 +345,34 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertSame( array( 'author' ), array_values( get_userdata( $uid )->roles ) );
 	}
 
+	/** A failed capability write clears only the snapshot this attempt created. */
+	public function test_ban_role_write_failure_clears_new_snapshot(): void {
+		$uid  = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$fail = static function ( $check, $object_id, $meta_key ) use ( $uid ) {
+			if ( (int) $object_id === $uid && 'wp_capabilities' === $meta_key ) {
+				throw new \RuntimeException( 'Fixture capability write failure.' );
+			}
+			return $check;
+		};
+		add_filter( 'update_user_metadata', $fail, 10, 3 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'          => $uid,
+					'status'      => 'banned',
+					'reason_code' => 'spam',
+				)
+			);
+		} finally {
+			remove_filter( 'update_user_metadata', $fail, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_internal_error', $res->get_error_code() );
+		self::assertSame( array( 'subscriber' ), array_values( get_userdata( $uid )->roles ) );
+		self::assertNull( BanSnapshot::load( $uid ) );
+	}
+
 	/** A late loss of promote_user is rechecked immediately before role writes. */
 	public function test_set_role_rechecks_promote_before_write(): void {
 		$uid = self::factory()->user->create( array( 'role' => 'subscriber' ) );

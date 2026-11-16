@@ -266,6 +266,24 @@ final class ContentPackTest extends WP_UnitTestCase {
 		self::assertSame( $before->post_date_gmt, $after->post_date_gmt );
 	}
 
+	/** Create also rejects an unparsable date before a post is written. */
+	public function test_create_operation_rejects_unparsable_date_below_schema(): void {
+		$before = (int) wp_count_posts( 'post' )->draft;
+		$tool   = $this->tools['xnetvn/create-post'];
+		$result = ( new OutputPipeline( new MemorySettings() ) )->process(
+			$tool->execute(
+				array(
+					'title' => 'Invalid date fixture',
+					'date'  => '2026-99-99T99:99:99Z',
+				)
+			),
+			$tool->output_schema()
+		);
+		self::assertWPError( $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+		self::assertSame( $before, (int) wp_count_posts( 'post' )->draft );
+	}
+
 	/** No-op updates, unsupported sticky and unknown meta fail before changes. */
 	public function test_validation_and_meta(): void {
 		$id = self::factory()->post->create( array( 'post_author' => $this->editor ) );
