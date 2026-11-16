@@ -2,7 +2,7 @@
 set -euo pipefail
 archive=${1:?Pass the release ZIP path.}
 entries=$(unzip -Z1 "$archive")
-for required in xnetvn-agent-hub-wp.php vendor/autoload.php readme.txt LICENSE uninstall.php src/Bootstrap/Loader.php assets/admin.js languages/xnetvn-agent-hub-wp.pot; do
+for required in xnetvn-agent-hub-wp.php vendor/autoload.php readme.txt LICENSE uninstall.php src/Bootstrap/Loader.php assets/admin.js assets/admin.min.js assets/admin.min.css languages/xnetvn-agent-hub-wp.pot; do
   if ! grep -Fxq "xnetvn-agent-hub-wp/$required" <<< "$entries"; then
     echo "Missing required release file: $required" >&2
     exit 1

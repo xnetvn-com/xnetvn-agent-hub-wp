@@ -13,11 +13,20 @@ fi
 fixture=$(mktemp -d)
 trap 'rm -rf -- "$fixture"' EXIT
 mkdir -p "$fixture/xnetvn-agent-hub-wp/vendor" "$fixture/xnetvn-agent-hub-wp/src/Bootstrap" "$fixture/xnetvn-agent-hub-wp/assets" "$fixture/xnetvn-agent-hub-wp/languages"
-for required in xnetvn-agent-hub-wp.php readme.txt LICENSE uninstall.php vendor/autoload.php src/Bootstrap/Loader.php assets/admin.js languages/xnetvn-agent-hub-wp.pot; do
+for required in xnetvn-agent-hub-wp.php readme.txt LICENSE uninstall.php vendor/autoload.php src/Bootstrap/Loader.php assets/admin.js assets/admin.min.js assets/admin.min.css languages/xnetvn-agent-hub-wp.pot; do
   touch "$fixture/xnetvn-agent-hub-wp/$required"
 done
 (cd "$fixture" && zip -qr valid.zip xnetvn-agent-hub-wp)
 bash bin/verify-zip.sh "$fixture/valid.zip" >/dev/null
+for minified in assets/admin.min.js assets/admin.min.css; do
+  cp "$fixture/valid.zip" "$fixture/missing-min.zip"
+  (cd "$fixture" && zip -q -d missing-min.zip "xnetvn-agent-hub-wp/$minified")
+  if bash bin/verify-zip.sh "$fixture/missing-min.zip" >/dev/null 2>&1; then
+    printf 'Release accepted a ZIP without %s.\n' "$minified" >&2
+    exit 1
+  fi
+  rm -f -- "$fixture/missing-min.zip"
+done
 cp "$fixture/valid.zip" "$fixture/missing-src.zip"
 (cd "$fixture" && zip -q -d missing-src.zip 'xnetvn-agent-hub-wp/src/*' 'xnetvn-agent-hub-wp/src/')
 if bash bin/verify-zip.sh "$fixture/missing-src.zip" >/dev/null 2>&1; then

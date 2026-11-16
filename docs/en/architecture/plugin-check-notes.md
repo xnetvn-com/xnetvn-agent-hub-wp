@@ -25,8 +25,11 @@ The package runner installs Plugin Check from WordPress.org when the isolated pa
 
 ```bash
 python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" sync
-python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && composer build && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip'
+python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && composer build && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip wp69'
+python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip wp71'
 ```
+
+Run WordPress 6.9 first, then 7.1.2. The second argument selects the core copy and the isolated table prefix; omitting it defaults to `wp71` for compatibility.
 
 This record is not WordPress.org approval.
 
