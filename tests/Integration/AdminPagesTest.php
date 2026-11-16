@@ -68,6 +68,35 @@ final class AdminPagesTest extends WP_UnitTestCase {
 		self::assertStringEndsWith( '/assets/admin.min.css', wp_styles()->registered['xnetvn-agent-hub-wp-admin']->src );
 	}
 
+	/** Source assets are used when the minified sibling is absent. */
+	public function test_assets_fall_back_to_source_files(): void {
+		$dir = sys_get_temp_dir() . '/xnv-admin-' . wp_generate_password( 8, false, false );
+		wp_mkdir_p( $dir . '/assets' );
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Temporary fixture outside the repository.
+		file_put_contents( $dir . '/assets/admin.js', '' );
+		file_put_contents( $dir . '/assets/admin.css', '' );
+		file_put_contents( $dir . '/xnetvn-agent-hub-wp.php', '<?php' );
+		try {
+			$settings = new WpSiteSettings();
+			$registry = new Registry( new Policy( $settings ), new RequestScope(), new OutputPipeline( $settings ) );
+			$registry->add_pack( new SystemPack( new DefinitionFactory(), $registry, new RequestScope(), new SchemaBuilder() ) );
+			$registry->load_packs();
+			$pages = new Pages( $dir . '/xnetvn-agent-hub-wp.php', $settings, $registry );
+			wp_dequeue_script( 'xnetvn-agent-hub-wp-admin' );
+			wp_dequeue_style( 'xnetvn-agent-hub-wp-admin' );
+			$pages->assets( 'profile.php' );
+			self::assertStringEndsWith( '/assets/admin.js', wp_scripts()->registered['xnetvn-agent-hub-wp-admin']->src );
+			self::assertStringEndsWith( '/assets/admin.css', wp_styles()->registered['xnetvn-agent-hub-wp-admin']->src );
+		} finally {
+			wp_delete_file( $dir . '/assets/admin.js' );
+			wp_delete_file( $dir . '/assets/admin.css' );
+			wp_delete_file( $dir . '/xnetvn-agent-hub-wp.php' );
+			rmdir( $dir . '/assets' );
+			rmdir( $dir );
+		}
+		// phpcs:enable
+	}
+
 	/** Settings API sanitization preserves unknown-policy boundaries and explicit types. */
 	public function test_overview_menu_renders_only_once(): void {
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
