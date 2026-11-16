@@ -34,12 +34,18 @@ final class MigrationProvider implements ServiceProvider {
 			$this->migrator->migrate();
 		} catch ( StorageException ) {
 			$notice = static function (): void {
-				if ( current_user_can( 'manage_options' ) ) {
-					echo '<div class="notice notice-error"><p>' . esc_html__( 'Agent Hub storage is unavailable. MCP and credential operations remain closed until the database is ready.', 'xnetvn-agent-hub-wp' ) . '</p></div>';
-				}
+				self::render_storage_notice();
 			};
 			add_action( 'admin_notices', $notice );
 			add_action( 'network_admin_notices', $notice );
 		}
+	}
+
+	/** Render the deferred storage diagnostic for administrators only. */
+	public static function render_storage_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p>' . esc_html__( 'Agent Hub storage is unavailable. MCP and credential operations remain closed until the database is ready. Next step: check the database user permissions and the Site Health info, then reload this page.', 'xnetvn-agent-hub-wp' ) . '</p></div>';
 	}
 }
