@@ -172,6 +172,8 @@ jobs:
         run: composer check:skills
       - name: Check client harness regressions
         run: composer check:clients
+      - name: Check the listing budget
+        run: composer check:listing
 
   bootstrap-syntax:
     name: bootstrap-syntax
