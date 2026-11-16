@@ -243,6 +243,29 @@ final class ContentPackTest extends WP_UnitTestCase {
 		self::assertSame( $before->post_date, $after->post_date );
 	}
 
+	/** The operation guard rejects an unparsable date without the schema precheck. */
+	public function test_update_operation_rejects_unparsable_date_below_schema(): void {
+		$id     = self::factory()->post->create( array( 'post_author' => $this->editor ) );
+		$before = get_post( $id );
+		self::assertInstanceOf( \WP_Post::class, $before );
+		$tool   = $this->tools['xnetvn/update-post'];
+		$result = ( new OutputPipeline( new MemorySettings() ) )->process(
+			$tool->execute(
+				array(
+					'id'   => $id,
+					'date' => '2026-99-99T99:99:99Z',
+				)
+			),
+			$tool->output_schema()
+		);
+		self::assertWPError( $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+		$after = get_post( $id );
+		self::assertInstanceOf( \WP_Post::class, $after );
+		self::assertSame( $before->post_date, $after->post_date );
+		self::assertSame( $before->post_date_gmt, $after->post_date_gmt );
+	}
+
 	/** No-op updates, unsupported sticky and unknown meta fail before changes. */
 	public function test_validation_and_meta(): void {
 		$id = self::factory()->post->create( array( 'post_author' => $this->editor ) );

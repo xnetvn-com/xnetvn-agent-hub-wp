@@ -988,12 +988,13 @@ final class UserOperations {
 		if ( ! BanSnapshot::validate( $snapshot ) ) {
 			return R::error( 'invalid_state' );
 		}
-		if ( ! BanSnapshot::save( $id, $snapshot ) ) {
+		$created = false;
+		if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
 			return R::error( 'internal_error' );
 		}
 		$reguard = $this->reguard( $id );
 		if ( null !== $reguard ) {
-			BanSnapshot::clear( $id );
+			$this->discard_created_snapshot( $id, $created );
 			return $reguard;
 		}
 		try {
@@ -1011,10 +1012,7 @@ final class UserOperations {
 				\WP_Session_Tokens::get_instance( $id )->destroy_all();
 			}
 		} catch ( \Throwable ) {
-			$fresh = get_userdata( $id );
-			if ( ! $fresh instanceof WP_User || ! in_array( 'banned', (array) $fresh->roles, true ) ) {
-				BanSnapshot::clear( $id );
-			}
+			$this->discard_created_snapshot( $id, $created );
 			return R::error( 'internal_error' );
 		}
 		clean_user_cache( $id );
@@ -1033,6 +1031,28 @@ final class UserOperations {
 			'roles'           => array( 'banned' ),
 		);
 		return MutationResult::project( $id, false, static fn(): array => $result );
+	}
+
+	/**
+	 * Delete only the snapshot this invocation inserted while no ban is visible.
+	 *
+	 * A reused snapshot belongs to an earlier ban, and a confirmed banned role
+	 * may come from a concurrent ban that depends on the stored record. Neither
+	 * case may be cleared by a refused attempt.
+	 *
+	 * @param int  $id Target.
+	 * @param bool $created Whether this invocation inserted the stored snapshot.
+	 * @return void
+	 */
+	private function discard_created_snapshot( int $id, bool $created ): void {
+		if ( ! $created ) {
+			return;
+		}
+		$fresh = get_userdata( $id );
+		if ( $fresh instanceof WP_User && in_array( 'banned', (array) $fresh->roles, true ) ) {
+			return;
+		}
+		BanSnapshot::clear( $id );
 	}
 
 	/**

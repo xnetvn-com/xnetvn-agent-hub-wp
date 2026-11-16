@@ -67,6 +67,15 @@ if ( ! class_exists( 'wpdb', false ) ) {
 		}
 
 		/**
+		 * Report the prefix update_user_option() applies to site-local options.
+		 *
+		 * @return string
+		 */
+		public function get_blog_prefix(): string {
+			return $this->prefix;
+		}
+
+		/**
 		 * Substitute bound values so the boundary receives a non-empty statement.
 		 *
 		 * @param string $query SQL template.

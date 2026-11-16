@@ -287,6 +287,64 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertNull( BanSnapshot::load( $uid ) );
 	}
 
+	/** A refused re-ban keeps the recovery snapshot that already existed. */
+	public function test_ban_reguard_failure_keeps_existing_snapshot(): void {
+		$uid = self::factory()->user->create( array( 'role' => 'author' ) );
+		$ban = $this->call(
+			'set-user-status',
+			array(
+				'id'          => $uid,
+				'status'      => 'banned',
+				'reason_code' => 'spam',
+			)
+		);
+		self::assertIsArray( $ban );
+		$original = BanSnapshot::load( $uid );
+		self::assertIsArray( $original );
+		self::assertSame( array( 'author' ), $original['roles'] );
+		$banned = get_userdata( $uid );
+		self::assertInstanceOf( \WP_User::class, $banned );
+		$banned->add_cap( 'read' );
+		clean_user_cache( $uid );
+		$before_roles = array_values( (array) get_userdata( $uid )->roles );
+		$before_caps  = (array) get_userdata( $uid )->caps;
+		self::assertArrayHasKey( 'read', $before_caps );
+		$calls = 0;
+		$deny  = static function ( bool $allowed ) use ( &$calls ): bool {
+			++$calls;
+			return $calls < 3 && $allowed;
+		};
+		add_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10, 1 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'          => $uid,
+					'status'      => 'banned',
+					'reason_code' => 'spam',
+				)
+			);
+		} finally {
+			remove_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_protected_account', $res->get_error_code() );
+		$after = get_userdata( $uid );
+		self::assertSame( $before_roles, array_values( (array) $after->roles ) );
+		self::assertSame( $before_caps, (array) $after->caps );
+		self::assertSame( $original, BanSnapshot::load( $uid ) );
+		$unban = $this->call(
+			'set-user-status',
+			array(
+				'id'     => $uid,
+				'status' => 'active',
+			)
+		);
+		self::assertIsArray( $unban );
+		self::assertSame( 'active', $unban['status'] );
+		self::assertSame( array( 'author' ), array_values( get_userdata( $uid )->roles ) );
+	}
+
 	/** A late loss of promote_user is rechecked immediately before role writes. */
 	public function test_set_role_rechecks_promote_before_write(): void {
 		$uid = self::factory()->user->create( array( 'role' => 'subscriber' ) );

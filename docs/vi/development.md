@@ -35,6 +35,8 @@ Không chạy `wp-env clean` trên môi trường có dữ liệu giá trị. Ki
 
 Lệnh build trước hết kiểm thử việc xác thực ZIP từ chối tệp môi trường/cấu hình ẩn và hạ tầng từ xa. Chạy `infra/remote/check-package.sh` trong toolbox lab sau build để kích hoạt và kiểm tra gói thực tế trong các bảng riêng chỉ dùng CLI. Bộ chặn thư kiểm thử WordPress ngăn gửi thư ra ngoài.
 
+Dùng `bash bin/minify-assets.sh` để tạo lại `assets/admin.min.js` và `assets/admin.min.css`; script ghim Terser 5.51.2 và clean-css-cli 5.6.3. Admin pages nạp bản `.min` khi đọc được và fallback bản nguồn; giữ cả bốn tệp trong ZIP phát hành. Đây là bước developer, không chạy trong `composer build`.
+
 Ma trận HTTP chạy trong toolbox lab thuộc phạm vi quản lý, nhắm tới alias HTTPS WordPress 6.9 và service HTTP nội bộ. Nó tạo người dùng/khóa ngẫu nhiên dùng một lần, chỉ ghi thông tin xác thực vào thư mục 0700 phía máy chủ với tệp trạng thái 0600, và ghi kết quả chỉ gồm boolean/status. Runner từ chối fixture có sẵn cho đến khi đối soát, đồng thời dọn các khóa/người dùng/kiểm toán/option/tệp mu-plugin đã ràng buộc khi thoát bình thường. Container/tiến trình bị kết thúc cần đối soát rõ ràng bằng trạng thái riêng đã lưu. Cookie/nonce được tạo bằng cùng alias với client HTTP để COOKIEHASH WordPress khớp. Ngoại lệ chứng chỉ chỉ dành cho kiểm thử được giới hạn ở host lab trong danh sách cho phép; tuyệt đối không theo chuyển hướng. Không thành phần fixture nào được đưa vào ZIP production.
 
 Nếu lựa chọn họ kết nối của Node trên host này thất bại trong khi HTTPS IPv4 thành công, có thể dùng `NODE_OPTIONS=--no-network-family-autoselection` chỉ trong tiến trình để chẩn đoán. Không tắt xác thực TLS.

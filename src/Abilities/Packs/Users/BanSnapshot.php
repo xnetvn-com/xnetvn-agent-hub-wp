@@ -102,6 +102,8 @@ final class BanSnapshot {
 	/**
 	 * Load and validate the stored snapshot.
 	 *
+	 * @phpstan-impure The stored value can change between calls in one request.
+	 *
 	 * @param int $user_id Target.
 	 * @return array<string,mixed>|null
 	 */
@@ -127,11 +129,18 @@ final class BanSnapshot {
 	/**
 	 * Save a snapshot only when none valid exists.
 	 *
+	 * The optional `$created` output tells a caller whether this invocation
+	 * inserted the stored record, so cleanup can remove its own record without
+	 * deleting a recovery point that already existed or that a concurrent ban
+	 * now relies on.
+	 *
 	 * @param int                 $user_id Target.
 	 * @param array<string,mixed> $snapshot Validated snapshot.
+	 * @param bool                $created Set to true only when this call inserted the record.
 	 * @return bool
 	 */
-	public static function save( int $user_id, array $snapshot ): bool {
+	public static function save( int $user_id, array $snapshot, bool &$created = false ): bool {
+		$created = false;
 		try {
 			if ( ! self::validate( $snapshot ) ) {
 				return false;
@@ -139,16 +148,42 @@ final class BanSnapshot {
 			if ( null !== self::load( $user_id ) ) {
 				return true;
 			}
-			if ( ! function_exists( 'update_user_option' ) ) {
+			if ( ! function_exists( 'add_user_meta' ) ) {
 				return false;
 			}
 			$json = wp_json_encode( $snapshot );
 			if ( ! is_string( $json ) ) {
 				return false;
 			}
-			return (bool) update_user_option( $user_id, self::KEY, $json, false );
+			$key = self::storage_key();
+			if ( null === $key ) {
+				return false;
+			}
+			if ( ! add_user_meta( $user_id, $key, $json, true ) ) {
+				// A concurrent ban inserted first, or an unreadable value already owns the key.
+				return null !== self::load( $user_id );
+			}
+			$created = true;
+			return true;
 		} catch ( \Throwable ) {
 			return false;
+		}
+	}
+
+	/**
+	 * Resolve the blog-prefixed usermeta key that update_user_option() writes.
+	 *
+	 * @return string|null
+	 */
+	private static function storage_key(): ?string {
+		try {
+			global $wpdb;
+			if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_blog_prefix' ) ) {
+				return null;
+			}
+			return (string) $wpdb->get_blog_prefix() . self::KEY;
+		} catch ( \Throwable ) {
+			return null;
 		}
 	}
 
