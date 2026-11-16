@@ -216,10 +216,17 @@ final class ContentOperations {
 			return R::error( 'invalid_params' ); }
 		if ( isset( $changes['meta'] ) && ! $this->valid_meta( $type->name, (array) $changes['meta'] ) ) {
 			return R::error( 'invalid_params' ); }
-		if ( 'future' === ( $changes['status'] ?? '' ) && ( ! isset( $changes['date'] ) || strtotime( $changes['date'] ) <= time() ) ) {
-			return R::error( 'invalid_params' ); }
+		$timestamp = null;
 		if ( isset( $changes['date'] ) ) {
-			$changes['date_gmt'] = gmdate( 'Y-m-d\TH:i:s', strtotime( $changes['date'] ) );
+			$timestamp = strtotime( (string) $changes['date'] );
+			if ( false === $timestamp ) {
+				return R::error( 'invalid_params' );
+			}
+		}
+		if ( 'future' === ( $changes['status'] ?? '' ) && ( null === $timestamp || $timestamp <= time() ) ) {
+			return R::error( 'invalid_params' ); }
+		if ( null !== $timestamp ) {
+			$changes['date_gmt'] = gmdate( 'Y-m-d\TH:i:s', $timestamp );
 			unset( $changes['date'] ); }
 		$response = $this->rest->dispatch( 'POST', $route . ( $id ? '/' . $id : '' ), $changes, $type->name );
 		if ( is_wp_error( $response ) ) {

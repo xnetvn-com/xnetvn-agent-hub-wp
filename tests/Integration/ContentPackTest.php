@@ -224,6 +224,25 @@ final class ContentPackTest extends WP_UnitTestCase {
 		self::assertSame( array( 'id', 'type', 'status', 'title' ), array_keys( $view ) );
 		unregister_post_type( 'fixture_book' );
 	}
+	/** An unparsable calendar date is rejected before conversion and write. */
+	public function test_update_rejects_unparsable_date(): void {
+		$id     = self::factory()->post->create( array( 'post_author' => $this->editor ) );
+		$before = get_post( $id );
+		self::assertInstanceOf( \WP_Post::class, $before );
+		$result = $this->call(
+			'update-post',
+			array(
+				'id'   => $id,
+				'date' => '2026-99-99T99:99:99Z',
+			)
+		);
+		self::assertWPError( $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+		$after = get_post( $id );
+		self::assertInstanceOf( \WP_Post::class, $after );
+		self::assertSame( $before->post_date, $after->post_date );
+	}
+
 	/** No-op updates, unsupported sticky and unknown meta fail before changes. */
 	public function test_validation_and_meta(): void {
 		$id = self::factory()->post->create( array( 'post_author' => $this->editor ) );

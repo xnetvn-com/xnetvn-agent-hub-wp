@@ -22,6 +22,7 @@ Changes use Semantic Versioning and the Keep a Changelog format.
 ### Fixed
 - Preserve a committed key mutation when the connection-bound owner lock cannot be released: the operation result is returned, the original exception still wins, and `xnetvn_agent_hub_wp_lock_release_incomplete` announces the unacknowledged release without logging secrets or reacquiring the lock.
 - Re-evaluate the user target before saving a ban snapshot and again after saving it, so a target that becomes protected in between is refused and its stale snapshot is cleared instead of surviving a failed ban; a failed role write also clears the snapshot unless the banned role is already confirmed.
+- Reject a post `date` that PHP cannot parse before converting it to `date_gmt`, so an invalid calendar value returns `invalid_params` and leaves the stored post date unchanged.
 - Keep activation independent of the MCP Adapter: the plugin no longer declares the hard `Requires Plugins` header, so a site without the adapter can activate it, see the requirement notice, and keep MCP disabled until a supported adapter is active.
 - Unslash the last-used user agent once at the request boundary, so a user agent containing quotes or backslashes is stored consistently with the audit row instead of keeping WordPress slashes.
 
