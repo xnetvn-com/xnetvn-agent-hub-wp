@@ -64,6 +64,8 @@ final class AdminPagesTest extends WP_UnitTestCase {
 		$pages->assets( 'profile.php' );
 		self::assertTrue( wp_script_is( 'xnetvn-agent-hub-wp-admin', 'enqueued' ) );
 		self::assertSame( array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ), wp_scripts()->registered['xnetvn-agent-hub-wp-admin']->deps );
+		self::assertStringEndsWith( '/assets/admin.min.js', wp_scripts()->registered['xnetvn-agent-hub-wp-admin']->src );
+		self::assertStringEndsWith( '/assets/admin.min.css', wp_styles()->registered['xnetvn-agent-hub-wp-admin']->src );
 	}
 
 	/** Settings API sanitization preserves unknown-policy boundaries and explicit types. */

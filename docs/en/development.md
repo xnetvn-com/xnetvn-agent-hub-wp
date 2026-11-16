@@ -35,6 +35,8 @@ Do not run `wp-env clean` on an environment containing valuable data. Smoke unin
 
 The build command first tests that ZIP validation rejects hidden environment/configuration files and remote infrastructure. Run `infra/remote/check-package.sh` inside the lab toolbox after building to activate and check the actual package in separate CLI-only tables. Its WordPress test mail sink prevents outbound delivery.
 
+Regenerate the minified admin assets with `bash bin/minify-assets.sh`, which pins Terser 5.51.2 and clean-css-cli 5.6.3. The admin pages load `assets/admin.min.js` and `assets/admin.min.css` when those files are readable and fall back to the readable sources otherwise; keep both pairs in the release ZIP. The helper is a developer step and is not run by `composer build`.
+
 The HTTP matrix runs in the owned lab toolbox against its WordPress6.9 HTTPS alias and internal plain-HTTP service. It creates random disposable users/keys, records credentials only in a server-side0700 directory with0600 state, and writes boolean/status-only results. The runner refuses an existing fixture until reconciled and cleans up bound keys/users/audit/options/mu-plugin files on normal exits. A killed container/process requires explicit reconciliation using the saved private state. Cookie/nonce creation uses the same alias as the HTTP client, so WordPress's COOKIEHASH matches. The test-only certificate exception is scoped to an allowlisted lab host; redirects are never followed. Nothing in this fixture ships in the production ZIP.
 
 If this host's Node connection-family selection fails while IPv4 HTTPS succeeds, a process-local `NODE_OPTIONS=--no-network-family-autoselection` can be used for diagnosis. Do not disable TLS validation.

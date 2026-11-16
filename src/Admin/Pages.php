@@ -92,9 +92,12 @@ final class Pages implements ServiceProvider {
 		if ( ! in_array( $hook, array( 'profile.php', 'user-edit.php' ), true ) && ! str_contains( $hook, '_page_xnetvn-agent-hub-wp' ) ) {
 			return;
 		}
-		wp_enqueue_script( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/admin.js', $this->plugin_file ), array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ), XNETVN_AGENT_HUB_WP_VERSION, true );
+		$assets = plugin_dir_path( $this->plugin_file ) . 'assets/';
+		$script = is_readable( $assets . 'admin.min.js' ) ? 'admin.min.js' : 'admin.js';
+		$style  = is_readable( $assets . 'admin.min.css' ) ? 'admin.min.css' : 'admin.css';
+		wp_enqueue_script( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/' . $script, $this->plugin_file ), array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ), XNETVN_AGENT_HUB_WP_VERSION, true );
 		wp_set_script_translations( 'xnetvn-agent-hub-wp-admin', 'xnetvn-agent-hub-wp', dirname( $this->plugin_file ) . '/languages' );
-		wp_enqueue_style( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/admin.css', $this->plugin_file ), array(), XNETVN_AGENT_HUB_WP_VERSION );
+		wp_enqueue_style( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/' . $style, $this->plugin_file ), array(), XNETVN_AGENT_HUB_WP_VERSION );
 		wp_localize_script(
 			'xnetvn-agent-hub-wp-admin',
 			'xnetvnAgentHubConfig',
