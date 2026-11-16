@@ -23,16 +23,6 @@ xNetVN Agent Hub WP gives an AI agent a reviewed set of WordPress tools without 
 * **Keep credentials out of reach.** A key is shown once; only an HMAC-SHA256 hash keyed with a separate random per-site pepper is stored. The MCP route takes bearer keys only; management routes take a cookie with a REST nonce.
 * **Bound abuse and control media.** Per-key and per-IP limits, a response cap, IP and origin allowlists and a TLS requirement run first. Remote media download is off by default and accepts public HTTPS only, with byte, pixel and MIME limits.
 
-= Get started in minutes =
-
-1. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/ to enable MCP. You can activate xNetVN Agent Hub WP first; it shows a notice and keeps MCP disabled until the adapter is active.
-2. Install and activate xNetVN Agent Hub WP, then create a key on your profile with the lowest tier and toolsets the client needs.
-3. Point the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp and send the key as a bearer token.
-
-= Who it is for =
-
-Site owners, agencies and developers who want an AI agent to work with posts, media, comments, taxonomy and users under a real WordPress identity, without code execution, SQL, file edits or security settings.
-
 = Compatibility =
 
 * WordPress 6.9 or later, PHP 8.2 or later.
@@ -50,13 +40,6 @@ Site owners, agencies and developers who want an AI agent to work with posts, me
 = Translations and accessibility =
 
 A translation template ships in languages/; no translated language packs exist yet and this readme is English only. No accessibility conformance or performance claim is made for this release.
-
-= Documentation and support =
-
-* User guide: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/docs/user-guide.md
-* Project wiki: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki
-* Support forum: https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/
-* Issues: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues
 
 = For developers =
 
@@ -90,13 +73,6 @@ The plugin has no vendor service and contacts none on its own. It can make one k
 2. Go to Plugins > Add New Plugin > Upload Plugin, choose the zip and select Install Now.
 3. Activate the plugin.
 
-= After activation =
-
-1. Install and activate the official MCP Adapter 0.7.x to enable MCP. The plugin can be activated without it; MCP stays disabled and an admin notice explains the missing dependency.
-2. Create a key on your own Profile page, store it in the client secret store, and configure the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp with the key as a bearer token.
-
-For a source checkout, run composer install before activation.
-
 == Frequently Asked Questions ==
 
 = Do I need another plugin? =
@@ -126,10 +102,6 @@ Per-key request limits and per-IP failed-authentication limits, maximum key life
 = Does it work on Multisite? =
 
 Yes. Settings and data are stored per site. Network-wide deactivation clears scheduled events on every site, and uninstall checks each site's setting while keeping shared per-user preferences as long as any site keeps its data.
-
-= Which MCP clients work? =
-
-Any client that can send a bearer token in the Authorization header. OAuth is not implemented, so a client that requires an OAuth flow cannot connect.
 
 = What happens to my data when I uninstall? =
 
@@ -167,11 +139,3 @@ Use https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/ or open an issue a
 * The plugin can be activated before the MCP Adapter is installed; MCP stays disabled with an admin notice until a supported adapter is active.
 * Deactivation clears the plugin's owned scheduled events on the current site, and on every site for network-wide deactivation.
 * Remote media fetch honors the site's WP_HTTP_BLOCK_EXTERNAL and WP_ACCESSIBLE_HOSTS settings on every request and redirect hop.
-
-= 0.1.0 =
-* Initial pre-release foundation, runtime requirement checks and developer tooling.
-
-== Upgrade Notice ==
-
-= 1.0.0 =
-First public release. Requires WordPress 6.9, PHP 8.2 and the official MCP Adapter 0.7.x.
