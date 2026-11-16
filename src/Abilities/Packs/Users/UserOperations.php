@@ -980,6 +980,10 @@ final class UserOperations {
 			}
 			$direct[ $name ] = (bool) $enabled;
 		}
+		$reguard = $this->reguard( $id );
+		if ( null !== $reguard ) {
+			return $reguard;
+		}
 		$snapshot = BanSnapshot::build( array_values( (array) $user->roles ), $direct, (int) get_current_user_id(), $reason );
 		if ( ! BanSnapshot::validate( $snapshot ) ) {
 			return R::error( 'invalid_state' );
@@ -989,6 +993,7 @@ final class UserOperations {
 		}
 		$reguard = $this->reguard( $id );
 		if ( null !== $reguard ) {
+			BanSnapshot::clear( $id );
 			return $reguard;
 		}
 		try {
@@ -1006,6 +1011,10 @@ final class UserOperations {
 				\WP_Session_Tokens::get_instance( $id )->destroy_all();
 			}
 		} catch ( \Throwable ) {
+			$fresh = get_userdata( $id );
+			if ( ! $fresh instanceof WP_User || ! in_array( 'banned', (array) $fresh->roles, true ) ) {
+				BanSnapshot::clear( $id );
+			}
 			return R::error( 'internal_error' );
 		}
 		clean_user_cache( $id );

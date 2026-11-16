@@ -260,6 +260,33 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertSame( 'xnetvn_agent_hub_wp_protected_account', $res->get_error_code() );
 	}
 
+	/** A denial during the post-snapshot reguard clears the stale snapshot. */
+	public function test_ban_reguard_failure_after_snapshot_clears_it(): void {
+		$uid   = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$calls = 0;
+		$deny  = static function ( bool $allowed ) use ( &$calls ): bool {
+			++$calls;
+			return $calls < 3 && $allowed;
+		};
+		add_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10, 1 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'          => $uid,
+					'status'      => 'banned',
+					'reason_code' => 'spam',
+				)
+			);
+		} finally {
+			remove_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_protected_account', $res->get_error_code() );
+		self::assertSame( array( 'subscriber' ), array_values( get_userdata( $uid )->roles ) );
+		self::assertNull( BanSnapshot::load( $uid ) );
+	}
+
 	/** A late loss of promote_user is rechecked immediately before role writes. */
 	public function test_set_role_rechecks_promote_before_write(): void {
 		$uid = self::factory()->user->create( array( 'role' => 'subscriber' ) );
