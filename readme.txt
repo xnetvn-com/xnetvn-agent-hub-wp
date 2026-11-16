@@ -60,7 +60,7 @@ A translation template ships in languages/; no translated language packs exist y
 
 = For developers =
 
-* Hooks include xnetvn_agent_hub_wp_loaded, xnetvn_agent_hub_wp_policy_decision, xnetvn_agent_hub_wp_tool_started, xnetvn_agent_hub_wp_tool_finished and xnetvn_agent_hub_wp_remote_url_allowed.
+* Hooks include xnetvn_agent_hub_wp_loaded, xnetvn_agent_hub_wp_policy_decision, xnetvn_agent_hub_wp_tool_started, xnetvn_agent_hub_wp_tool_finished, xnetvn_agent_hub_wp_remote_url_allowed and xnetvn_agent_hub_wp_lock_release_incomplete (a committed key mutation whose lock release was not acknowledged).
 * Management REST namespace /wp-json/xnetvn-agent-hub-wp/v1/, MCP endpoint /wp-json/xnetvn-agent-hub-wp/mcp, and two capabilities: use_xnetvn_agent_hub_wp and manage_xnetvn_agent_hub_wp, both evaluated dynamically. Banning a user creates a capability-less banned role when the site does not have one.
 
 = Credits =
