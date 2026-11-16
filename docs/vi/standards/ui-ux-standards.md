@@ -108,7 +108,7 @@ Mọi mục đọc (`overview`, `activity`, `tools`, danh sách Keys) đều k�
 
 ## 9. Mục Tiêu Đối Chiếu Kết Quả Quan Sát (Hồ Sơ Nghiệm Thu)
 
-Không đọc một kiểm tự động xanh thành claim phát hành, hosted-CI, real-client, host hay production. Nghiệm thu toàn diện P13 (ba browser, hai single-site và multisite) chưa có evidence trong revision này và giữ trạng thái pending.
+Không đọc một kiểm tự động xanh thành claim phát hành, hosted-CI, real-client, host hay production. Nghiệm thu toàn diện P13 (ba browser, hai single-site và multisite) được ghi nhận gần nhất ngày 2026-11-04 trên artifact trước audit; revision hiện tại đang chờ chạy lại.
 
 | Claim | Mục tiêu | Kết quả quan sát trong revision này |
 |---|---|---|
@@ -116,7 +116,7 @@ Không đọc một kiểm tự động xanh thành claim phát hành, hosted-CI
 | Kiểm axe tự động | 0 lỗi axe trên UI thay đổi | Kết quả theo từng lượt chạy; ghi revision, site, browser và role. Không claim pass cố định ở đây. |
 | Flow/field/error sáu giao diện (§4–§7) | Khớp `src/Admin/Pages.php` và `assets/admin.js` | Khớp revision `45d9e36` như mô tả trên; bằng chứng runtime thuộc hồ sơ chạy trong [Hướng Dẫn Kiểm Thử](../TESTING.md). |
 | Bàn phím, reflow (`390`/`768`/`1440`, `320`), RTL (§8) | Không tràn, giữ focus, RTL trong viewport | Kết quả theo từng lượt chạy; xem hồ sơ kiểm. |
-| Nghiệm thu P13 (ba browser, hai site, multisite) | Ma trận xanh đầy đủ | Pending: chưa có evidence trong revision này. |
+| Nghiệm thu P13 (ba browser, hai site, multisite) | Ma trận xanh đầy đủ | Đã có bằng chứng ngày 2026-11-04 trên artifact trước audit; revision hiện tại đang chờ chạy lại. |
 | Thủ công, trình đọc màn hình, real-client, hosted CI, host, production | Có evidence riêng | Chưa xác minh trong revision này; không suy ra từ `git diff --check` hay lượt chạy focused. |
 
 Mỗi lượt chạy ghi thời điểm, revision, site (`wp69`/`wp71`), browser, role và lệnh; xem [Hướng Dẫn Kiểm Thử](../TESTING.md).

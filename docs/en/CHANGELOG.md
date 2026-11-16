@@ -3,6 +3,8 @@
 All notable changes to **xNetVN Agent Hub WP** will be recorded in this document.
 The format is based on [Keep a Changelog](https://keepachangelog.com/vi/1.0.0/) and the project follows [Semantic Versioning (SemVer)](https://semver.org/lang/vi/).
 
+> The root [`CHANGELOG.md`](../../CHANGELOG.md) is the canonical source for unreleased changes. This document mirrors released summaries for the documentation set.
+
 ---
 
 ## [1.0.0] - 2026-11-04

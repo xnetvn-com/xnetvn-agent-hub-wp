@@ -108,7 +108,7 @@ Every read section (`overview`, `activity`, `tools`, Keys listing) renders the s
 
 ## 9. Target Versus Observed (Acceptance Record)
 
-Do not read a green automated check as a release, hosted-CI, real-client, host or production claim. P13 comprehensive acceptance (three browsers, two single-sites plus multisite) has no evidence in this revision and stays pending.
+Do not read a green automated check as a release, hosted-CI, real-client, host or production claim. P13 comprehensive acceptance (three browsers, two single-sites plus multisite) was last evidenced on 2026-11-04 on the pre-audit artifact; the current revision is pending.
 
 | Claim | Target | Observed in this revision |
 |---|---|---|
@@ -116,7 +116,7 @@ Do not read a green automated check as a release, hosted-CI, real-client, host o
 | Axe automated checks | 0 axe violations on changed UI | Per-run result only; record the run revision, site, browser and role. No standing pass is claimed here. |
 | Six-view flows, fields and errors (§4–§7) | Match `src/Admin/Pages.php` and `assets/admin.js` | Matches revision `45d9e36` as documented above; runtime proof belongs to the run record in [Testing Guide](../TESTING.md). |
 | Keyboard, reflow (`390`/`768`/`1440`, `320`), RTL (§8) | No overflow, focus kept, RTL inside viewport | Per-run result only; see test record. |
-| P13 acceptance (three browsers, two sites, multisite) | Full matrix green | Pending: no evidence in this revision. |
+| P13 acceptance (three browsers, two sites, multisite) | Full matrix green | Last evidenced 2026-11-04 on the pre-audit artifact; current revision pending. |
 | Manual, screen-reader, real-client, hosted CI, host, production | Separately evidenced | Unverified in this revision; never inferred from `git diff --check` or a focused run. |
 
 Record each run with time, revision, site (`wp69`/`wp71`), browser, role and command; see [Testing Guide](../TESTING.md).
