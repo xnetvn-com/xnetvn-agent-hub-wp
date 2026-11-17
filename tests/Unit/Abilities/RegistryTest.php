@@ -338,13 +338,27 @@ final class RegistryTest extends TestCase {
 
 	/** An unreviewed definition is hidden and refused by every registry path. */
 	public function test_safe_envelope_refuses_unreviewed_definition(): void {
+		$called     = false;
 		$registry   = $this->registry();
-		$unreviewed = $this->definition( 'xnetvn/fixture-read' );
+		$unreviewed = $this->definition(
+			'xnetvn/fixture-read',
+			null,
+			'system',
+			static function () use ( &$called ): array {
+				$called = true;
+				return array( 'value' => 'unsafe' );
+			}
+		);
 		$registry->add( $unreviewed );
 
 		self::assertSame( array(), $registry->visible() );
 		self::assertFalse( $registry->allowed( $unreviewed ) );
 		self::assertSame( array(), $registry->names_for_scope( new Scope( RiskTier::Read, array( 'system' ) ) ) );
+
+		$result = $registry->execute( 'xnetvn/fixture-read', array() );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->code );
+		self::assertFalse( $called );
 	}
 
 	/** HTTP policy requires a live identity that matches the current user. */

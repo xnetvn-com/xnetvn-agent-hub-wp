@@ -126,6 +126,11 @@ final class PolicyTest extends TestCase {
 		$denied  = $policy->evaluate( $ability, $context, 'http' );
 		self::assertFalse( $denied->allowed );
 		self::assertSame( 'operation_outside_safe_envelope', $denied->reason );
+
+		$reviewed = new AbilityDescriptor( 'xnetvn/get-post', RiskTier::Read, 'content', 'read' );
+		self::assertTrue( $policy->evaluate( $reviewed, $this->context( new Scope( RiskTier::Read, array( 'content' ) ) ), 'http' )->allowed );
+		$profile = new AbilityDescriptor( 'xnetvn/update-my-profile', RiskTier::Read, 'users', 'read' );
+		self::assertTrue( $policy->evaluate( $profile, $this->context( new Scope( RiskTier::Admin, array( 'users' ) ) ), 'http' )->allowed );
 	}
 
 	/** A third-party definition must be explicitly approved. */
