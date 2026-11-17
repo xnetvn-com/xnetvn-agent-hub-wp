@@ -370,19 +370,22 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		$before = has_filter( 'content_save_pre', 'wp_filter_post_kses' );
 		$html   = new SafeEditorialHtml();
 		try {
-			$html->run(
-				static function (): void {
-					throw new \RuntimeException( 'Fixture failure.' );
-				}
-			);
-			self::fail( 'The fixture exception was swallowed.' );
-		} catch ( \RuntimeException $error ) {
-			self::assertSame( 'Fixture failure.', $error->getMessage() );
+			try {
+				$html->run(
+					static function (): void {
+						throw new \RuntimeException( 'Fixture failure.' );
+					}
+				);
+				self::fail( 'The fixture exception was swallowed.' );
+			} catch ( \RuntimeException $error ) {
+				self::assertSame( 'Fixture failure.', $error->getMessage() );
+			}
+			self::assertSame( $before, has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
+			self::assertTrue( current_user_can( 'unfiltered_html' ) );
+			self::assertTrue( has_filter( 'content_save_pre', $custom ) );
 		} finally {
 			remove_filter( 'content_save_pre', $custom, 10 );
 		}
-		self::assertSame( $before, has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
-		self::assertTrue( current_user_can( 'unfiltered_html' ) );
 		self::assertFalse( has_filter( 'content_save_pre', $custom ) );
 	}
 
