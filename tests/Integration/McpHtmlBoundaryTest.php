@@ -72,6 +72,7 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 	private function assert_safe( string $value, string $allowed ): void {
 		self::assertStringNotContainsString( '<script', $value );
 		self::assertStringNotContainsString( 'onerror', $value );
+		self::assertStringNotContainsString( 'onload', $value );
 		self::assertStringNotContainsString( 'javascript:', $value );
 		self::assertStringContainsString( $allowed, $value );
 	}
@@ -163,10 +164,12 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		self::assertStringContainsString( '<script', (string) get_post( $revision )->post_content );
 
 		$writes  = 0;
-		$counter = static function () use ( &$writes ): void {
-			++$writes;
+		$counter = static function ( int $post_id ) use ( &$writes, $id ): void {
+			if ( $post_id === $id ) {
+				++$writes;
+			}
 		};
-		add_action( 'wp_insert_post', $counter );
+		add_action( 'wp_insert_post', $counter, 10, 1 );
 		try {
 			$restored = $this->content->execute(
 				'restore-revision',
@@ -334,27 +337,27 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 			'create-comment',
 			array(
 				'post'    => $post,
-				'content' => '<p>Safe comment</p><script>alert(7)</script><img src="x" onerror="alert(7)">',
+				'content' => '<strong>Safe comment</strong><script>alert(7)</script><img src="x" onerror="alert(7)">',
 				'status'  => 'approved',
 			)
 		);
 		self::assertInstanceOf( MutationResult::class, $comment, is_wp_error( $comment ) ? $comment->get_error_message() : '' );
 		$stored = get_comment( $comment->object_id );
 		self::assertInstanceOf( \WP_Comment::class, $stored );
-		$this->assert_safe( $stored->comment_content, '<p>Safe comment</p>' );
+		$this->assert_safe( $stored->comment_content, '<strong>Safe comment</strong>' );
 
 		$updated = $this->comments->execute(
 			'update-comment',
 			array(
 				'id'          => $comment->object_id,
-				'content'     => '<p>Edited comment</p><script>alert(8)</script>',
+				'content'     => '<strong>Edited comment</strong><script>alert(8)</script>',
 				'author_name' => '<b>Fixture</b><script>alert(8)</script>',
 			)
 		);
 		self::assertInstanceOf( MutationResult::class, $updated );
 		$stored = get_comment( $comment->object_id );
 		self::assertInstanceOf( \WP_Comment::class, $stored );
-		$this->assert_safe( $stored->comment_content, '<p>Edited comment</p>' );
+		$this->assert_safe( $stored->comment_content, '<strong>Edited comment</strong>' );
 		self::assertStringNotContainsString( '<b>', $stored->comment_author );
 		self::assertStringNotContainsString( '<script', $stored->comment_author );
 	}
