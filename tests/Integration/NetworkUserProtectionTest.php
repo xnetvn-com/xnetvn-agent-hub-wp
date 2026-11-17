@@ -40,6 +40,23 @@ final class NetworkUserProtectionTest extends WP_UnitTestCase {
 		self::assertSame( $initial, get_current_blog_id() );
 	}
 
+	/** An administrator on an archived subsite is still protected. */
+	public function test_archived_cross_site_administrator_is_protected(): void {
+		$user = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$blog = self::factory()->blog->create();
+		add_user_to_blog( $blog, $user, 'administrator' );
+		$site     = get_site( $blog );
+		$archived = null === $site ? 0 : (int) $site->archived;
+		wp_update_site( $blog, array( 'archived' => 1 ) );
+		try {
+			$decision = ( new NetworkUserProtection() )->evaluate( $user );
+			self::assertFalse( $decision->allowed );
+			self::assertSame( 'target_protected_account', $decision->reason );
+		} finally {
+			wp_update_site( $blog, array( 'archived' => $archived ) );
+		}
+	}
+
 	/** A Super Admin is protected. */
 	public function test_super_admin_is_protected(): void {
 		$user = self::factory()->user->create( array( 'role' => 'subscriber' ) );

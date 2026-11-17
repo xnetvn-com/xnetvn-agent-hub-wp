@@ -43,26 +43,34 @@ final class NetworkUserProtection {
 			if ( ! is_array( $sites ) || count( $sites ) > self::MAX_INSPECTED_SITES ) {
 				return Decision::deny( 'network_enumeration_incomplete' );
 			}
-			$initial = get_current_blog_id();
+			$initial  = get_current_blog_id();
+			$result   = Decision::permit();
+			$switched = 0;
 			try {
 				foreach ( $sites as $site ) {
 					$site_id = is_object( $site ) && isset( $site->userblog_id ) ? (int) $site->userblog_id : 0;
 					if ( $site_id < 1 || ! switch_to_blog( $site_id ) ) {
-						return Decision::deny( 'network_enumeration_incomplete' );
+						$result = Decision::deny( 'network_enumeration_incomplete' );
+						break;
 					}
+					++$switched;
 					$user = new WP_User( $target_id );
 					$user->for_site( $site_id );
 					$verdict = $this->inspect( $user );
 					if ( ! $verdict->allowed ) {
-						return $verdict;
+						$result = $verdict;
+						break;
 					}
 				}
-				return Decision::permit();
 			} finally {
-				while ( ms_is_switched() && get_current_blog_id() !== $initial ) {
+				for ( $index = 0; $index < $switched; ++$index ) {
 					restore_current_blog();
 				}
+				if ( get_current_blog_id() !== $initial ) {
+					$result = Decision::deny( 'network_check_failed' );
+				}
 			}
+			return $result;
 		} catch ( \Throwable ) {
 			return Decision::deny( 'network_check_failed' );
 		}

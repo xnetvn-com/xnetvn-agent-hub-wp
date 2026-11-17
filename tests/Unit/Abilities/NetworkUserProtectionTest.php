@@ -58,6 +58,16 @@ final class NetworkUser {
 	 * @var bool
 	 */
 	public static bool $throw_on_site = false;
+	/** Simulated switch stack.
+	 *
+	 * @var array<int>
+	 */
+	public static array $stack = array();
+	/** Whether the next switch succeeds.
+	 *
+	 * @var bool
+	 */
+	public static bool $switch_ok = true;
 
 	/**
 	 * Bind the fixture identity and current-site state.
@@ -67,6 +77,29 @@ final class NetworkUser {
 	public function __construct( int $id ) {
 		$this->ID = $id;
 		$this->for_site( self::$site );
+	}
+
+	/**
+	 * Push and switch to a site.
+	 *
+	 * @param int $site_id Site.
+	 * @return bool
+	 */
+	public static function switch_to( int $site_id ): bool {
+		if ( ! self::$switch_ok ) {
+			return false;
+		}
+		self::$stack[] = self::$site;
+		self::$site    = $site_id;
+		return true;
+	}
+
+	/** Pop and restore the previous site. */
+	public static function restore(): void {
+		$previous = array_pop( self::$stack );
+		if ( null !== $previous ) {
+			self::$site = $previous;
+		}
 	}
 
 	/**
@@ -148,12 +181,9 @@ final class NetworkUserProtectionTest extends TestCase {
 		);
 		Functions\when( 'apply_filters' )->returnArg();
 		Functions\when( 'get_current_blog_id' )->alias( static fn(): int => NetworkUser::$site );
-		Functions\when( 'ms_is_switched' )->alias( static fn(): bool => 1 !== NetworkUser::$site );
-		Functions\when( 'restore_current_blog' )->alias(
-			static function (): void {
-				NetworkUser::$site = 1;
-			}
-		);
+		Functions\when( 'ms_is_switched' )->alias( static fn(): bool => array() !== NetworkUser::$stack );
+		Functions\when( 'switch_to_blog' )->alias( static fn( int $site_id ): bool => NetworkUser::switch_to( $site_id ) );
+		Functions\when( 'restore_current_blog' )->alias( static fn() => NetworkUser::restore() );
 		Functions\when( 'wp_roles' )->alias(
 			fn(): NetworkRoles => new NetworkRoles( $this->role_map )
 		);
@@ -193,31 +223,6 @@ final class NetworkUserProtectionTest extends TestCase {
 		NetworkUser::$roles_by_site[1] = array( 'subscriber' );
 		NetworkUser::$roles_by_site[2] = array( 'administrator' );
 		Functions\expect( 'get_blogs_of_user' )->once()->with( 7, true )->andReturn( $this->sites( array( 1, 2 ) ) );
-		Functions\when( 'switch_to_blog' )->alias(
-			static function ( int $site_id ): bool {
-				NetworkUser::$site = $site_id;
-				return true;
-			}
-		);
-
-		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
-		self::assertSame( 1, NetworkUser::$site );
-	}
-
-	/** An administrator on an archived subsite is still protected. */
-	public function test_multisite_archived_administrator_is_denied(): void {
-		$this->multisite( array( 1, 2 ), 7 );
-		NetworkUser::$roles_by_site[1] = array( 'subscriber' );
-		NetworkUser::$roles_by_site[2] = array( 'administrator' );
-		$sites                         = $this->sites( array( 1, 2 ) );
-		$sites[1]->archived            = 1;
-		Functions\when( 'get_blogs_of_user' )->justReturn( $sites );
-		Functions\when( 'switch_to_blog' )->alias(
-			static function ( int $site_id ): bool {
-				NetworkUser::$site = $site_id;
-				return true;
-			}
-		);
 
 		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
 		self::assertSame( 1, NetworkUser::$site );
@@ -229,15 +234,10 @@ final class NetworkUserProtectionTest extends TestCase {
 		NetworkUser::$roles_by_site[1] = array( 'editor' );
 		NetworkUser::$roles_by_site[2] = array( 'editor' );
 		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
-		Functions\when( 'switch_to_blog' )->alias(
-			static function ( int $site_id ): bool {
-				NetworkUser::$site = $site_id;
-				return true;
-			}
-		);
 
 		self::assertTrue( ( new NetworkUserProtection() )->evaluate( 7 )->allowed );
 		self::assertSame( 1, NetworkUser::$site );
+		self::assertSame( array(), NetworkUser::$stack );
 	}
 
 	/** More than the inspected bound fails closed. */
@@ -252,7 +252,7 @@ final class NetworkUserProtectionTest extends TestCase {
 		$this->multisite( array( 1, 2 ), 7 );
 		NetworkUser::$roles_by_site[1] = array( 'editor' );
 		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
-		Functions\when( 'switch_to_blog' )->justReturn( false );
+		NetworkUser::$switch_ok = false;
 
 		self::assertSame( 'network_enumeration_incomplete', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
 		self::assertSame( 1, NetworkUser::$site );
@@ -264,12 +264,6 @@ final class NetworkUserProtectionTest extends TestCase {
 		NetworkUser::$roles_by_site[1] = array( 'editor' );
 		NetworkUser::$roles_by_site[2] = array( 'editor' );
 		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
-		Functions\when( 'switch_to_blog' )->alias(
-			static function ( int $site_id ): bool {
-				NetworkUser::$site = $site_id;
-				return true;
-			}
-		);
 		NetworkUser::$throw_on_site = true;
 
 		self::assertSame( 'network_check_failed', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
@@ -296,13 +290,45 @@ final class NetworkUserProtectionTest extends TestCase {
 		NetworkUser::$roles_by_site[2] = array( 'editor' );
 		NetworkUser::$caps_by_site[2]  = array( 'manage_options' => true );
 		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
-		Functions\when( 'switch_to_blog' )->alias(
-			static function ( int $site_id ): bool {
-				NetworkUser::$site = $site_id;
-				return true;
-			}
-		);
 
+		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
+	}
+
+	/** An effective administrative capability on a single site is protected. */
+	public function test_single_site_effective_admin_capability_is_denied(): void {
+		$this->single_site( array( 'editor' ), array() );
+		NetworkUser::$effective_by_site[1] = array( 'manage_options' );
+		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
+	}
+
+	/** An effective administrative capability on another site is protected. */
+	public function test_multisite_cross_site_effective_capability_is_denied(): void {
+		$this->multisite( array( 1, 2 ), 7 );
+		NetworkUser::$roles_by_site[1]     = array( 'editor' );
+		NetworkUser::$roles_by_site[2]     = array( 'editor' );
+		NetworkUser::$effective_by_site[2] = array( 'manage_options' );
+		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
+
+		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
+		self::assertSame( 1, NetworkUser::$site );
+	}
+
+	/** A non-array enumeration result fails closed. */
+	public function test_multisite_non_array_enumeration_is_denied(): void {
+		$this->multisite( array( 1 ), 7 );
+		Functions\when( 'get_blogs_of_user' )->justReturn( 'broken' );
+		self::assertSame( 'network_enumeration_incomplete', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
+	}
+
+	/** A later role elevation is rechecked; no negative verdict is cached. */
+	public function test_multisite_rechecks_after_role_elevation(): void {
+		$this->multisite( array( 1, 2 ), 7 );
+		NetworkUser::$roles_by_site[1] = array( 'editor' );
+		NetworkUser::$roles_by_site[2] = array( 'editor' );
+		Functions\when( 'get_blogs_of_user' )->justReturn( $this->sites( array( 1, 2 ) ) );
+
+		self::assertTrue( ( new NetworkUserProtection() )->evaluate( 7 )->allowed );
+		NetworkUser::$roles_by_site[2] = array( 'administrator' );
 		self::assertSame( 'target_protected_account', ( new NetworkUserProtection() )->evaluate( 7 )->reason );
 	}
 
