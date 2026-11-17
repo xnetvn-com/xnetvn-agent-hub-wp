@@ -19,6 +19,7 @@ use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
 use XNetVN\AgentHubWP\Domain\Scope;
 use XNetVN\AgentHubWP\Policy\CapabilityMemo;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
 use XNetVN\AgentHubWP\Policy\TierResolver;
 
 /** All definition execution paths preserve policy, actor binding and output validation. */
@@ -53,6 +54,11 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @var TierResolver
 	 */
 	private TierResolver $tiers;
+	/** Static reviewed-operation boundary.
+	 *
+	 * @var SafeMcpEnvelope
+	 */
+	private SafeMcpEnvelope $envelope;
 	/**
 	 * Bind policy, safe request identity and output enforcement.
 	 *
@@ -60,9 +66,11 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @param RequestContext                                    $request Request identity.
 	 * @param OutputPipeline                                    $output Logical output pipeline.
 	 * @param \XNetVN\AgentHubWP\Contracts\ExpensiveBudget|null $expensive Atomic work budget.
+	 * @param SafeMcpEnvelope|null                              $envelope Static reviewed-operation boundary.
 	 */
-	public function __construct( private Policy $policy, private RequestContext $request, private OutputPipeline $output, private ?\XNetVN\AgentHubWP\Contracts\ExpensiveBudget $expensive = null ) {
-		$this->tiers = new TierResolver( fn( string $name ): ?AbilityDescriptor => $this->get( $name )?->descriptor() );
+	public function __construct( private Policy $policy, private RequestContext $request, private OutputPipeline $output, private ?\XNetVN\AgentHubWP\Contracts\ExpensiveBudget $expensive = null, ?SafeMcpEnvelope $envelope = null ) {
+		$this->tiers    = new TierResolver( fn( string $name ): ?AbilityDescriptor => $this->get( $name )?->descriptor() );
+		$this->envelope = $envelope ?? new SafeMcpEnvelope();
 	}
 	/**
 	 * Add an immutable definition, rejecting duplicate names and wire mappings.
@@ -220,6 +228,9 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 			if ( null === $definition ) {
 				continue;
 			}
+			if ( ! $this->envelope->evaluate( $name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed ) {
+				continue;
+			}
 			$descriptor = $definition->descriptor();
 			if ( ! $descriptor->tier->atMost( $scope->tier_max ) ) {
 				continue;
@@ -298,6 +309,9 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 */
 	public function allowed( AbilitySpec $definition, ?CapabilityMemo $memo = null ): bool {
 		if ( isset( $this->blocked[ $definition->descriptor()->name ] ) ) {
+			return false;
+		}
+		if ( ! $this->envelope->evaluate( $definition->descriptor()->name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed ) {
 			return false;
 		}
 		$name = $definition->descriptor()->name;

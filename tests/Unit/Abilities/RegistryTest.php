@@ -44,17 +44,17 @@ final class RegistryTest extends TestCase {
 	/** Definitions resolve by canonical name and exact wire name only. */
 	public function test_resolves_definitions_by_canonical_and_wire_name(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
-		$beta     = $this->definition( 'xnetvn/get-beta' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
+		$beta     = $this->definition( 'xnetvn/get-site-info' );
 
 		$registry->add( $alpha );
 		$registry->add( $beta );
 
-		self::assertSame( $alpha, $registry->get( 'xnetvn/get-alpha' ) );
-		self::assertSame( $alpha, $registry->for_tool( 'xnetvn-get-alpha' ) );
+		self::assertSame( $alpha, $registry->get( 'xnetvn/get-post' ) );
+		self::assertSame( $alpha, $registry->for_tool( 'xnetvn-get-post' ) );
 		self::assertNull( $registry->get( 'xnetvn/get-missing' ) );
 		self::assertNull( $registry->for_tool( 'xnetvn-get-missing' ) );
-		self::assertSame( array( 'xnetvn/get-alpha', 'xnetvn/get-beta' ), $registry->names() );
+		self::assertSame( array( 'xnetvn/get-post', 'xnetvn/get-site-info' ), $registry->names() );
 		self::assertCount( 2, $registry->all() );
 		self::assertSame( 2, count( $registry->visible() ) );
 	}
@@ -62,7 +62,7 @@ final class RegistryTest extends TestCase {
 	/** A duplicate canonical name or wire name is a developer error. */
 	public function test_rejects_duplicate_canonical_and_wire_identity(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 
 		try {
@@ -72,7 +72,7 @@ final class RegistryTest extends TestCase {
 			self::assertStringContainsString( 'Duplicate ability or tool identity', $exception->getMessage() );
 		}
 
-		$collision = $this->definition( 'xnetvn/get-gamma', 'xnetvn-get-alpha' );
+		$collision = $this->definition( 'xnetvn/get-ability-info', 'xnetvn-get-post' );
 		$this->expectException( \InvalidArgumentException::class );
 		$registry->add( $collision );
 	}
@@ -80,7 +80,7 @@ final class RegistryTest extends TestCase {
 	/** Deferred packs are read only once WordPress init has started. */
 	public function test_loads_packs_only_after_init_started(): void {
 		$registry = $this->registry();
-		$pack     = $this->pack( $this->definition( 'xnetvn/get-packed' ) );
+		$pack     = $this->pack( $this->definition( 'xnetvn/discover-abilities' ) );
 		$registry->add_pack( $pack );
 
 		Functions\when( 'did_action' )->justReturn( 0 );
@@ -89,16 +89,16 @@ final class RegistryTest extends TestCase {
 
 		Functions\when( 'did_action' )->justReturn( 1 );
 		$registry->load_packs();
-		self::assertSame( array( 'xnetvn/get-packed' ), $registry->names() );
+		self::assertSame( array( 'xnetvn/discover-abilities' ), $registry->names() );
 
 		$registry->load_packs();
-		self::assertSame( array( 'xnetvn/get-packed' ), $registry->names() );
+		self::assertSame( array( 'xnetvn/discover-abilities' ), $registry->names() );
 	}
 
 	/** Unavailable packs add no definition. */
 	public function test_unavailable_pack_adds_nothing(): void {
 		$registry = $this->registry();
-		$registry->add_pack( $this->pack( $this->definition( 'xnetvn/get-hidden' ), false ) );
+		$registry->add_pack( $this->pack( $this->definition( 'xnetvn/list-posts' ), false ) );
 
 		Functions\when( 'did_action' )->justReturn( 1 );
 		$registry->load_packs();
@@ -125,8 +125,8 @@ final class RegistryTest extends TestCase {
 	/** One private category is created per toolset and never duplicated. */
 	public function test_registers_one_category_per_toolset(): void {
 		$registry = $this->registry();
-		$registry->add( $this->definition( 'xnetvn/get-alpha', 'xnetvn-get-alpha', 'system' ) );
-		$registry->add( $this->definition( 'xnetvn/get-beta', 'xnetvn-get-beta', 'content' ) );
+		$registry->add( $this->definition( 'xnetvn/get-post', 'xnetvn-get-post', 'system' ) );
+		$registry->add( $this->definition( 'xnetvn/get-site-info', 'xnetvn-get-site-info', 'content' ) );
 
 		Functions\when( 'did_action' )->justReturn( 1 );
 		Functions\when( 'wp_has_ability_category' )->alias( static fn( string $slug ): bool => 'xnetvn-content' === $slug );
@@ -141,8 +141,8 @@ final class RegistryTest extends TestCase {
 	/** Private metadata is bound; public metadata is blocked and unregistered. */
 	public function test_registers_private_callbacks_and_blocks_public_metadata(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
-		$beta     = $this->definition( 'xnetvn/get-beta' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
+		$beta     = $this->definition( 'xnetvn/get-site-info' );
 		$registry->add( $alpha );
 		$registry->add( $beta );
 
@@ -164,15 +164,15 @@ final class RegistryTest extends TestCase {
 		Functions\when( 'wp_get_ability' )->justReturn( null );
 		Functions\when( 'wp_register_ability' )->alias(
 			static function ( string $name ) use ( $private, $public ) {
-				return 'xnetvn/get-alpha' === $name ? $private : $public;
+				return 'xnetvn/get-post' === $name ? $private : $public;
 			}
 		);
-		Functions\expect( 'wp_unregister_ability' )->once()->with( 'xnetvn/get-beta' );
+		Functions\expect( 'wp_unregister_ability' )->once()->with( 'xnetvn/get-site-info' );
 
 		$registry->register_abilities();
 
-		Functions\when( 'wp_get_ability' )->alias( static fn( string $name ) => 'xnetvn/get-alpha' === $name ? $private : null );
-		self::assertSame( array( 'xnetvn/get-alpha' ), $registry->names() );
+		Functions\when( 'wp_get_ability' )->alias( static fn( string $name ) => 'xnetvn/get-post' === $name ? $private : null );
+		self::assertSame( array( 'xnetvn/get-post' ), $registry->names() );
 		self::assertTrue( $registry->allowed( $alpha ) );
 		self::assertFalse( $registry->allowed( $beta ) );
 	}
@@ -180,7 +180,7 @@ final class RegistryTest extends TestCase {
 	/** An existing foreign ability with the same name is closed, not overwritten. */
 	public function test_existing_foreign_ability_blocks_the_definition(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 		$foreign = $this->ability(
 			array(
@@ -203,7 +203,7 @@ final class RegistryTest extends TestCase {
 	/** Re-registering the same bound object stays allowed. */
 	public function test_re_registration_keeps_the_same_bound_object(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 		$ability = $this->ability(
 			array(
@@ -223,13 +223,13 @@ final class RegistryTest extends TestCase {
 		Functions\when( 'wp_get_ability' )->justReturn( $ability );
 		$registry->register_abilities();
 
-		self::assertSame( array( 'xnetvn/get-alpha' ), $registry->names() );
+		self::assertSame( array( 'xnetvn/get-post' ), $registry->names() );
 	}
 
 	/** Wire execution reaches only the exact bound ability. */
 	public function test_execute_reaches_only_the_exact_bound_ability(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 		$ability = $this->ability(
 			array(
@@ -247,16 +247,16 @@ final class RegistryTest extends TestCase {
 
 		Functions\when( 'wp_has_ability' )->justReturn( true );
 		Functions\when( 'wp_get_ability' )->justReturn( $ability );
-		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_started' )->once()->with( 'xnetvn/get-alpha', array( 'id' ) );
-		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_finished' )->once()->with( 'xnetvn/get-alpha', 'success' );
+		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_started' )->once()->with( 'xnetvn/get-post', array( 'id' ) );
+		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_finished' )->once()->with( 'xnetvn/get-post', 'success' );
 
-		self::assertSame( array( 'value' => 'safe' ), $registry->execute( 'xnetvn/get-alpha', array( 'id' => 7 ) ) );
+		self::assertSame( array( 'value' => 'safe' ), $registry->execute( 'xnetvn/get-post', array( 'id' => 7 ) ) );
 	}
 
 	/** Unknown, unbound or substituted abilities are denied without detail. */
 	public function test_execute_denies_unknown_unbound_and_substituted_abilities(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 
 		$unknown = $registry->execute( 'xnetvn/get-missing', array() );
@@ -272,14 +272,14 @@ final class RegistryTest extends TestCase {
 				)
 			)
 		);
-		$not_bound = $registry->execute( 'xnetvn/get-alpha', array() );
+		$not_bound = $registry->execute( 'xnetvn/get-post', array() );
 		self::assertInstanceOf( \WP_Error::class, $not_bound );
 	}
 
 	/** Executing a bound ability reports failure without leaking the throwable. */
 	public function test_execute_maps_a_thrown_error_to_a_safe_result(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 		$ability = $this->ability(
 			array(
@@ -300,9 +300,9 @@ final class RegistryTest extends TestCase {
 
 		Functions\when( 'wp_has_ability' )->justReturn( true );
 		Functions\when( 'wp_get_ability' )->justReturn( $ability );
-		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_finished' )->once()->with( 'xnetvn/get-alpha', 'error' );
+		Actions\expectDone( 'xnetvn_agent_hub_wp_tool_finished' )->once()->with( 'xnetvn/get-post', 'error' );
 
-		$result = $registry->execute( 'xnetvn/get-alpha', array() );
+		$result = $registry->execute( 'xnetvn/get-post', array() );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertStringNotContainsString( 'secret detail', (string) $result->code . $result->message );
 	}
@@ -310,7 +310,7 @@ final class RegistryTest extends TestCase {
 	/** A bound ability registered by another object is denied. */
 	public function test_bound_ability_replacement_is_denied(): void {
 		$registry = $this->registry();
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 		$ability = $this->ability(
 			array(
@@ -336,10 +336,21 @@ final class RegistryTest extends TestCase {
 		self::assertFalse( $registry->allowed( $alpha ) );
 	}
 
+	/** An unreviewed definition is hidden and refused by every registry path. */
+	public function test_safe_envelope_refuses_unreviewed_definition(): void {
+		$registry   = $this->registry();
+		$unreviewed = $this->definition( 'xnetvn/fixture-read' );
+		$registry->add( $unreviewed );
+
+		self::assertSame( array(), $registry->visible() );
+		self::assertFalse( $registry->allowed( $unreviewed ) );
+		self::assertSame( array(), $registry->names_for_scope( new Scope( RiskTier::Read, array( 'system' ) ) ) );
+	}
+
 	/** HTTP policy requires a live identity that matches the current user. */
 	public function test_http_without_matching_identity_is_denied(): void {
 		$registry = $this->registry( 'http', null );
-		$alpha    = $this->definition( 'xnetvn/get-alpha' );
+		$alpha    = $this->definition( 'xnetvn/get-post' );
 		$registry->add( $alpha );
 
 		self::assertFalse( $registry->allowed( $alpha ) );
@@ -348,15 +359,15 @@ final class RegistryTest extends TestCase {
 	/** Delegated scope removes only names the same scope already denies. */
 	public function test_names_for_scope_applies_tier_toolset_and_deny_lists(): void {
 		$registry = $this->registry();
-		$registry->add( $this->definition( 'xnetvn/get-alpha', 'xnetvn-get-alpha', 'system' ) );
-		$registry->add( $this->definition( 'xnetvn/get-beta', 'xnetvn-get-beta', 'content' ) );
-		$registry->add( $this->definition( 'xnetvn/get-gamma', 'xnetvn-get-gamma', 'system' ) );
+		$registry->add( $this->definition( 'xnetvn/get-post', 'xnetvn-get-post', 'system' ) );
+		$registry->add( $this->definition( 'xnetvn/get-site-info', 'xnetvn-get-site-info', 'content' ) );
+		$registry->add( $this->definition( 'xnetvn/get-ability-info', 'xnetvn-get-ability-info', 'system' ) );
 
-		$scope = new Scope( RiskTier::Read, array( 'system' ), array(), array( 'xnetvn/get-gamma' ) );
-		self::assertSame( array( 'xnetvn/get-alpha' ), $registry->names_for_scope( $scope ) );
+		$scope = new Scope( RiskTier::Read, array( 'system' ), array(), array( 'xnetvn/get-ability-info' ) );
+		self::assertSame( array( 'xnetvn/get-post' ), $registry->names_for_scope( $scope ) );
 
-		$allow = new Scope( RiskTier::Read, array( 'system' ), array( 'xnetvn/get-alpha' ) );
-		self::assertSame( array( 'xnetvn/get-alpha' ), $registry->names_for_scope( $allow ) );
+		$allow = new Scope( RiskTier::Read, array( 'system' ), array( 'xnetvn/get-post' ) );
+		self::assertSame( array( 'xnetvn/get-post' ), $registry->names_for_scope( $allow ) );
 	}
 
 	/**

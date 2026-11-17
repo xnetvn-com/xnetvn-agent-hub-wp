@@ -33,18 +33,25 @@ final class Policy {
 	 * @var array<string,mixed>
 	 */
 	private array $site = array();
+	/** Static reviewed-operation boundary.
+	 *
+	 * @var SafeMcpEnvelope
+	 */
+	private SafeMcpEnvelope $envelope;
 	/**
 	 * Bind site policy and optional pure test seams.
 	 *
-	 * @param SiteSettings $settings Validated policy.
-	 * @param Closure|null $capability Capability resolver.
-	 * @param Closure|null $restriction Additional restriction.
+	 * @param SiteSettings         $settings Validated policy.
+	 * @param Closure|null         $capability Capability resolver.
+	 * @param Closure|null         $restriction Additional restriction.
+	 * @param SafeMcpEnvelope|null $envelope Static reviewed-operation boundary.
 	 * @phpstan-param Closure(string,?AuthContext):bool|null $capability
 	 * @phpstan-param Closure(Decision,AbilityDescriptor,?AuthContext,string):mixed|null $restriction
 	 */
-	public function __construct( private SiteSettings $settings, ?Closure $capability = null, ?Closure $restriction = null ) {
+	public function __construct( private SiteSettings $settings, ?Closure $capability = null, ?Closure $restriction = null, ?SafeMcpEnvelope $envelope = null ) {
 		$this->capability  = $capability ?? static fn( string $cap, ?AuthContext $context ): bool => null === $context ? current_user_can( $cap ) : user_can( $context->user_id, $cap );
 		$this->restriction = $restriction ?? static fn( Decision $decision, AbilityDescriptor $ability, ?AuthContext $context, string $transport ): mixed => apply_filters( 'xnetvn_agent_hub_wp_policy_decision', $decision, $ability, $context, $transport );
+		$this->envelope    = $envelope ?? new SafeMcpEnvelope();
 	}
 	/**
 	 * Evaluate every independent access term and any additional denial.
@@ -59,6 +66,10 @@ final class Policy {
 		try {
 			if ( ! in_array( $transport, array( 'http', 'stdio' ), true ) || ( 'http' === $transport && null === $context ) ) {
 				return Decision::deny( 'identity_required' );
+			}
+			$safe = $this->envelope->evaluate( $ability->name, SafeMcpEnvelope::PRINCIPAL_USER );
+			if ( ! $safe->allowed ) {
+				return $safe;
 			}
 			if ( true !== $this->site( 'enabled' ) ) {
 				return Decision::deny( 'site_disabled' );
