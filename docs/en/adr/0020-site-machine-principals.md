@@ -117,7 +117,8 @@ every credential presented after the change.
   machine actions are visible without fabricating a WordPress user.
 - The implementation temporarily crosses a catalog window (`62` to `63`
   abilities) between `FR_13` and `ISSUE_08`; the catalog, skill pack and role
-  matrix are aligned inside that window, not by weakening assertions.
+  matrix are aligned inside that window, not by weakening assertions. This is
+  expected, unverified and not run during authoring.
 - Residual risk remains in transport policy, lab acceptance, and the
   unverified original laws; these are tracked explicitly, not hidden.
 

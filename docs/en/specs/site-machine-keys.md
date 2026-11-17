@@ -34,7 +34,7 @@ execution privilege from the credit.
 
 | Decision | Contract section |
 |---|---|
-| OD-01 | Personal `xnv_` keys exclude protected accounts; see Token format and Lifecycle and quotas. |
+| OD-01 | Personal `xnv_` keys exclude protected accounts; see Authentication and request context and Lifecycle and quotas. |
 | OD-02 | The site principal is accountless (`user_id = 0`); see Principal model and Persistence and schema. |
 | OD-03 | Every MCP credential passes the static envelope and KSES boundary; see Policy and safe envelope. |
 | OD-04 | Ban is current-site editorial suspension, without login or password-reset blocking; see Users and moderation. |

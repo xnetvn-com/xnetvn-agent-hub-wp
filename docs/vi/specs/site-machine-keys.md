@@ -33,7 +33,7 @@ quyền thực thi từ việc ghi công.
 
 | Quyết định | Mục hợp đồng |
 |---|---|
-| OD-01 | Khóa cá nhân `xnv_` loại tài khoản được bảo vệ; xem Định dạng token và Vòng đời và hạn mức. |
+| OD-01 | Khóa cá nhân `xnv_` loại tài khoản được bảo vệ; xem Xác thực và ngữ cảnh yêu cầu và Vòng đời và hạn mức. |
 | OD-02 | Danh tính site không cần tài khoản (`user_id = 0`); xem Mô hình danh tính và Lưu trữ và schema. |
 | OD-03 | Mọi khóa MCP đi qua phong bì tĩnh và biên KSES; xem Chính sách và phong bì an toàn. |
 | OD-04 | Cấm là đình chỉ biên tập tại site, không chặn đăng nhập hay đặt lại mật khẩu; xem Người dùng và kiểm duyệt. |

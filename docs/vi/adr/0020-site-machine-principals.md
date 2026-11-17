@@ -117,7 +117,8 @@ thích cho khóa đã triển khai. Các hạn chế runtime vẫn áp dụng ch
   hành động máy hiển thị mà không tạo người dùng WordPress giả.
 - Việc triển khai đi qua cửa sổ danh mục `62` lên `63` năng lực giữa `FR_13`
   và `ISSUE_08`; danh mục, gói kỹ năng và ma trận vai trò được đồng bộ trong
-  cửa sổ đó, không bằng cách hạ assertion.
+  cửa sổ đó, không bằng cách hạ assertion. Đây là dự kiến, chưa xác minh và
+  chưa chạy trong lúc soạn.
 - Rủi ro còn lại nằm ở chính sách transport, nghiệm thu lab và các luật gốc
   chưa xác minh; chúng được ghi rõ, không che giấu.
 
@@ -166,6 +167,9 @@ thích cho khóa đã triển khai. Các hạn chế runtime vẫn áp dụng ch
   (kiểm 2026-11-17).
 - Hủy phiên:
   https://developer.wordpress.org/reference/classes/wp_session_tokens/destroy_all/
+  (kiểm 2026-11-17).
+- Lưu token phiên:
+  https://developer.wordpress.org/reference/classes/wp_user_meta_session_tokens/update_sessions/
   (kiểm 2026-11-17).
 - Lưu token phiên:
   https://developer.wordpress.org/reference/classes/wp_user_meta_session_tokens/update_sessions/
