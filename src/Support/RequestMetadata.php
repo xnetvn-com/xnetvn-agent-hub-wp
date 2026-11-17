@@ -43,7 +43,7 @@ final class RequestMetadata {
 	 */
 	public static function user_agent( string $ua, int $limit = 120 ): string {
 		$ua = substr( $ua, 0, 512 );
-		$ua = preg_replace( '/xnv_[a-z2-7]{12}_[A-Za-z0-9_-]+|Bearer\s+[^\s]+/i', '[redacted]', $ua ) ?? '';
+		$ua = preg_replace( '/(?:xnv|xns)_[A-Za-z0-9_-]{8,}|Bearer\s+[^\s]+/i', '[redacted]', $ua ) ?? '';
 		$ua = preg_replace( '/[\x00-\x1f\x7f]/', '', $ua ) ?? '';
 		$ua = substr( $ua, 0, max( 0, min( 255, $limit ) ) );
 		while ( '' !== $ua && 1 !== preg_match( '//u', $ua ) ) {
