@@ -16,6 +16,7 @@ use Brain\Monkey\Functions;
 use PHPUnit\Framework\TestCase;
 use XNetVN\AgentHubWP\Auth\Capabilities;
 use XNetVN\AgentHubWP\Auth\DelegationEligibility;
+use XNetVN\AgentHubWP\Auth\IssuedKey;
 use XNetVN\AgentHubWP\Auth\KeyGenerator;
 use XNetVN\AgentHubWP\Auth\KeyService;
 use XNetVN\AgentHubWP\Auth\PepperStore;
@@ -89,6 +90,10 @@ final class DelegationEligibilityTest extends TestCase {
 		parent::setUp();
 		require_once dirname( __DIR__, 2 ) . '/Support/StandaloneWordPressError.php';
 		Monkey\setUp();
+		if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+			define( 'DAY_IN_SECONDS', 86400 ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Core time constant in a standalone test.
+			define( 'HOUR_IN_SECONDS', 3600 ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Core time constant in a standalone test.
+		}
 		if ( ! class_exists( 'WP_User', false ) ) {
 			class_alias( EligibilityUser::class, 'WP_User' );
 		}
@@ -248,6 +253,42 @@ final class DelegationEligibilityTest extends TestCase {
 		$result = $this->service( $keys )->patch( 1, array( 'expires_in_days' => 30 ) );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 403, $result->data['status'] );
+	}
+
+	/** An Editor can mint a personal key through the protected lifecycle. */
+	public function test_editor_can_mint_a_personal_key(): void {
+		$this->configure( new EligibilityUser( 7, array( 'editor' ) ), $this->editor_roles(), array( Capabilities::USE ) );
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'is_wp_error' )->alias( static fn( mixed $value ): bool => $value instanceof \WP_Error );
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'id'    => 1,
+				'value' => base64_encode( str_repeat( 'P', 32 ) ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Fixed test pepper bytes.
+			)
+		);
+		Functions\when( 'do_action' )->justReturn( null );
+		$keys = $this->createMock( KeyRepository::class );
+		$keys->method( 'count_active_for_user' )->willReturn( 0 );
+		$keys->expects( self::once() )->method( 'insert' )->willReturn( new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Editor key', new Scope( RiskTier::Read ), new \DateTimeImmutable( '@1791158400' ) ) );
+
+		$result = $this->service( $keys )->create( 7, array( 'name' => 'Editor key' ) );
+		self::assertInstanceOf( IssuedKey::class, $result );
+		self::assertSame( 7, $result->key->user_id );
+	}
+
+	/** A cookie-authenticated manager can still revoke another owner's key. */
+	public function test_manager_can_revoke_a_personal_key(): void {
+		$this->configure( new EligibilityUser( 7, array( 'editor' ) ), $this->editor_roles(), array( Capabilities::USE ) );
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'current_user_can' )->justReturn( true );
+		Functions\when( 'is_wp_error' )->alias( static fn( mixed $value ): bool => $value instanceof \WP_Error );
+		Functions\when( 'do_action' )->justReturn( null );
+		$old  = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Fixture', new Scope( RiskTier::Read ), new \DateTimeImmutable( '@1791158400' ) );
+		$keys = $this->createMock( KeyRepository::class );
+		$keys->method( 'find_by_id' )->willReturn( $old );
+		$keys->expects( self::once() )->method( 'revoke' )->with( 1, 1, 'administrator_request' )->willReturn( true );
+
+		self::assertTrue( $this->service( $keys )->revoke( 1 ) );
 	}
 
 	/**
