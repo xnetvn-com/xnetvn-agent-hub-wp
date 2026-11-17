@@ -46,18 +46,18 @@ final class EligibilityUser {
 	public array $roles;
 	/** Direct capabilities.
 	 *
-	 * @var array<string,bool>
+	 * @var mixed
 	 */
-	public array $caps;
+	public mixed $caps;
 
 	/**
 	 * Bind the fixture identity.
 	 *
-	 * @param int                $id Identity.
-	 * @param array<string>      $roles Roles.
-	 * @param array<string,bool> $caps Direct capabilities.
+	 * @param int           $id Identity.
+	 * @param array<string> $roles Roles.
+	 * @param mixed         $caps Direct capabilities or a broken fixture.
 	 */
-	public function __construct( int $id, array $roles, array $caps = array() ) {
+	public function __construct( int $id, array $roles, mixed $caps = array() ) {
 		$this->ID    = $id;
 		$this->roles = $roles;
 		$this->caps  = $caps;
@@ -253,6 +253,77 @@ final class DelegationEligibilityTest extends TestCase {
 		$result = $this->service( $keys )->patch( 1, array( 'expires_in_days' => 30 ) );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 403, $result->data['status'] );
+	}
+
+	/** A permit-then-deny state still refuses the second issue gate. */
+	public function test_issue_gate_refuses_when_protection_appears_after_create(): void {
+		$editor = new EligibilityUser( 7, array( 'editor' ) );
+		$admin  = new EligibilityUser( 7, array( 'administrator' ) );
+		$calls  = 0;
+		$this->configure( $editor, $this->editor_roles(), array( Capabilities::USE ) );
+		Functions\when( 'get_userdata' )->alias(
+			static function ( int $id ) use ( &$calls, $editor, $admin ): mixed {
+				++$calls;
+				return 7 === $id && 1 === $calls ? $editor : $admin;
+			}
+		);
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'is_wp_error' )->alias( static fn( mixed $value ): bool => $value instanceof \WP_Error );
+		$keys = $this->createMock( KeyRepository::class );
+		$keys->expects( self::never() )->method( 'insert' );
+		$keys->expects( self::never() )->method( 'count_active_for_user' );
+
+		$result = $this->service( $keys )->create( 7, array( 'name' => 'Race key' ) );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 403, $result->data['status'] );
+	}
+
+	/** A non-array privileged filter result fails closed. */
+	public function test_filter_non_array_fails_closed(): void {
+		$this->configure(
+			new EligibilityUser( 20, array( 'editor' ) ),
+			$this->editor_roles(),
+			array( Capabilities::USE ),
+			false,
+			false,
+			static fn(): string => 'not-an-array'
+		);
+		self::assertSame( 'delegation_check_failed', ( new DelegationEligibility() )->check( 20 )->reason );
+	}
+
+	/** A non-string privileged filter member fails closed. */
+	public function test_filter_non_string_member_fails_closed(): void {
+		$this->configure(
+			new EligibilityUser( 21, array( 'editor' ) ),
+			$this->editor_roles(),
+			array( Capabilities::USE ),
+			false,
+			false,
+			static fn(): array => array( 123 )
+		);
+		self::assertSame( 'delegation_check_failed', ( new DelegationEligibility() )->check( 21 )->reason );
+	}
+
+	/** An unusable direct-capability map fails closed. */
+	public function test_broken_capability_map_is_denied(): void {
+		$user       = new EligibilityUser( 22, array( 'editor' ) );
+		$user->caps = 'broken';
+		$this->configure( $user, $this->editor_roles(), array( Capabilities::USE ) );
+		self::assertSame( 'delegation_role_state_unavailable', ( new DelegationEligibility() )->check( 22 )->reason );
+	}
+
+	/** A protected owner may still rename an existing record without extending it. */
+	public function test_protected_owner_can_rename_without_extension(): void {
+		$this->configure( new EligibilityUser( 7, array( 'administrator' ) ), $this->administrator_roles(), array( Capabilities::USE ) );
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'is_wp_error' )->alias( static fn( mixed $value ): bool => $value instanceof \WP_Error );
+		$old  = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Fixture', new Scope( RiskTier::Read ), new \DateTimeImmutable( '@1791158400' ) );
+		$keys = $this->createMock( KeyRepository::class );
+		$keys->method( 'find_by_id' )->willReturn( $old );
+		$keys->expects( self::once() )->method( 'update_key' )->willReturn( true );
+
+		$result = $this->service( $keys )->patch( 1, array( 'name' => 'Renamed fixture' ) );
+		self::assertInstanceOf( ApiKey::class, $result );
 	}
 
 	/** An Editor can mint a personal key through the protected lifecycle. */
