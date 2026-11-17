@@ -62,6 +62,72 @@ final class SafeEditorialHtml {
 	}
 
 	/**
+	 * Run work with plain-text titles for the duration of that work.
+	 *
+	 * @param callable():mixed $work Work to execute.
+	 * @return mixed
+	 */
+	public function run_plain_title( callable $work ): mixed {
+		$plain = fn( string $value ): string => $this->filter_plain_text( $value );
+		add_filter( 'title_save_pre', $plain, 20 );
+		try {
+			return $this->run( $work );
+		} finally {
+			remove_filter( 'title_save_pre', $plain, 20 );
+		}
+	}
+
+	/**
+	 * Filter one registered metadata value by its REST schema.
+	 *
+	 * @param array<string,mixed> $schema Registered REST schema for one meta key.
+	 * @param mixed               $value  Submitted value.
+	 * @return mixed|\WP_Error
+	 */
+	public function filter_meta( array $schema, mixed $value ): mixed {
+		if ( null === $value ) {
+			return null;
+		}
+		$type = (string) ( $schema['type'] ?? '' );
+		if ( in_array( $type, array( 'integer', 'number', 'boolean' ), true ) ) {
+			return $value;
+		}
+		if ( 'array' === $type ) {
+			$items = is_array( $schema['items'] ?? null ) ? $schema['items'] : array();
+			if ( 'string' !== (string) ( $items['type'] ?? '' ) || ! is_array( $value ) ) {
+				return new \WP_Error( 'xnetvn_agent_hub_wp_invalid_meta_shape', 'Invalid metadata shape.' );
+			}
+			foreach ( $value as $index => $item ) {
+				$filtered = $this->filter_meta_string( $items, $item );
+				if ( is_wp_error( $filtered ) ) {
+					return $filtered;
+				}
+				$value[ $index ] = $filtered;
+			}
+			return $value;
+		}
+		return 'string' === $type ? $this->filter_meta_string( $schema, $value ) : new \WP_Error( 'xnetvn_agent_hub_wp_invalid_meta_shape', 'Invalid metadata shape.' );
+	}
+
+	/**
+	 * Apply the HTML policy to one metadata string leaf.
+	 *
+	 * @param array<string,mixed> $schema String schema.
+	 * @param mixed               $value  Submitted value.
+	 * @return string|\WP_Error
+	 */
+	private function filter_meta_string( array $schema, mixed $value ): string|\WP_Error {
+		if ( ! is_string( $value ) ) {
+			return new \WP_Error( 'xnetvn_agent_hub_wp_invalid_meta_shape', 'Invalid metadata shape.' );
+		}
+		$formats = array( 'hex-color', 'date-time', 'email', 'uri', 'ip', 'uuid', 'text-field', 'textarea-field' );
+		if ( isset( $schema['format'] ) && in_array( (string) $schema['format'], $formats, true ) ) {
+			return $value;
+		}
+		return $this->filter_post_html( $value );
+	}
+
+	/**
 	 * Strip all markup from a plain-text field.
 	 *
 	 * @param string $value Field value.
@@ -107,8 +173,11 @@ final class SafeEditorialHtml {
 				array( 'wp_filter_global_styles_post', 9 ),
 				array( 'wp_filter_post_kses', 10 ),
 			),
-			'content_filtered_save_pre' => array( array( 'wp_filter_kses', 10 ) ),
-			'excerpt_save_pre'          => array( array( 'wp_filter_kses', 10 ) ),
+			'content_filtered_save_pre' => array(
+				array( 'wp_filter_global_styles_post', 9 ),
+				array( 'wp_filter_post_kses', 10 ),
+			),
+			'excerpt_save_pre'          => array( array( 'wp_filter_post_kses', 10 ) ),
 			'title_save_pre'            => array( array( 'wp_filter_kses', 10 ) ),
 			'pre_comment_content'       => array( array( 'wp_filter_kses', 10 ) ),
 		);

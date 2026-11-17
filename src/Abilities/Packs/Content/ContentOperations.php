@@ -239,7 +239,9 @@ final class ContentOperations {
 		if ( null !== $timestamp ) {
 			$changes['date_gmt'] = gmdate( 'Y-m-d\TH:i:s', $timestamp );
 			unset( $changes['date'] ); }
-		$changes  = $this->sanitize_changes( $changes );
+		$changes = $this->sanitize_changes( $type->name, $changes );
+		if ( is_wp_error( $changes ) ) {
+			return $changes; }
 		$response = $this->html->run(
 			fn(): mixed => $this->rest->dispatch( 'POST', $route . ( $id ? '/' . $id : '' ), $changes, $type->name )
 		);
@@ -248,12 +250,37 @@ final class ContentOperations {
 		return $response instanceof \XNetVN\AgentHubWP\Abilities\MutationResponse ? $response->project( fn( array $row ): mixed => $this->project( $row ) ) : R::error( 'partial_failure' );
 	}
 	/**
+	 * Filter registered metadata against its REST schema.
+	 *
+	 * @param string              $slug Post type.
+	 * @param array<string,mixed> $meta Values.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function filter_meta( string $slug, array $meta ): array|WP_Error {
+		$schema     = ( new \WP_REST_Post_Meta_Fields( $slug ) )->get_field_schema();
+		$properties = is_array( $schema['properties'] ?? null ) ? $schema['properties'] : array();
+		foreach ( $meta as $key => $value ) {
+			$field = $properties[ $key ] ?? null;
+			if ( ! is_array( $field ) ) {
+				return R::error( 'invalid_params' );
+			}
+			$filtered = $this->html->filter_meta( $field, $value );
+			if ( is_wp_error( $filtered ) ) {
+				return R::error( 'invalid_params' );
+			}
+			$meta[ $key ] = $filtered;
+		}
+		return $meta;
+	}
+
+	/**
 	 * Apply field-appropriate editorial sanitization before dispatch.
 	 *
+	 * @param string              $slug    Post type.
 	 * @param array<string,mixed> $changes Changes.
-	 * @return array<string,mixed>
+	 * @return array<string,mixed>|WP_Error
 	 */
-	private function sanitize_changes( array $changes ): array {
+	private function sanitize_changes( string $slug, array $changes ): array|WP_Error {
 		if ( isset( $changes['title'] ) && is_string( $changes['title'] ) ) {
 			$changes['title'] = $this->html->filter_plain_text( $changes['title'] );
 		}
@@ -263,11 +290,11 @@ final class ContentOperations {
 			}
 		}
 		if ( isset( $changes['meta'] ) && is_array( $changes['meta'] ) ) {
-			foreach ( $changes['meta'] as $key => $value ) {
-				if ( is_string( $value ) ) {
-					$changes['meta'][ $key ] = $this->html->filter_post_html( $value );
-				}
+			$filtered = $this->filter_meta( $slug, (array) $changes['meta'] );
+			if ( is_wp_error( $filtered ) ) {
+				return $filtered;
 			}
+			$changes['meta'] = $filtered;
 		}
 		return $changes;
 	}
@@ -328,21 +355,9 @@ final class ContentOperations {
 		if ( 'restore-revision' === $name ) {
 			if ( ! current_user_can( 'edit_post', $id ) ) {
 				return R::error( 'forbidden' ); }
-			$restored = $this->html->run( static fn(): bool => (bool) wp_restore_post_revision( $rid ) );
-			if ( ! $restored ) {
+			$restored = $this->html->run_plain_title( static fn(): mixed => wp_restore_post_revision( $rid ) );
+			if ( ! is_int( $restored ) || $restored < 1 ) {
 				return R::error( 'restore_failed' ); }
-			$post = get_post( $id );
-			if ( $post instanceof \WP_Post ) {
-				wp_update_post(
-					wp_slash(
-						array(
-							'ID'           => $id,
-							'post_title'   => $this->html->filter_plain_text( $post->post_title ),
-							'post_content' => $this->html->filter_post_html( $post->post_content ),
-						)
-					)
-				);
-			}
 			return \XNetVN\AgentHubWP\Abilities\MutationResult::project(
 				$id,
 				false,
@@ -427,12 +442,9 @@ final class ContentOperations {
 		if ( 'update-post-meta' === $name ) {
 			if ( ! $this->valid_meta( $type->name, (array) $args['values'] ) ) {
 				return R::error( 'invalid_params' ); }
-			$values = (array) $args['values'];
-			foreach ( $values as $key => $value ) {
-				if ( is_string( $value ) ) {
-					$values[ $key ] = $this->html->filter_post_html( $value );
-				}
-			}
+			$values = $this->filter_meta( $type->name, (array) $args['values'] );
+			if ( is_wp_error( $values ) ) {
+				return $values; }
 			$response = $this->html->run(
 				fn(): mixed => $this->rest->dispatch( 'POST', $route . '/' . $id, array( 'meta' => $values ), $type->name )
 			);
