@@ -119,7 +119,7 @@ final class PolicyTest extends TestCase {
 				)
 			),
 			static fn(): bool => true,
-			static fn( Decision $decision ): Decision => $decision
+			static fn(): Decision => Decision::permit()
 		);
 		$ability = new AbilityDescriptor( 'xnetvn/create-user', RiskTier::Read, 'users', 'read' );
 		$context = $this->context( new Scope( RiskTier::Admin, array( 'users' ) ) );

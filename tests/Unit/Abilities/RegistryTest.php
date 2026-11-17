@@ -361,6 +361,45 @@ final class RegistryTest extends TestCase {
 		self::assertFalse( $called );
 	}
 
+	/** Registered callbacks re-check the envelope before the handler. */
+	public function test_registered_callbacks_refuse_unreviewed_definition(): void {
+		$called     = false;
+		$captured   = null;
+		$registry   = $this->registry();
+		$definition = $this->definition(
+			'xnetvn/fixture-read',
+			null,
+			'system',
+			static function () use ( &$called ): array {
+				$called = true;
+				return array( 'value' => 'unsafe' );
+			}
+		);
+		$registry->add( $definition );
+
+		Functions\when( 'did_action' )->justReturn( 1 );
+		Functions\when( 'wp_has_ability' )->justReturn( false );
+		Functions\expect( 'wp_register_ability' )->once()->andReturnUsing(
+			function ( string $name, array $arguments ) use ( &$captured ): object {
+				$captured = $arguments;
+				return $this->ability(
+					array(
+						'public'       => false,
+						'show_in_rest' => false,
+					)
+				);
+			}
+		);
+		$registry->register_abilities();
+
+		self::assertIsArray( $captured );
+		self::assertFalse( ( $captured['permission_callback'] )() );
+		$result = ( $captured['execute_callback'] )( array() );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->code );
+		self::assertFalse( $called );
+	}
+
 	/** HTTP policy requires a live identity that matches the current user. */
 	public function test_http_without_matching_identity_is_denied(): void {
 		$registry = $this->registry( 'http', null );
