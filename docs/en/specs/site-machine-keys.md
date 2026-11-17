@@ -30,6 +30,19 @@ Attribution is separate from execution. A machine request may credit an
 eligible content author, but that author is not the key owner and gains no
 execution privilege from the credit.
 
+## Decision map
+
+| Decision | Contract section |
+|---|---|
+| OD-01 | Personal `xnv_` keys exclude protected accounts; see Token format and Lifecycle and quotas. |
+| OD-02 | The site principal is accountless (`user_id = 0`); see Principal model and Persistence and schema. |
+| OD-03 | Every MCP credential passes the static envelope and KSES boundary; see Policy and safe envelope. |
+| OD-04 | Ban is current-site editorial suspension, without login or password-reset blocking; see Users and moderation. |
+| OD-05 | Authorship is attribution, never authority; see Content and taxonomy and Media. |
+| OD-06 | Ban and unban are separate default-off grants; see Users and moderation. |
+| OD-07 | Administrators are protected network-wide and sessions are destroyed user-wide; see Users and moderation. |
+| OD-08 | No legacy conversion for undeployed users; see Residual risks and out of scope. |
+
 ## Token format
 
 - Prefix: `xns_`.

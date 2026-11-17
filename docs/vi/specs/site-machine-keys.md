@@ -29,6 +29,19 @@ Ghi nhận tác giả tách khỏi thực thi. Yêu cầu máy có thể ghi cô
 nội dung đủ điều kiện, nhưng tác giả đó không phải chủ khóa và không nhận
 quyền thực thi từ việc ghi công.
 
+## Bản đồ quyết định
+
+| Quyết định | Mục hợp đồng |
+|---|---|
+| OD-01 | Khóa cá nhân `xnv_` loại tài khoản được bảo vệ; xem Định dạng token và Vòng đời và hạn mức. |
+| OD-02 | Danh tính site không cần tài khoản (`user_id = 0`); xem Mô hình danh tính và Lưu trữ và schema. |
+| OD-03 | Mọi khóa MCP đi qua phong bì tĩnh và biên KSES; xem Chính sách và phong bì an toàn. |
+| OD-04 | Cấm là đình chỉ biên tập tại site, không chặn đăng nhập hay đặt lại mật khẩu; xem Người dùng và kiểm duyệt. |
+| OD-05 | Quyền tác giả là ghi nhận, không phải thẩm quyền; xem Nội dung và phân loại và Phương tiện. |
+| OD-06 | Cấm và bỏ cấm là hai quyền riêng, mặc định tắt; xem Người dùng và kiểm duyệt. |
+| OD-07 | Quản trị được bảo vệ toàn mạng và phiên bị hủy toàn người dùng; xem Người dùng và kiểm duyệt. |
+| OD-08 | Không chuyển đổi khóa cũ cho người dùng chưa triển khai; xem Rủi ro còn lại và ngoài phạm vi. |
+
 ## Định dạng token
 
 - Tiền tố: `xns_`.
