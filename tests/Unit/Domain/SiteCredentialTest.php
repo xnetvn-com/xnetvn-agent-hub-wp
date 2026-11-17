@@ -50,6 +50,26 @@ final class SiteCredentialTest extends TestCase {
 		self::assertFalse( property_exists( $credential, 'user_id' ) );
 	}
 
+	/** Credential dates are normalized to UTC before persistence. */
+	public function test_site_credential_normalizes_dates_to_utc(): void {
+		$credential = new SiteCredential(
+			1,
+			new KeyId( 'abcdefghijkl' ),
+			1,
+			'UTC key',
+			$this->scope(),
+			new DateTimeImmutable( '2026-11-17T07:00:00+07:00' ),
+			new DateTimeImmutable( '2026-11-18T07:00:00+07:00' ),
+			12,
+			null,
+			new DateTimeImmutable( '2026-11-19T07:00:00+07:00' )
+		);
+
+		self::assertSame( '2026-11-17T00:00:00Z', $credential->created_at->format( 'Y-m-d\TH:i:s\Z' ) );
+		self::assertSame( '2026-11-18T00:00:00Z', $credential->revoked_at?->format( 'Y-m-d\TH:i:s\Z' ) );
+		self::assertSame( '2026-11-19T00:00:00Z', $credential->last_used_at?->format( 'Y-m-d\TH:i:s\Z' ) );
+	}
+
 	/** Revocation is explicit and positive manager identities are enforced. */
 	public function test_site_credential_rejects_invalid_identity_and_name(): void {
 		$scope = $this->scope();
