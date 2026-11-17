@@ -157,7 +157,7 @@ outcome raises a typed storage error and is never reported as success.
   creating user later does not invalidate the credential.
 
 The REST surface returns `201` only on create and rotate, `200` on reads and
-patch, `204` or the existing deletion shape on revoke, and `409` on quota.
+patch, and the existing deletion shape on revoke, and `409` on quota.
 Secrets appear only in the issuance and rotation responses.
 
 ## Authentication and request context
@@ -195,9 +195,10 @@ depend on adapter classes.
 ## Policy and safe envelope
 
 `SafeMcpEnvelope` is a static, code-owned allowlist. It permits the reviewed
-editorial and system operations, the two human self-profile operations for a
-human principal only, and `xnetvn/set-user-status` for a site principal only
-when a separate moderation grant applies. It denies unknown, third-party,
+editorial and system operations and the two human self-profile operations for
+a human principal only. At the envelope layer it also permits
+`xnetvn/set-user-status` for a site principal; the separate moderation grant
+is enforced by `SitePolicy` and the handler. It denies unknown, third-party,
 fixture and general user-administration names. No setting, filter, key tier
 or hook may widen it; extensions may only deny.
 

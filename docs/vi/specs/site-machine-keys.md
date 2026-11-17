@@ -153,9 +153,9 @@ lưu trữ có kiểu và không bao giờ báo thành công.
 - Thu hồi một chiều và ghi người quản lý cùng lý do. Xóa người tạo sau đó
   không làm mất hiệu lực khóa.
 
-Bề mặt REST chỉ trả `201` khi tạo và xoay, `200` khi đọc và patch, `204` hoặc
-dạng xóa hiện có khi thu hồi, và `409` khi quá hạn mức. Bí mật chỉ xuất hiện
-trong phản hồi cấp và xoay.
+Bề mặt REST chỉ trả `201` khi tạo và xoay, `200` khi đọc và patch, dạng xóa
+hiện có khi thu hồi, và `409` khi quá hạn mức. Bí mật chỉ xuất hiện trong
+phản hồi cấp và xoay.
 
 ## Xác thực và ngữ cảnh yêu cầu
 
@@ -189,11 +189,12 @@ minh. Đường site cần `get_current_blog_id() === blog_id()` và
 ## Chính sách và phong bì an toàn
 
 `SafeMcpEnvelope` là danh sách cho phép tĩnh do mã nguồn sở hữu. Nó cho phép
-các thao tác biên tập và hệ thống đã rà soát, hai thao tác hồ sơ cá nhân chỉ
-với danh tính người, và `xnetvn/set-user-status` chỉ với danh tính site khi
-có quyền kiểm duyệt riêng. Nó từ chối tên lạ, bên thứ ba, fixture và quản
-trị người dùng chung. Không thiết lập, filter, mức khóa hay hook nào được mở
-rộng nó; tiện ích chỉ có thể từ chối thêm.
+các thao tác biên tập và hệ thống đã rà soát và hai thao tác hồ sơ cá nhân
+chỉ với danh tính người. Ở tầng phong bì, nó cũng cho phép
+`xnetvn/set-user-status` với danh tính site; quyền kiểm duyệt riêng được
+`SitePolicy` và handler thực thi. Nó từ chối tên lạ, bên thứ ba, fixture và
+quản trị người dùng chung. Không thiết lập, filter, mức khóa hay hook nào
+được mở rộng nó; tiện ích chỉ có thể từ chối thêm.
 
 Bộ biên tập và hệ thống đã rà soát gồm 51 thao tác: System 5, Content 19 cộng
 `xnetvn/list-content-authors`, Taxonomy 9, Media 7 và Comments 10. Các thao
