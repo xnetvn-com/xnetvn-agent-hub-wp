@@ -58,8 +58,8 @@ final class SiteCredentialTest extends TestCase {
 			try {
 				new SiteCredential( $invalid_id, new KeyId( 'abcdefghijkl' ), 3, 'Key', $scope, new DateTimeImmutable() );
 				self::fail( 'A non-positive id must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 
@@ -75,8 +75,8 @@ final class SiteCredentialTest extends TestCase {
 			try {
 				new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), 1, $name, $scope, new DateTimeImmutable() );
 				self::fail( 'An invalid name must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 	}
@@ -118,8 +118,8 @@ final class SiteCredentialTest extends TestCase {
 			try {
 				new SiteScope( RiskTier::Read, $case[0], $case[1], $case[2], $case[3], $case[4], new DateTimeImmutable( '2027-01-01T00:00:00Z' ) );
 				self::fail( 'An invalid scope member must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 	}
@@ -129,17 +129,18 @@ final class SiteCredentialTest extends TestCase {
 		$expiry = new DateTimeImmutable( '2027-01-01T00:00:00Z' );
 
 		$invalid = array(
-			array( RiskTier::Read, array( 'users' ), array( 'xnetvn/set-user-status' ), array( 'ban-users' ) ),
-			array( RiskTier::Admin, array( 'content' ), array( 'xnetvn/set-user-status' ), array( 'ban-users' ) ),
-			array( RiskTier::Admin, array( 'users' ), array( 'xnetvn/get-user' ), array( 'ban-users' ) ),
+			array( RiskTier::Read, array( 'users' ), array( 'xnetvn/set-user-status' ), array( 'ban-users' ), array() ),
+			array( RiskTier::Admin, array( 'content' ), array( 'xnetvn/set-user-status' ), array( 'ban-users' ), array() ),
+			array( RiskTier::Admin, array( 'users' ), array( 'xnetvn/get-user' ), array( 'ban-users' ), array() ),
+			array( RiskTier::Admin, array( 'users' ), array( 'xnetvn/set-user-status' ), array( 'ban-users' ), array( 'xnetvn/set-user-status' ) ),
 		);
 
 		foreach ( $invalid as $case ) {
 			try {
-				new SiteScope( $case[0], $case[1], $case[2], array(), $case[3], array(), $expiry );
+				new SiteScope( $case[0], $case[1], $case[2], $case[4] ?? array(), $case[3], array(), $expiry );
 				self::fail( 'An inconsistent moderation scope must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 
@@ -163,11 +164,17 @@ final class SiteCredentialTest extends TestCase {
 			new SiteScope( RiskTier::Read, array( 'content' ), array( 'xnetvn/get-post' ), array(), array(), array( '203.0.113.128/25' ), $expiry ),
 			new SiteScope( RiskTier::Read, array( 'content' ), array( 'xnetvn/get-post' ), array( 'xnetvn/delete-post' ), array(), array( '203.0.112.0/23' ), $expiry ),
 			new SiteScope( RiskTier::Write, array( 'content' ), array( 'xnetvn/get-post' ), array( 'xnetvn/delete-post' ), array(), array( '203.0.113.128/25' ), $expiry->modify( '+1 day' ) ),
+			new SiteScope( RiskTier::Destructive, array( 'content' ), array( 'xnetvn/get-post' ), array( 'xnetvn/delete-post' ), array(), array( '203.0.113.128/25' ), $expiry ),
+			new SiteScope( RiskTier::Read, array( 'content' ), array( 'xnetvn/get-post' ), array( 'xnetvn/delete-post' ), array(), array(), $expiry ),
 		);
 
 		foreach ( $expansions as $candidate ) {
 			self::assertFalse( $candidate->is_narrower_than( $old ) );
 		}
+
+		$old_moderation = new SiteScope( RiskTier::Admin, array( 'users' ), array( 'xnetvn/set-user-status' ), array(), array(), array(), $expiry );
+		$new_moderation = new SiteScope( RiskTier::Admin, array( 'users' ), array( 'xnetvn/set-user-status' ), array(), array( 'unban-users' ), array(), $expiry );
+		self::assertFalse( $new_moderation->is_narrower_than( $old_moderation ) );
 	}
 
 	/** Array round-tripping is strict and fails closed on corruption. */
@@ -192,8 +199,8 @@ final class SiteCredentialTest extends TestCase {
 			try {
 				SiteScope::from_array( $candidate );
 				self::fail( 'A corrupt scope must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 	}
@@ -209,9 +216,13 @@ final class SiteCredentialTest extends TestCase {
 		self::assertFalse( $context->has_permission( 'ban-users' ) );
 
 		$debug = $context->__debugInfo();
-		self::assertArrayNotHasKey( 'credential', $debug );
-		self::assertArrayNotHasKey( 'secret_hash', $debug );
+		self::assertSame( array( 'principal_type', 'blog_id', 'credential_ref', 'request_id', 'client_ip' ), array_keys( $debug ) );
 		self::assertSame( 'site', $debug['principal_type'] );
+
+		$moderation_scope = new SiteScope( RiskTier::Admin, array( 'users' ), array( 'xnetvn/set-user-status' ), array(), array( 'ban-users' ), array(), new DateTimeImmutable( '2027-01-01T00:00:00Z' ) );
+		$moderation       = new SiteAuthContext( new SiteCredential( 8, new KeyId( 'mnopqrstuvwx' ), 3, 'Moderation key', $moderation_scope, new DateTimeImmutable( '2026-11-17T00:00:00Z' ) ), 'request-2', '203.0.113.9' );
+		self::assertTrue( $moderation->has_permission( 'ban-users' ) );
+		self::assertFalse( $moderation->has_permission( 'unban-users' ) );
 	}
 
 	/** Empty request and peer identities are rejected before policy runs. */
@@ -222,8 +233,8 @@ final class SiteCredentialTest extends TestCase {
 			try {
 				new SiteAuthContext( $credential, $value, '203.0.113.9' );
 				self::fail( 'An empty request id must be rejected.' );
-			} catch ( \InvalidArgumentException ) {
-				self::assertTrue( true );
+			} catch ( \InvalidArgumentException $exception ) {
+				self::assertStringContainsString( 'Invalid', $exception->getMessage() );
 			}
 		}
 

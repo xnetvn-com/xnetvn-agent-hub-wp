@@ -110,7 +110,7 @@ final readonly class SiteScope {
 			}
 		}
 		if ( null === $expires_at ) {
-			throw new \InvalidArgumentException( 'A site scope requires an expiry.' );
+			throw new \InvalidArgumentException( 'Invalid site scope expiry.' );
 		}
 
 		$this->profile           = self::PROFILE;
@@ -123,10 +123,10 @@ final readonly class SiteScope {
 		$this->expires_at        = $expires_at->setTimezone( new DateTimeZone( 'UTC' ) );
 
 		if ( array() === $this->allowed_abilities ) {
-			throw new \InvalidArgumentException( 'A site scope requires an explicit allowlist.' );
+			throw new \InvalidArgumentException( 'Invalid site scope allowlist.' );
 		}
 		if ( array() !== $this->permissions && ( RiskTier::Admin !== $this->tier_ceiling || ! in_array( 'users', $this->toolsets, true ) || ! in_array( 'xnetvn/set-user-status', $this->allowed_abilities, true ) || in_array( 'xnetvn/set-user-status', $this->denied_abilities, true ) ) ) {
-			throw new \InvalidArgumentException( 'A moderation scope must grant only the admin moderation ability.' );
+			throw new \InvalidArgumentException( 'Invalid moderation scope: it must grant only the admin moderation ability.' );
 		}
 	}
 
@@ -190,7 +190,7 @@ final readonly class SiteScope {
 		sort( $keys, SORT_STRING );
 		sort( $expected, SORT_STRING );
 		if ( $keys !== $expected ) {
-			throw new \InvalidArgumentException( 'Unknown site scope fields.' );
+			throw new \InvalidArgumentException( 'Invalid site scope fields.' );
 		}
 		if ( self::PROFILE !== $data['profile'] ) {
 			throw new \InvalidArgumentException( 'Invalid site scope profile.' );
