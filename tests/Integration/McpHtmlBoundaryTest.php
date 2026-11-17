@@ -261,6 +261,7 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 				),
 			)
 		);
+		$this->setExpectedIncorrectUsage( 'register_meta' );
 		register_post_meta(
 			'post',
 			'fixture_unproven',
@@ -360,6 +361,29 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		$this->assert_safe( $stored->comment_content, '<strong>Edited comment</strong>' );
 		self::assertStringNotContainsString( '<b>', $stored->comment_author );
 		self::assertStringNotContainsString( '<script', $stored->comment_author );
+	}
+
+	/** The boundary restores hooks and capability after a thrown exception. */
+	public function test_hook_state_is_restored_after_an_exception(): void {
+		$custom = static fn( string $value ): string => $value;
+		add_filter( 'content_save_pre', $custom, 10 );
+		$before = has_filter( 'content_save_pre', 'wp_filter_post_kses' );
+		$html   = new SafeEditorialHtml();
+		try {
+			$html->run(
+				static function (): void {
+					throw new \RuntimeException( 'Fixture failure.' );
+				}
+			);
+			self::fail( 'The fixture exception was swallowed.' );
+		} catch ( \RuntimeException $error ) {
+			self::assertSame( 'Fixture failure.', $error->getMessage() );
+		} finally {
+			remove_filter( 'content_save_pre', $custom, 10 );
+		}
+		self::assertSame( $before, has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
+		self::assertTrue( current_user_can( 'unfiltered_html' ) );
+		self::assertFalse( has_filter( 'content_save_pre', $custom ) );
 	}
 
 	/** The capability and pre-existing hook state are restored outside the boundary. */

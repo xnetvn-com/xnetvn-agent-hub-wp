@@ -28,24 +28,24 @@ final class SafeEditorialHtml {
 		++$this->depth;
 		$added      = array();
 		$cap_filter = null;
-		if ( 1 === $this->depth ) {
-			$cap_filter = static function ( array $caps, string $cap, int $user_id, array $args ): array {
-				unset( $user_id, $args );
-				return 'unfiltered_html' === $cap ? array( 'do_not_allow' ) : $caps;
-			};
-			add_filter( 'map_meta_cap', $cap_filter, PHP_INT_MAX, 4 );
-			foreach ( $this->kses_hooks() as $hook => $callbacks ) {
-				foreach ( $callbacks as $entry ) {
-					list( $callback, $priority ) = $entry;
-					if ( ! has_filter( $hook, $callback ) ) {
-						$callable = fn( string $value ): string => $this->apply_kses( $callback, $value );
-						add_filter( $hook, $callable, $priority );
-						$added[]  = array( $hook, $callable, $priority );
+		try {
+			if ( 1 === $this->depth ) {
+				$cap_filter = static function ( array $caps, string $cap, int $user_id, array $args ): array {
+					unset( $user_id, $args );
+					return 'unfiltered_html' === $cap ? array( 'do_not_allow' ) : $caps;
+				};
+				add_filter( 'map_meta_cap', $cap_filter, PHP_INT_MAX, 4 );
+				foreach ( $this->kses_hooks() as $hook => $callbacks ) {
+					foreach ( $callbacks as $entry ) {
+						list( $callback, $priority ) = $entry;
+						if ( ! has_filter( $hook, $callback ) ) {
+							$callable = fn( string $value ): string => $this->apply_kses( $callback, $value );
+							add_filter( $hook, $callable, $priority );
+							$added[]  = array( $hook, $callable, $priority );
+						}
 					}
 				}
 			}
-		}
-		try {
 			return $work();
 		} finally {
 			--$this->depth;
