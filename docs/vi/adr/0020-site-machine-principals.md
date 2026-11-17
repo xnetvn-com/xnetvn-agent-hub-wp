@@ -171,9 +171,6 @@ thích cho khóa đã triển khai. Các hạn chế runtime vẫn áp dụng ch
 - Lưu token phiên:
   https://developer.wordpress.org/reference/classes/wp_user_meta_session_tokens/update_sessions/
   (kiểm 2026-11-17).
-- Lưu token phiên:
-  https://developer.wordpress.org/reference/classes/wp_user_meta_session_tokens/update_sessions/
-  (kiểm 2026-11-17).
 - Hướng dẫn thư mục:
   https://developer.wordpress.org/plugins/wordpress-org/detailed-plugin-guidelines/
   (kiểm 2026-11-17).
