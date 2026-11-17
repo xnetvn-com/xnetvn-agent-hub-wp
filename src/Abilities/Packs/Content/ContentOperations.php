@@ -12,6 +12,7 @@ use WP_Error;
 use WP_Post_Type;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 
 /** Never changes user identity or bypasses core REST permissions. */
 final class ContentOperations {
@@ -30,11 +31,21 @@ final class ContentOperations {
 	 * @var PostProjection
 	 */
 	private PostProjection $projection;
-	/** Bind pure infrastructure. */
-	public function __construct() {
+	/** Scoped editorial HTML boundary.
+	 *
+	 * @var SafeEditorialHtml
+	 */
+	private SafeEditorialHtml $html;
+	/**
+	 * Bind pure infrastructure.
+	 *
+	 * @param SafeEditorialHtml|null $html Scoped editorial HTML boundary.
+	 */
+	public function __construct( ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->types      = new PostTypeResolver();
 		$this->projection = new PostProjection( static fn( int $id ): bool => current_user_can( 'edit_post', $id ) );
+		$this->html       = $html ?? new SafeEditorialHtml();
 	}
 	/**
 	 * Run a reviewed operation after registry schema/policy validation.
@@ -228,10 +239,37 @@ final class ContentOperations {
 		if ( null !== $timestamp ) {
 			$changes['date_gmt'] = gmdate( 'Y-m-d\TH:i:s', $timestamp );
 			unset( $changes['date'] ); }
-		$response = $this->rest->dispatch( 'POST', $route . ( $id ? '/' . $id : '' ), $changes, $type->name );
+		$changes  = $this->sanitize_changes( $changes );
+		$response = $this->html->run(
+			fn(): mixed => $this->rest->dispatch( 'POST', $route . ( $id ? '/' . $id : '' ), $changes, $type->name )
+		);
 		if ( is_wp_error( $response ) ) {
 			return $response; }
 		return $response instanceof \XNetVN\AgentHubWP\Abilities\MutationResponse ? $response->project( fn( array $row ): mixed => $this->project( $row ) ) : R::error( 'partial_failure' );
+	}
+	/**
+	 * Apply field-appropriate editorial sanitization before dispatch.
+	 *
+	 * @param array<string,mixed> $changes Changes.
+	 * @return array<string,mixed>
+	 */
+	private function sanitize_changes( array $changes ): array {
+		if ( isset( $changes['title'] ) && is_string( $changes['title'] ) ) {
+			$changes['title'] = $this->html->filter_plain_text( $changes['title'] );
+		}
+		foreach ( array( 'content', 'excerpt' ) as $field ) {
+			if ( isset( $changes[ $field ] ) && is_string( $changes[ $field ] ) ) {
+				$changes[ $field ] = $this->html->filter_post_html( $changes[ $field ] );
+			}
+		}
+		if ( isset( $changes['meta'] ) && is_array( $changes['meta'] ) ) {
+			foreach ( $changes['meta'] as $key => $value ) {
+				if ( is_string( $value ) ) {
+					$changes['meta'][ $key ] = $this->html->filter_post_html( $value );
+				}
+			}
+		}
+		return $changes;
 	}
 	/**
 	 * List core types/statuses without exposing excluded object kinds.
@@ -290,8 +328,21 @@ final class ContentOperations {
 		if ( 'restore-revision' === $name ) {
 			if ( ! current_user_can( 'edit_post', $id ) ) {
 				return R::error( 'forbidden' ); }
-			if ( ! wp_restore_post_revision( $rid ) ) {
+			$restored = $this->html->run( static fn(): bool => (bool) wp_restore_post_revision( $rid ) );
+			if ( ! $restored ) {
 				return R::error( 'restore_failed' ); }
+			$post = get_post( $id );
+			if ( $post instanceof \WP_Post ) {
+				wp_update_post(
+					wp_slash(
+						array(
+							'ID'           => $id,
+							'post_title'   => $this->html->filter_plain_text( $post->post_title ),
+							'post_content' => $this->html->filter_post_html( $post->post_content ),
+						)
+					)
+				);
+			}
 			return \XNetVN\AgentHubWP\Abilities\MutationResult::project(
 				$id,
 				false,
@@ -376,7 +427,15 @@ final class ContentOperations {
 		if ( 'update-post-meta' === $name ) {
 			if ( ! $this->valid_meta( $type->name, (array) $args['values'] ) ) {
 				return R::error( 'invalid_params' ); }
-			$response = $this->rest->dispatch( 'POST', $route . '/' . $id, array( 'meta' => $args['values'] ), $type->name );
+			$values = (array) $args['values'];
+			foreach ( $values as $key => $value ) {
+				if ( is_string( $value ) ) {
+					$values[ $key ] = $this->html->filter_post_html( $value );
+				}
+			}
+			$response = $this->html->run(
+				fn(): mixed => $this->rest->dispatch( 'POST', $route . '/' . $id, array( 'meta' => $values ), $type->name )
+			);
 		} else {
 			$response = $this->rest->dispatch( 'GET', $route . '/' . $id, array( 'context' => 'view' ) ); }
 		if ( is_wp_error( $response ) ) {
