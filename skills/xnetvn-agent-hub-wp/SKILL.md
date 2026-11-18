@@ -13,7 +13,7 @@ metadata:
 
 # xNetVN Agent Hub WP
 
-xNetVN Agent Hub WP exposes 62 private abilities over one bearer-only MCP route. This pack is documentation only — it does not create a key, grant access, change the site or prove runtime acceptance. Loading the pack in a real client and running MCP reads on the lab sites is a separate runtime acceptance gate, and that gate is currently blocked.
+xNetVN Agent Hub WP exposes 63 private abilities over one bearer-only MCP route. This pack is documentation only — it does not create a key, grant access, change the site or prove runtime acceptance. Loading the pack in a real client and running MCP reads on the lab sites is a separate runtime acceptance gate, and that gate is currently blocked.
 
 ## When to use this skill
 
@@ -112,12 +112,12 @@ The no-token health check is the same `tools/list` request with the `Authorizati
 
 ## Ability model
 
-The server publishes six groups at this revision: system (5), content (19), taxonomy (9), media (7), comments (10) and users (12). The four tiers total read 27, write 24, destructive 5 and admin 6; the `execute-ability` entry counts as a read entry because it rechecks the target risk on every delegated call.
+The server publishes six groups at this revision: system (5), content (20), taxonomy (9), media (7), comments (10) and users (12). The four tiers total read 28, write 24, destructive 5 and admin 6; the `execute-ability` entry counts as a read entry because it rechecks the target risk on every delegated call.
 
 | Group | Abilities | What it covers |
 |---|---|---|
 | system | 5 | session, site, discovery, ability details, delegated execution |
-| content | 19 | post types, posts, revisions, meta, featured media, sticky, bulk update, search |
+| content | 20 | post types, posts, author lookup, revisions, meta, featured media, sticky, bulk update, search |
 | taxonomy | 9 | taxonomies, terms, assignment, bounded bulk operations, term deletion |
 | media | 7 | list, get, update, URL upload, data upload, upload limits, deletion |
 | comments | 10 | list, get, counts, create, reply, update, moderate, bulk moderate, delete, purge |
@@ -134,7 +134,7 @@ Every ability has two names. The wire name is the MCP tool name; the canonical n
 
 Discovery sequence: call `xnetvn-get-session-info` to read the user, the key scope and the remaining budget; call `xnetvn-discover-abilities` to list what the key can see; call `xnetvn-get-ability-info` with the canonical name to read the exact input schema; then call the tool.
 
-The authoritative list of all 62 rows with tier, toolset, visibility capability and status is the [ability catalog](../../docs/en/architecture/ability-catalog.md). This pack never copies that table.
+The authoritative list of all 63 implemented rows with tier, toolset, visibility capability and status is the [ability catalog](../../docs/en/architecture/ability-catalog.md). This pack never copies that table.
 
 A slash name inside `tools/call` is rejected: `"name": "xnetvn/get-post"` is wrong and the call must use `xnetvn-get-post`. Do not use the wire name `xnetvn-get-post` as the `name` argument of `get-ability-info` or `execute-ability`; those arguments take the canonical `xnetvn/get-post`.
 
@@ -204,6 +204,6 @@ The full symptom table, the reason vocabulary and the reconciliation procedure a
 - [Workflow guide](references/workflows.md): the universal loop and one minimal sequence per group.
 - [Safety contract](references/safety.md): identity, confirmation matrix, bulk caps and reconciliation.
 - [Troubleshooting guide](references/troubleshooting.md): the symptom table and the standalone reconciliation procedure.
-- [Ability catalog](../../docs/en/architecture/ability-catalog.md): the single source of truth for all 62 abilities.
+- [Ability catalog](../../docs/en/architecture/ability-catalog.md): the single source of truth for all 63 abilities.
 - [User guide](../../docs/user-guide.md): first setup, key handling and site configuration.
 - [Repository troubleshooting](../../docs/en/TROUBLESHOOTING.md): installation, 401, 403, 429 and 503 remedies.

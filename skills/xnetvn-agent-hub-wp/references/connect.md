@@ -7,9 +7,11 @@ The wire contract for the xNetVN Agent Hub WP MCP server — read it with [the s
 | Variable | Value |
 |---|---|
 | `XNETVN_MCP_URL` | `https://example.com/wp-json/xnetvn-agent-hub-wp/mcp` |
-| `XNETVN_MCP_KEY` | The bearer key, shape `xnv_<key-id>_<secret>` |
+| `XNETVN_MCP_KEY` | The bearer key, shape `xnv_<key-id>_<secret>` for a personal key or `xns_<key-id>_<secret>` for a website key |
 
 Load both from the environment or a secret store. The WordPress admin shows the key once. A document, a chat, a commit, a log and a shell history never contain the value, and a command line never carries it as a literal.
+
+Both shapes use the same `Authorization: Bearer` header on the MCP route, and a website key has no WordPress user.
 
 ## 2. Request headers
 
