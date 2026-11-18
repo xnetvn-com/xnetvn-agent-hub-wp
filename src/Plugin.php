@@ -139,8 +139,17 @@ final class Plugin {
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Comments\CommentsPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\TaxonomyPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Users\UsersPack( new DefinitionFactory(), $limits ) );
-		$registry->add_pack( new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() ) );
+		$system_pack = new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() );
+		$registry->add_pack( $system_pack );
 		$site_dispatcher->bind_catalog( $registry, static fn( string $name ): ?AbilityDescriptor => $registry->resolved_descriptor( $name ) );
+		// Packs load on init 0; register their machine handlers before the dispatcher freezes.
+		add_action(
+			'init',
+			static function () use ( $system_pack, $site_dispatcher ): void {
+				$system_pack->register_machine_handlers( $site_dispatcher );
+			},
+			1
+		);
 		$keys             = new WpdbKeyRepository( $wpdb, $clock );
 		$peppers          = new PepperStore();
 		$service          = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
