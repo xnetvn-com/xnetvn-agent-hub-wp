@@ -174,15 +174,35 @@ final class ContentSchemas {
 				$p = array_merge( $id, self::read() );
 				break;
 			case 'create-post':
-				$p        = array_merge( $type, self::changes() );
+				$p        = array_merge(
+					$type,
+					self::changes(),
+					array(
+						'author' => array_merge(
+							self::integer(),
+							array( 'description' => 'Machine attribution only; never an execution identity.' )
+						),
+					)
+				);
 				$required = array();
 				break;
 			case 'update-post':
 				$p = array_merge( $id, self::changes(), array( 'expected_modified' => self::date() ) );
 				break;
 			case 'restore-post':
+				$p = array_merge( $id, array( 'status' => self::choices( array( 'draft', 'publish' ) ) ) );
+				break;
 			case 'duplicate-post':
-				$p = array_merge( $id, array( 'status' => self::choices( 'restore-post' === $name ? array( 'draft', 'publish' ) : array( 'draft', 'pending' ) ) ) );
+				$p = array_merge(
+					$id,
+					array(
+						'status' => self::choices( array( 'draft', 'pending' ) ),
+						'author' => array_merge(
+							self::integer(),
+							array( 'description' => 'Machine attribution only; never an execution identity.' )
+						),
+					)
+				);
 				break;
 			case 'bulk-update-posts':
 				$changes           = array_intersect_key( self::changes(), array_flip( array( 'status', 'categories', 'tags', 'sticky' ) ) );
