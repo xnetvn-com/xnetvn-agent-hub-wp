@@ -84,6 +84,9 @@ final class AdminPagesTest extends WP_UnitTestCase {
 			$pages = new Pages( $dir . '/xnetvn-agent-hub-wp.php', $settings, $registry );
 			wp_dequeue_script( 'xnetvn-agent-hub-wp-admin' );
 			wp_dequeue_style( 'xnetvn-agent-hub-wp-admin' );
+			// Deregister both handles so WordPress registers the temp-directory source URLs instead of keeping the minified URLs a preceding method registered.
+			wp_deregister_script( 'xnetvn-agent-hub-wp-admin' );
+			wp_deregister_style( 'xnetvn-agent-hub-wp-admin' );
 			$pages->assets( 'profile.php' );
 			self::assertStringEndsWith( '/assets/admin.js', wp_scripts()->registered['xnetvn-agent-hub-wp-admin']->src );
 			self::assertStringEndsWith( '/assets/admin.css', wp_styles()->registered['xnetvn-agent-hub-wp-admin']->src );
@@ -93,6 +96,11 @@ final class AdminPagesTest extends WP_UnitTestCase {
 			wp_delete_file( $dir . '/xnetvn-agent-hub-wp.php' );
 			rmdir( $dir . '/assets' );
 			rmdir( $dir );
+			// Leave both handles dequeued and deregistered so the next test registers its own URL.
+			wp_dequeue_script( 'xnetvn-agent-hub-wp-admin' );
+			wp_dequeue_style( 'xnetvn-agent-hub-wp-admin' );
+			wp_deregister_script( 'xnetvn-agent-hub-wp-admin' );
+			wp_deregister_style( 'xnetvn-agent-hub-wp-admin' );
 		}
 		// phpcs:enable
 	}
