@@ -382,7 +382,7 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 			}
 			self::assertSame( $before, has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
 			self::assertTrue( current_user_can( 'unfiltered_html' ) );
-			self::assertTrue( has_filter( 'content_save_pre', $custom ) );
+			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 		} finally {
 			remove_filter( 'content_save_pre', $custom, 10 );
 		}
@@ -396,10 +396,10 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		try {
 			$html = new SafeEditorialHtml();
 			self::assertTrue( current_user_can( 'unfiltered_html' ) );
-			self::assertTrue( has_filter( 'content_save_pre', $custom ) );
+			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 			self::assertFalse( $html->run( static fn(): bool => current_user_can( 'unfiltered_html' ) ) );
 			self::assertTrue( current_user_can( 'unfiltered_html' ) );
-			self::assertTrue( has_filter( 'content_save_pre', $custom ) );
+			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 			self::assertFalse( has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
 		} finally {
 			remove_filter( 'content_save_pre', $custom, 10 );
