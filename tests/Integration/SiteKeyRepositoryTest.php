@@ -101,8 +101,8 @@ final class SiteKeyRepositoryTest extends WP_UnitTestCase {
 		update_option( Migrator::VERSION_OPTION, 1, false );
 
 		self::assertTrue( ( new Migrator( $wpdb, $this->clock ) )->migrate() );
-		self::assertSame( 2, Schema::VERSION );
-		self::assertSame( 2, (int) get_option( Migrator::VERSION_OPTION ) );
+		self::assertSame( 3, Schema::VERSION );
+		self::assertSame( 3, (int) get_option( Migrator::VERSION_OPTION ) );
 
 		$columns = $wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) );
 		self::assertSame(

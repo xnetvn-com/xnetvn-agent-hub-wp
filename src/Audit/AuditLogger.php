@@ -13,6 +13,7 @@ use XNetVN\AgentHubWP\Contracts\AuditRepository;
 use XNetVN\AgentHubWP\Contracts\Clock;
 use XNetVN\AgentHubWP\Contracts\RequestContext;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
+use XNetVN\AgentHubWP\Contracts\SiteRequestContext;
 use XNetVN\AgentHubWP\Contracts\SiteSettings;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Http\RouteMatcher;
@@ -189,15 +190,23 @@ final class AuditLogger implements ServiceProvider {
 			return;
 		}
 		try {
+			$site             = $this->request instanceof SiteRequestContext ? $this->request->site_current() : null;
 			$context          = $this->request->current();
-			$this->request_id = $context->request_id ?? $this->request_id ?? bin2hex( random_bytes( 8 ) );
-			$actor            = $context->user_id ?? ( 'stdio' === $this->request->transport() ? get_current_user_id() : 0 );
-			$event            = new AuditEvent( gmdate( 'Y-m-d H:i:s', $this->clock->now() ), $this->request_id, $this->request->transport(), $outcome, $context?->key->key_id->value, $actor > 0 ? $actor : null, $ability, $reason, $duration, null, null === $ability ? null : 'tools/call' );
+			$event_request_id = $site->request_id ?? $context->request_id ?? ( $this->request_id ??= bin2hex( random_bytes( 8 ) ) );
+			$key_id           = null === $site ? ( $context?->key->key_id->value ?? null ) : null;
+			$actor            = null === $site ? ( $context->user_id ?? ( 'stdio' === $this->request->transport() ? get_current_user_id() : 0 ) ) : 0;
+			$principal_type   = null === $site ? 'user' : 'site';
+			$credential_ref   = null === $site ? ( null === $key_id ? null : 'xnv:' . $key_id ) : $site->credential_ref();
+			$event            = new AuditEvent( gmdate( 'Y-m-d H:i:s', $this->clock->now() ), $event_request_id, $this->request->transport(), $outcome, $key_id, $actor > 0 ? $actor : null, $ability, $reason, $duration, null, null === $ability ? null : 'tools/call', $principal_type, $credential_ref );
 			// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- AuditEvent validates/masks the peer and bounds/redacts the user agent; neither affects authorization.
 			$socket = $peer ?? ( isset( $_SERVER['REMOTE_ADDR'] ) && is_string( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : null );
 			$ua     = isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ? wp_unslash( substr( $_SERVER['HTTP_USER_AGENT'], 0, 512 ) ) : '';
 			// phpcs:enable
-			$this->events[] = $event->row( $arg_keys, 'http' === $this->request->transport() ? $socket : null, $ua, true === $this->settings->get( 'anonymize_ip' ) );
+			$row = $event->row( $arg_keys, 'http' === $this->request->transport() ? $socket : null, $ua, true === $this->settings->get( 'anonymize_ip' ) );
+			if ( null !== $site ) {
+				$row['blog_id'] = $site->blog_id();
+			}
+			$this->events[] = $row;
 		} catch ( \Throwable ) {
 			do_action( 'xnetvn_agent_hub_wp_audit_unavailable' );
 		}

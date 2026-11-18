@@ -11,7 +11,7 @@ namespace XNetVN\AgentHubWP\Persistence;
 /** Supplies dbDelta-compatible DDL, containing no caller-controlled SQL. */
 final class Schema {
 	/** Current forward-only schema version. */
-	public const VERSION = 2;
+	public const VERSION = 3;
 	/**
 	 * Describe the three per-site tables.
 	 *
@@ -70,11 +70,15 @@ duration_ms int(10) unsigned NULL,
 ip varchar(45) NULL,
 ua_short varchar(120) NULL,
 arg_keys text NULL,
+principal_type varchar(16) NOT NULL DEFAULT 'user',
+credential_ref varchar(16) NULL,
+blog_id bigint(20) unsigned NOT NULL DEFAULT 1,
 PRIMARY KEY  (id),
 KEY occurred_at (occurred_at),
 KEY key_time (key_id,occurred_at),
 KEY user_time (user_id,occurred_at),
-KEY ability_time (ability,occurred_at)
+KEY ability_time (ability,occurred_at),
+KEY blog_principal_cred_time (blog_id,principal_type,credential_ref,occurred_at)
 ) $collate;",
 			"CREATE TABLE $sites (
 id bigint(20) unsigned NOT NULL AUTO_INCREMENT,

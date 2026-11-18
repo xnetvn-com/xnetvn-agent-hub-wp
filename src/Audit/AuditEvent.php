@@ -27,6 +27,8 @@ final readonly class AuditEvent {
 	 * @param int|null    $duration_ms Duration.
 	 * @param string|null $protocol_version Negotiated version.
 	 * @param string|null $mcp_method Protocol method.
+	 * @param string      $principal_type Non-site or verified site principal kind.
+	 * @param string|null $credential_ref Namespaced public credential reference.
 	 * @throws \InvalidArgumentException For invalid metadata.
 	 */
 	public function __construct(
@@ -40,13 +42,23 @@ final readonly class AuditEvent {
 		private ?string $error_code = null,
 		private ?int $duration_ms = null,
 		private ?string $protocol_version = null,
-		private ?string $mcp_method = null
+		private ?string $mcp_method = null,
+		private string $principal_type = 'user',
+		private ?string $credential_ref = null
 	) {
 		if ( 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\z/', $occurred_at ) || 1 !== preg_match( '/\A[a-f0-9]{16}\z/', $request_id ) || ! in_array( $transport, array( 'http', 'stdio' ), true ) || ! in_array( $outcome, array( 'success', 'denied', 'error', 'invalid_input', 'rate_limited', 'auth_failed' ), true ) ) {
 			throw new \InvalidArgumentException( 'Invalid audit metadata.' );
 		}
 		if ( ( null !== $key_id && 1 !== preg_match( '/\A[a-z2-7]{12}\z/', $key_id ) ) || ( null !== $user_id && $user_id < 1 ) || ( null !== $ability && 1 !== preg_match( '/\Axnetvn\/[a-z][a-z0-9-]{0,120}\z/', $ability ) ) || ( null !== $error_code && 1 !== preg_match( '/\A[a-z][a-z0-9_]{0,63}\z/', $error_code ) ) || ( null !== $duration_ms && $duration_ms < 0 ) || ( null !== $protocol_version && 1 !== preg_match( '/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $protocol_version ) ) || ( null !== $mcp_method && ! in_array( $mcp_method, array( 'initialize', 'tools/list', 'tools/call', 'resources/list', 'resources/read', 'prompts/list', 'prompts/get' ), true ) ) ) {
 			throw new \InvalidArgumentException( 'Invalid audit identity.' );
+		}
+		if (
+			! in_array( $principal_type, array( 'user', 'site' ), true )
+			|| ( null !== $credential_ref && 1 !== preg_match( '/\Axn[vs]:[a-z2-7]{12}\z/', $credential_ref ) )
+			|| ( 'site' === $principal_type && ( null !== $key_id || null !== $user_id || null === $credential_ref || ! str_starts_with( $credential_ref, 'xns:' ) ) )
+			|| ( 'user' === $principal_type && null !== $credential_ref && ( null === $key_id || 'xnv:' . $key_id !== $credential_ref ) )
+		) {
+			throw new \InvalidArgumentException( 'Invalid audit principal.' );
 		}
 	}
 
@@ -62,7 +74,7 @@ final readonly class AuditEvent {
 	public function row( array $arg_keys, ?string $ip, string $ua, bool $anonymize ): array {
 		$names = array();
 		foreach ( array_slice( $arg_keys, 0, 100 ) as $name ) {
-			if ( is_string( $name ) && 1 === preg_match( '/\A[a-zA-Z][a-zA-Z0-9_-]{0,99}\z/', $name ) && ! str_starts_with( $name, 'xnv_' ) && ! in_array( strtolower( $name ), array( 'authorization', 'password', 'current_password', 'secret', 'secret_hash', 'token', 'access_token', 'api_key', 'pepper', 'cookie' ), true ) ) {
+			if ( is_string( $name ) && 1 === preg_match( '/\A[a-zA-Z][a-zA-Z0-9_-]{0,99}\z/', $name ) && ! str_starts_with( $name, 'xnv_' ) && ! str_starts_with( $name, 'xns_' ) && ! in_array( strtolower( $name ), array( 'authorization', 'password', 'current_password', 'secret', 'secret_hash', 'token', 'access_token', 'api_key', 'pepper', 'cookie' ), true ) ) {
 				$names[ $name ] = true;
 			}
 		}
@@ -82,6 +94,8 @@ final readonly class AuditEvent {
 			'ip'               => RequestMetadata::ip( $ip, $anonymize ),
 			'ua_short'         => RequestMetadata::user_agent( $ua ),
 			'arg_keys'         => array_keys( $names ),
+			'principal_type'   => $this->principal_type,
+			'credential_ref'   => $this->credential_ref,
 		);
 	}
 }
