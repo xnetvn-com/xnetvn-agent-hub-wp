@@ -17,6 +17,7 @@ use XNetVN\AgentHubWP\Abilities\PartialFailure;
 use XNetVN\AgentHubWP\Abilities\Packs\Content\PostTypeResolver;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 
 /** Reads, writes and deletes use core REST; assignment uses core term functions. */
 final class TaxonomyOperations {
@@ -40,13 +41,23 @@ final class TaxonomyOperations {
 	 * @var TermProjection
 	 */
 	private TermProjection $projection;
+	/** Scoped editorial HTML boundary.
+	 *
+	 * @var SafeEditorialHtml
+	 */
+	private SafeEditorialHtml $html;
 
-	/** Bind pure infrastructure. */
-	public function __construct() {
+	/**
+	 * Bind pure infrastructure and the editorial HTML boundary.
+	 *
+	 * @param SafeEditorialHtml|null $html Optional reviewed HTML boundary.
+	 */
+	public function __construct( ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->taxonomies = new TaxonomyResolver();
 		$this->types      = new PostTypeResolver();
 		$this->projection = new TermProjection();
+		$this->html       = $html ?? new SafeEditorialHtml();
 	}
 
 	/**
@@ -254,14 +265,15 @@ final class TaxonomyOperations {
 		if ( is_wp_error( $tax ) ) {
 			return $tax;
 		}
-		$name = isset( $args['name'] ) ? (string) $args['name'] : '';
+		$name = $this->html->filter_plain_text( (string) ( $args['name'] ?? '' ) );
 		if ( '' === trim( $name ) || mb_strlen( $name ) > 200 ) {
 			return R::error( 'invalid_params' );
 		}
 		if ( isset( $args['slug'] ) && ( '' === (string) $args['slug'] || mb_strlen( (string) $args['slug'] ) > 200 ) ) {
 			return R::error( 'invalid_params' );
 		}
-		if ( isset( $args['description'] ) && mb_strlen( (string) $args['description'] ) > 5000 ) {
+		$description = isset( $args['description'] ) ? $this->html->filter_post_html( (string) $args['description'] ) : null;
+		if ( null !== $description && mb_strlen( $description ) > 5000 ) {
 			return R::error( 'invalid_params' );
 		}
 		$parent_check = $this->check_parent( $tax, $args['parent'] ?? null, 0 );
@@ -275,13 +287,16 @@ final class TaxonomyOperations {
 			}
 		}
 		$params = array( 'name' => $name );
-		foreach ( array( 'slug', 'description', 'parent', 'meta' ) as $key ) {
+		foreach ( array( 'slug', 'parent', 'meta' ) as $key ) {
 			if ( array_key_exists( $key, $args ) ) {
 				$params[ $key ] = $args[ $key ];
 			}
 		}
+		if ( null !== $description ) {
+			$params['description'] = $description;
+		}
 		$route    = $this->taxonomies->route( $tax );
-		$response = $this->rest->dispatch( 'POST', $route, $params, (string) $tax->name, 'term' );
+		$response = $this->html->run( fn(): mixed => $this->rest->dispatch( 'POST', $route, $params, (string) $tax->name, 'term' ) );
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
@@ -334,8 +349,10 @@ final class TaxonomyOperations {
 		if ( ! $has_change ) {
 			return R::error( 'invalid_params' );
 		}
-		if ( isset( $args['name'] ) ) {
-			$name = (string) $args['name'];
+		$name        = null;
+		$description = null;
+		if ( array_key_exists( 'name', $args ) ) {
+			$name = $this->html->filter_plain_text( (string) $args['name'] );
 			if ( '' === trim( $name ) || mb_strlen( $name ) > 200 ) {
 				return R::error( 'invalid_params' );
 			}
@@ -343,8 +360,11 @@ final class TaxonomyOperations {
 		if ( isset( $args['slug'] ) && ( '' === (string) $args['slug'] || mb_strlen( (string) $args['slug'] ) > 200 ) ) {
 			return R::error( 'invalid_params' );
 		}
-		if ( isset( $args['description'] ) && mb_strlen( (string) $args['description'] ) > 5000 ) {
-			return R::error( 'invalid_params' );
+		if ( array_key_exists( 'description', $args ) ) {
+			$description = $this->html->filter_post_html( (string) $args['description'] );
+			if ( mb_strlen( $description ) > 5000 ) {
+				return R::error( 'invalid_params' );
+			}
 		}
 		if ( array_key_exists( 'parent', $args ) ) {
 			$parent_check = $this->check_parent( $tax, $args['parent'], $id );
@@ -359,13 +379,19 @@ final class TaxonomyOperations {
 			}
 		}
 		$params = array();
-		foreach ( array( 'name', 'slug', 'description', 'parent', 'meta' ) as $key ) {
+		foreach ( array( 'slug', 'parent', 'meta' ) as $key ) {
 			if ( array_key_exists( $key, $args ) ) {
 				$params[ $key ] = $args[ $key ];
 			}
 		}
+		if ( null !== $name ) {
+			$params['name'] = $name;
+		}
+		if ( null !== $description ) {
+			$params['description'] = $description;
+		}
 		$route    = $this->taxonomies->route( $tax ) . '/' . $id;
-		$response = $this->rest->dispatch( 'POST', $route, $params, (string) $tax->name, 'term' );
+		$response = $this->html->run( fn(): mixed => $this->rest->dispatch( 'POST', $route, $params, (string) $tax->name, 'term' ) );
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
