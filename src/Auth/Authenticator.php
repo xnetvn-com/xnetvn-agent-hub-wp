@@ -29,6 +29,11 @@ final class Authenticator implements ServiceProvider {
 	 * @var DelegationEligibility
 	 */
 	private DelegationEligibility $eligibility;
+	/** Recorded site authentication failure for this attempt.
+	 *
+	 * @var WP_Error|null
+	 */
+	private ?WP_Error $site_failure = null;
 	/**
 	 * Bind credential, policy, transport and request services.
 	 *
@@ -41,8 +46,9 @@ final class Authenticator implements ServiceProvider {
 	 * @param RequestScope               $request Request-local state.
 	 * @param Clock                      $clock Wall clock.
 	 * @param DelegationEligibility|null $eligibility Protected-account eligibility.
+	 * @param SiteAuthenticator|null     $site_auth Site credential authenticator.
 	 */
-	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private SiteSettings $settings, private HeaderExtractor $headers, private RateLimiter $limits, private TransportGuard $transport, private RequestScope $request, private Clock $clock, ?DelegationEligibility $eligibility = null ) {
+	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private SiteSettings $settings, private HeaderExtractor $headers, private RateLimiter $limits, private TransportGuard $transport, private RequestScope $request, private Clock $clock, ?DelegationEligibility $eligibility = null, private ?SiteAuthenticator $site_auth = null ) {
 		$this->eligibility = $eligibility ?? new DelegationEligibility();
 	}
 	/** Register route-scoped identity, late reauthentication and safe response headers. */
@@ -68,18 +74,43 @@ final class Authenticator implements ServiceProvider {
 	 */
 	public function authenticate(): int {
 		if ( $this->request->attempted ) {
-			return $this->request->context->user_id ?? 0;
+			if ( $this->request->has_conflicting_principals() ) {
+				return 0;
+			}
+			$human = $this->request->current();
+			return null !== $this->request->site_current() ? 0 : ( null === $human ? 0 : $human->user_id );
+		}
+		if ( $this->request->has_conflicting_principals() ) {
+			return 0;
 		}
 		$this->request->attempted = true;
+		$this->site_failure       = null;
 		try {
 			$this->request->has_token = $this->headers->present();
 			$peer                     = $this->peer();
-			$ip_budget                = $this->limits->check( 'auth-fail', hash( 'sha256', $peer ), (int) $this->settings->get( 'rate_limit_auth_fail_per_min_ip' ), false );
+			$token                    = $this->headers->bearer();
+			if ( null !== $token && str_starts_with( $token, 'xns_' ) ) {
+				if ( null === $this->site_auth ) {
+					return $this->fail( FailureReason::Unavailable, false );
+				}
+				if ( $this->ambiguous_site_header() ) {
+					return $this->fail( FailureReason::Malformed );
+				}
+				$origin = isset( $_SERVER['HTTP_ORIGIN'] ) && is_string( $_SERVER['HTTP_ORIGIN'] ) ? $_SERVER['HTTP_ORIGIN'] : null;
+				$site   = $this->site_auth->authenticate( $token, $peer, $origin, $this->transport->is_secure() );
+				if ( is_wp_error( $site ) ) {
+					$this->clear_principals();
+					$this->site_failure = $site;
+					return 0;
+				}
+				$this->request->bind_site( $site );
+				return 0;
+			}
+			$ip_budget = $this->limits->check( 'auth-fail', hash( 'sha256', $peer ), (int) $this->settings->get( 'rate_limit_auth_fail_per_min_ip' ), false );
 			if ( ! $ip_budget->allowed ) {
 				$this->request->budget = $ip_budget;
 				return $this->fail( FailureReason::RateLimited, false );
 			}
-			$token  = $this->headers->bearer();
 			$parsed = null === $token ? null : TokenParser::parse( $token );
 			if ( null === $parsed ) {
 				return $this->fail( $this->request->has_token ? FailureReason::Malformed : FailureReason::Missing );
@@ -127,13 +158,14 @@ final class Authenticator implements ServiceProvider {
 				return $this->fail( FailureReason::RateLimited, false );
 			}
 			$this->keys->touch_last_used( $key->id, RequestMetadata::ip( $peer, true === $this->settings->get( 'anonymize_ip' ) ), RequestMetadata::user_agent( isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ? wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) : '', 255 ) );
-			$this->request->context = new AuthContext( $key, bin2hex( random_bytes( 8 ) ) );
+			$this->request->bind_human( new AuthContext( $key, bin2hex( random_bytes( 8 ) ) ) );
 			do_action( 'xnetvn_agent_hub_wp_key_authenticated', $key, RequestMetadata::ip( $peer, true === $this->settings->get( 'anonymize_ip' ) ) );
 			return $key->user_id;
 		} catch ( \Throwable ) {
 			return $this->fail( FailureReason::Unavailable, false );
 		}
 	}
+
 	/**
 	 * Preserve denials, then reauthenticate even an early-cached cookie user.
 	 *
@@ -145,17 +177,36 @@ final class Authenticator implements ServiceProvider {
 			return $result;
 		}
 		if ( ! $this->request->attempted ) {
-			wp_set_current_user( $this->authenticate() );
-		} else {
-			wp_set_current_user( $this->request->context->user_id ?? 0 );
+			$user = $this->authenticate();
+			if ( null === $this->request->site_current() && null === $this->site_failure ) {
+				wp_set_current_user( $user );
+			}
+		}
+		if ( $this->request->has_conflicting_principals() ) {
+			return new WP_Error( 'xnetvn_agent_hub_wp_forbidden', 'Access is unavailable.', array( 'status' => 403 ) );
+		}
+		if ( null !== $this->site_failure ) {
+			$this->clear_principals();
+			if ( 0 !== get_current_user_id() ) {
+				wp_set_current_user( 0 );
+			}
+			return $this->site_failure;
+		}
+		if ( null !== $this->request->site_current() ) {
+			if ( 0 !== get_current_user_id() ) {
+				wp_set_current_user( 0 );
+			}
+			return 0 === get_current_user_id() ? true : new WP_Error( 'xnetvn_agent_hub_wp_forbidden', 'Access is unavailable.', array( 'status' => 403 ) );
 		}
 		if ( null !== $this->request->context ) {
+			wp_set_current_user( $this->request->context->user_id );
 			return true;
 		}
 		$status = ( $this->request->failure ?? FailureReason::Missing )->status();
 		$code   = 401 === $status ? 'authentication_required' : ( 429 === $status ? 'rate_limited' : ( 503 === $status ? 'unavailable' : 'forbidden' ) );
 		return new WP_Error( 'xnetvn_agent_hub_wp_' . $code, 401 === $status ? 'Authentication required.' : 'Access is unavailable.', array( 'status' => $status ) );
 	}
+
 	/**
 	 * Attach challenges and no-store only to the owned MCP response.
 	 *
@@ -179,6 +230,16 @@ final class Authenticator implements ServiceProvider {
 		return $response;
 	}
 	/**
+	 * Clear both principals while preserving attempt, header and budget metadata.
+	 *
+	 * @return void
+	 */
+	private function clear_principals(): void {
+		$this->request->context      = null;
+		$this->request->site_context = null;
+	}
+
+	/**
 	 * Record a safe failure and optionally charge the failed-auth budget.
 	 *
 	 * @param FailureReason $reason Failure identifier.
@@ -186,7 +247,7 @@ final class Authenticator implements ServiceProvider {
 	 * @return int Always zero.
 	 */
 	private function fail( FailureReason $reason, bool $charge = true ): int {
-		$this->request->context = null;
+		$this->clear_principals();
 		$this->request->failure = $reason;
 		if ( $charge ) {
 			try {
@@ -202,6 +263,29 @@ final class Authenticator implements ServiceProvider {
 		do_action( 'xnetvn_agent_hub_wp_auth_failed', $this->request->failure->value, $this->peer() );
 		return 0;
 	}
+	/**
+	 * Reject ambiguous credential sources only for a site token.
+	 *
+	 * @return bool
+	 */
+	private function ambiguous_site_header(): bool {
+		$primary = array();
+		foreach ( array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION' ) as $name ) {
+			if ( ! isset( $_SERVER[ $name ] ) || '' === $_SERVER[ $name ] ) {
+				continue;
+			}
+			if ( ! is_string( $_SERVER[ $name ] ) ) {
+				return true;
+			}
+			$primary[] = $_SERVER[ $name ];
+		}
+		$fallback = isset( $_SERVER['HTTP_X_XNETVN_API_KEY'] ) && '' !== $_SERVER['HTTP_X_XNETVN_API_KEY'];
+		if ( $fallback && array() !== $primary ) {
+			return true;
+		}
+		return count( array_unique( $primary ) ) > 1;
+	}
+
 	/**
 	 * Read a validated socket peer, never an untrusted forwarded identity.
 	 *
