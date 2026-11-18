@@ -12,6 +12,7 @@ namespace XNetVN\AgentHubWP;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
 use XNetVN\AgentHubWP\Auth\Capabilities;
 use XNetVN\AgentHubWP\Auth\Authenticator;
+use XNetVN\AgentHubWP\Auth\SiteAuthenticator;
 use XNetVN\AgentHubWP\Auth\HeaderExtractor;
 use XNetVN\AgentHubWP\Auth\PepperStore;
 use XNetVN\AgentHubWP\Persistence\MigrationProvider;
@@ -19,6 +20,7 @@ use XNetVN\AgentHubWP\Persistence\DeactivationProvider;
 use XNetVN\AgentHubWP\Persistence\Migrator;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Persistence\WpdbKeyRepository;
+use XNetVN\AgentHubWP\Persistence\WpdbSiteKeyRepository;
 use XNetVN\AgentHubWP\Support\SystemClock;
 use XNetVN\AgentHubWP\Http\RouteGate;
 use XNetVN\AgentHubWP\Http\TransportGuard;
@@ -127,11 +129,13 @@ final class Plugin {
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\TaxonomyPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Users\UsersPack( new DefinitionFactory(), $limits ) );
 		$registry->add_pack( new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() ) );
-		$keys    = new WpdbKeyRepository( $wpdb, $clock );
-		$peppers = new PepperStore();
-		$service = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
-		$gate    = new ManagementGate();
-		$gateway = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ) );
+		$keys      = new WpdbKeyRepository( $wpdb, $clock );
+		$peppers   = new PepperStore();
+		$service   = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
+		$site_keys = new WpdbSiteKeyRepository( $wpdb, $clock, max( 1, (int) get_current_blog_id() ) );
+		$site_auth = new SiteAuthenticator( $site_keys, $peppers, $settings, $limits, $transport, $clock );
+		$gate      = new ManagementGate();
+		$gateway   = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ) );
 		return array(
 			new MigrationProvider( $plugin_file, new Migrator( $wpdb, $clock ) ),
 			new DeactivationProvider( $plugin_file ),
@@ -142,7 +146,7 @@ final class Plugin {
 			new PrivacyExporter( $privacy ),
 			new PrivacyEraser( $privacy ),
 			new Notifications( $keys, $settings, $clock ),
-			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock ),
+			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock, null, $site_auth ),
 			$registry,
 			$gateway,
 			$gate,
