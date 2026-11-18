@@ -480,6 +480,8 @@ final class SiteKeysControllerTest extends WP_UnitTestCase {
 		}
 		$this->assert_status( 400, $this->listing( array( 'state' => 'bogus' ) ) );
 		$this->assert_status( 400, $this->listing( array( 'per_page' => 101 ) ) );
+		$this->assert_status( 200, $this->listing( array( '_locale' => 'user' ) ) );
+		$this->assert_status( 400, $this->item_listing( $id, array( 'blog_id' => 2 ) ) );
 
 		$cookie = (string) $_COOKIE[ LOGGED_IN_COOKIE ];
 		unset( $_COOKIE[ LOGGED_IN_COOKIE ] );
@@ -1114,6 +1116,20 @@ final class SiteKeysControllerTest extends WP_UnitTestCase {
 	 */
 	private function listing( array $params, bool $nonce = true ): WP_REST_Response {
 		$request = $this->request( 'GET', '/site-keys', $nonce );
+		$request->set_query_params( $params );
+		return rest_do_request( $request );
+	}
+
+	/**
+	 * Dispatch an item read with explicit query filters.
+	 *
+	 * @param int                 $id Record identity.
+	 * @param array<string,mixed> $params Query filters.
+	 * @param bool                $nonce Include nonce.
+	 * @return WP_REST_Response
+	 */
+	private function item_listing( int $id, array $params, bool $nonce = true ): WP_REST_Response {
+		$request = $this->request( 'GET', '/site-keys/' . $id, $nonce );
 		$request->set_query_params( $params );
 		return rest_do_request( $request );
 	}
