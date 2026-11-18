@@ -148,7 +148,7 @@ final class ContentAuthorContractTest extends WP_UnitTestCase {
 		$source = self::factory()->post->create(
 			array(
 				'post_author'  => $this->target,
-				'post_content' => '<p>Raw</p><script>alert(2)</script><svg onload="alert(2)"></svg>',
+				'post_content' => '<p>Raw</p><script>alert(2)</script><svg onload="alert(2)"></svg><img src="x" onerror="alert(2)"><a href="javascript:alert(2)">x</a>',
 				'post_excerpt' => '<p>Raw excerpt</p><script>alert(2)</script>',
 				'post_status'  => 'draft',
 				'post_title'   => '<b>Raw source</b><script>alert(2)</script>',
@@ -157,6 +157,9 @@ final class ContentAuthorContractTest extends WP_UnitTestCase {
 		$raw    = get_post( $source );
 		self::assertInstanceOf( \WP_Post::class, $raw );
 		self::assertStringContainsString( '<script', $raw->post_content );
+		self::assertStringContainsString( 'onload', $raw->post_content );
+		self::assertStringContainsString( 'onerror', $raw->post_content );
+		self::assertStringContainsString( 'javascript:', $raw->post_content );
 		$before = $this->count_posts();
 		$copy   = $this->call( 'duplicate-post', array( 'id' => $source ) );
 		self::assertIsArray( $copy, is_wp_error( $copy ) ? $copy->get_error_message() : '' );
@@ -172,6 +175,7 @@ final class ContentAuthorContractTest extends WP_UnitTestCase {
 		$unchanged = get_post( $source );
 		self::assertInstanceOf( \WP_Post::class, $unchanged );
 		self::assertStringContainsString( '<script', $unchanged->post_content );
+		self::assertStringContainsString( 'javascript:', $unchanged->post_content );
 		self::assertSame( $this->target, (int) $unchanged->post_author );
 	}
 
@@ -198,6 +202,13 @@ final class ContentAuthorContractTest extends WP_UnitTestCase {
 					array(
 						'author' => $this->target,
 						'title'  => 'Other author',
+					),
+				),
+				array(
+					'duplicate-post',
+					array(
+						'author' => $this->target,
+						'id'     => $source,
 					),
 				),
 				array(

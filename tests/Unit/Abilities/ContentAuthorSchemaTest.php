@@ -110,6 +110,20 @@ final class ContentAuthorSchemaTest extends TestCase {
 				),
 			),
 			array(
+				'create-post',
+				array(
+					'title'  => 'Existing author',
+					'author' => 42,
+				),
+			),
+			array(
+				'duplicate-post',
+				array(
+					'id'     => 7,
+					'author' => 42,
+				),
+			),
+			array(
 				'duplicate-post',
 				array(
 					'id'     => 7,
