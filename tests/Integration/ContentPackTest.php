@@ -11,6 +11,8 @@ namespace XNetVN\AgentHubWP\Tests\Integration;
 use WP_UnitTestCase;
 use XNetVN\AgentHubWP\Abilities\DefinitionFactory;
 use XNetVN\AgentHubWP\Abilities\Packs\Content\ContentPack;
+use XNetVN\AgentHubWP\Abilities\Packs\Content\EditorialAuthors;
+use XNetVN\AgentHubWP\Abilities\Packs\Users\RoleGuard;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper;
 use XNetVN\AgentHubWP\Abilities\OutputPipeline;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
@@ -57,9 +59,78 @@ final class ContentPackTest extends WP_UnitTestCase {
 	}
 	/** Every content contract includes a valid strict example. */
 	public function test_contract(): void {
-		self::assertCount( 19, $this->tools );
+		self::assertCount( 20, $this->tools );
 		\XNetVN\AgentHubWP\Tests\Contract\PackContractTestCase::assert_pack_contract( new ContentPack( new DefinitionFactory() ) );
 	}
+	/** The bounded author lookup and the live attribution recheck use real users. */
+	public function test_author_lookup_and_require_eligible(): void {
+		self::assertSame( 'banned', RoleGuard::ensure_banned_role() );
+		$admin       = (int) self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$author      = (int) self::factory()->user->create( array( 'role' => 'author' ) );
+		$contributor = (int) self::factory()->user->create( array( 'role' => 'contributor' ) );
+		$subscriber  = (int) self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$banned      = (int) self::factory()->user->create( array( 'role' => 'banned' ) );
+		wp_update_user(
+			array(
+				'ID'           => $author,
+				'display_name' => str_repeat( 'A', 250 ),
+			)
+		);
+		$eligible = array( $this->editor, $author, $contributor );
+
+		$result = $this->call( 'list-content-authors', array( 'per_page' => 100 ) );
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		$ids = array_column( $result['items'], 'id' );
+		self::assertSame( $ids, array_values( array_unique( $ids ) ) );
+		$sorted = $ids;
+		sort( $sorted );
+		self::assertSame( $sorted, $ids );
+		foreach ( $eligible as $member ) {
+			self::assertContains( $member, $ids );
+		}
+		foreach ( array( $admin, $subscriber, $banned ) as $excluded ) {
+			self::assertNotContains( $excluded, $ids );
+		}
+		foreach ( $result['items'] as $item ) {
+			self::assertSame( array( 'id', 'name' ), array_keys( $item ) );
+		}
+		self::assertSame( count( $ids ), $result['total'] );
+		self::assertSame( 1, $result['total_pages'] );
+		self::assertSame( 1, $result['page'] );
+		self::assertSame( 100, $result['per_page'] );
+		$rows = array_values( array_filter( $result['items'], static fn( array $item ): bool => $author === $item['id'] ) );
+		self::assertCount( 1, $rows );
+		self::assertSame( str_repeat( 'A', 200 ), $rows[0]['name'] );
+
+		$authors = new EditorialAuthors();
+		foreach ( $eligible as $member ) {
+			$user = $authors->require_eligible( $member );
+			self::assertInstanceOf( \WP_User::class, $user );
+			self::assertSame( $member, $user->ID );
+		}
+		foreach ( array( 0, 999999, $admin, $subscriber, $banned ) as $refused ) {
+			$error = $authors->require_eligible( $refused );
+			self::assertWPError( $error );
+			self::assertSame( 'xnetvn_agent_hub_wp_forbidden', $error->get_error_code() );
+		}
+		if ( ! is_multisite() ) {
+			return;
+		}
+		$site = (int) self::factory()->blog->create();
+		switch_to_blog( $site );
+		try {
+			$foreign = (int) self::factory()->user->create( array( 'role' => 'editor' ) );
+		} finally {
+			restore_current_blog();
+		}
+		$error = $authors->require_eligible( $foreign );
+		self::assertWPError( $error );
+		self::assertSame( 'xnetvn_agent_hub_wp_forbidden', $error->get_error_code() );
+		$current = $this->call( 'list-content-authors', array( 'per_page' => 100 ) );
+		self::assertIsArray( $current );
+		self::assertNotContains( $foreign, array_column( $current['items'], 'id' ) );
+	}
+
 	/** A core query filter cannot widen search to include unpublished content. */
 	public function test_search_rechecks_public_status_after_core_filters(): void {
 		self::factory()->post->create(
