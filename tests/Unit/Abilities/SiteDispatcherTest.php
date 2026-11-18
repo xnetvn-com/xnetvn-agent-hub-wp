@@ -54,7 +54,7 @@ final class SiteDispatcherFixture implements AbilitySpec {
 	 * @return AbilityDescriptor
 	 */
 	public function descriptor(): AbilityDescriptor {
-		return new AbilityDescriptor( 'xnetvn/get-post', RiskTier::Read, 'content', 'edit_posts' );
+		return new AbilityDescriptor( 'xnetvn/get-site-info', RiskTier::Read, 'system', 'read' );
 	}
 
 	/**
@@ -63,7 +63,7 @@ final class SiteDispatcherFixture implements AbilitySpec {
 	 * @return string
 	 */
 	public function tool_name(): string {
-		return 'get-post';
+		return 'get-site-info';
 	}
 
 	/**
@@ -72,7 +72,7 @@ final class SiteDispatcherFixture implements AbilitySpec {
 	 * @return string
 	 */
 	public function label(): string {
-		return 'Get post';
+		return 'Get site info';
 	}
 
 	/**
@@ -257,8 +257,8 @@ final class SiteDispatcherTest extends TestCase {
 		$this->policy     = new SitePolicy( $this->settings );
 		$scope            = new SiteScope(
 			RiskTier::Write,
-			array( 'content' ),
-			array( 'xnetvn/get-post' ),
+			array( 'system' ),
+			array( 'xnetvn/get-site-info' ),
 			array(),
 			array(),
 			array(),
@@ -290,31 +290,31 @@ final class SiteDispatcherTest extends TestCase {
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
 		$handler = static fn( array $arguments, SiteAuthContext $context ): array => array( 'ok' => true );
 		try {
-			$dispatcher->register( 'xnetvn/get-post', static fn( string $arguments, SiteAuthContext $context ): array => array() );
+			$dispatcher->register( 'xnetvn/get-site-info', static fn( string $arguments, SiteAuthContext $context ): array => array() );
 			self::fail( 'Bad signature was accepted.' );
 		} catch ( \InvalidArgumentException ) {
-			self::assertFalse( $dispatcher->has_handler( 'xnetvn/get-post' ) );
+			self::assertFalse( $dispatcher->has_handler( 'xnetvn/get-site-info' ) );
 		}
-		$dispatcher->register( 'xnetvn/get-post', $handler );
+		$dispatcher->register( 'xnetvn/get-site-info', $handler );
 		try {
-			$dispatcher->register( 'xnetvn/get-post', $handler );
+			$dispatcher->register( 'xnetvn/get-site-info', $handler );
 			self::fail( 'Duplicate registration was accepted.' );
 		} catch ( \InvalidArgumentException ) {
-			self::assertTrue( $dispatcher->has_handler( 'xnetvn/get-post' ) );
+			self::assertTrue( $dispatcher->has_handler( 'xnetvn/get-site-info' ) );
 		}
 		$dispatcher->freeze();
 		$this->expectException( \LogicException::class );
-		$dispatcher->register( 'xnetvn/get-post', $handler );
+		$dispatcher->register( 'xnetvn/get-site-info', $handler );
 	}
 
 	/** Unhandled names and an unbound dispatcher are indistinguishable. */
 	public function test_unavailable_paths(): void {
 		$dispatcher = $this->dispatcher();
-		$result     = $dispatcher->execute( 'xnetvn/get-post', array(), $this->context );
+		$result     = $dispatcher->execute( 'xnetvn/get-site-info', array(), $this->context );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
-		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $dispatcher->execute( 'xnetvn/get-post', array(), $this->context )->get_error_code() );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $dispatcher->execute( 'xnetvn/get-site-info', array(), $this->context )->get_error_code() );
 	}
 
 	/** Policy denial and invalid arguments never run the handler. */
@@ -323,7 +323,7 @@ final class SiteDispatcherTest extends TestCase {
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
 		$called = 0;
 		$dispatcher->register(
-			'xnetvn/get-post',
+			'xnetvn/get-site-info',
 			static function ( array $arguments, SiteAuthContext $context ) use ( &$called ): array {
 				++$called;
 				return array( 'ok' => true );
@@ -331,8 +331,8 @@ final class SiteDispatcherTest extends TestCase {
 		);
 		$narrow     = new SiteScope(
 			RiskTier::Write,
-			array( 'content' ),
-			array( 'xnetvn/list-posts' ),
+			array( 'system' ),
+			array( 'xnetvn/get-session-info' ),
 			array(),
 			array(),
 			array(),
@@ -340,10 +340,10 @@ final class SiteDispatcherTest extends TestCase {
 		);
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Fixture', $narrow, new DateTimeImmutable( '@' . time() ) );
 		$denied     = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
-		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $dispatcher->execute( 'xnetvn/get-post', array(), $denied )->get_error_code() );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $dispatcher->execute( 'xnetvn/get-site-info', array(), $denied )->get_error_code() );
 		self::assertSame( 0, $called );
 		Functions\when( 'rest_validate_value_from_schema' )->justReturn( false );
-		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $dispatcher->execute( 'xnetvn/get-post', array(), $this->context )->get_error_code() );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $dispatcher->execute( 'xnetvn/get-site-info', array(), $this->context )->get_error_code() );
 		self::assertSame( 0, $called );
 	}
 
@@ -354,13 +354,13 @@ final class SiteDispatcherTest extends TestCase {
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
 		$called = 0;
 		$dispatcher->register(
-			'xnetvn/get-post',
+			'xnetvn/get-site-info',
 			static function ( array $arguments, SiteAuthContext $context ) use ( &$called ): array {
 				++$called;
 				return array( 'machine' => true );
 			}
 		);
-		self::assertSame( array( 'machine' => true ), $dispatcher->execute( 'xnetvn/get-post', array(), $this->context ) );
+		self::assertSame( array( 'machine' => true ), $dispatcher->execute( 'xnetvn/get-site-info', array(), $this->context ) );
 		self::assertSame( 1, $called );
 		self::assertSame( array( 'site:1:abcdefghijkl' ), $budget->identities );
 	}
@@ -377,17 +377,17 @@ final class SiteDispatcherTest extends TestCase {
 		self::assertSame( array(), $registry->names_for_site_scope( $this->context->credential->scope ) );
 		self::assertFalse( $registry->allowed( $this->definition ) );
 		$dispatcher->register(
-			'xnetvn/get-post',
+			'xnetvn/get-site-info',
 			static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true )
 		);
-		self::assertSame( array( 'xnetvn/get-post' ), $registry->names_for_site_scope( $this->context->credential->scope ) );
+		self::assertSame( array( 'xnetvn/get-site-info' ), $registry->names_for_site_scope( $this->context->credential->scope ) );
 		self::assertTrue( $registry->allowed( $this->definition ) );
-		self::assertSame( array( 'machine' => true ), $registry->execute( 'xnetvn/get-post', array() ) );
+		self::assertSame( array( 'machine' => true ), $registry->execute( 'xnetvn/get-site-info', array() ) );
 		$api              = new ApiKey( 1, new KeyId( 'hijklmnopqrs' ), 7, 'Human', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . time() ) );
 		$request->context = new AuthContext( $api, '0123456789abcdef' );
 		self::assertFalse( $registry->allowed( $this->definition ) );
 		self::assertSame( array(), $registry->visible() );
-		$denied = $registry->execute( 'xnetvn/get-post', array() );
+		$denied = $registry->execute( 'xnetvn/get-site-info', array() );
 		self::assertInstanceOf( \WP_Error::class, $denied );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $denied->get_error_code() );
 	}
@@ -401,21 +401,21 @@ final class SiteDispatcherTest extends TestCase {
 		);
 		$registry = new Registry( new Policy( $this->settings ), new RequestScope(), new OutputPipeline( $this->settings ), null, new SafeMcpEnvelope(), $this->policy, $this->dispatcher() );
 		$registry->add( $this->definition );
-		self::assertSame( RiskTier::Admin, $registry->resolved_descriptor( 'xnetvn/get-post' )?->tier );
+		self::assertSame( RiskTier::Admin, $registry->resolved_descriptor( 'xnetvn/get-site-info' )?->tier );
 		self::assertSame( array(), $registry->names_for_site_scope( $this->context->credential->scope ) );
 	}
 
 	/** Registration without a bound catalog is refused. */
 	public function test_unbound_registration_is_refused(): void {
 		$this->expectException( \LogicException::class );
-		$this->dispatcher()->register( 'xnetvn/get-post', static fn( array $arguments, SiteAuthContext $context ): array => array() );
+		$this->dispatcher()->register( 'xnetvn/get-site-info', static fn( array $arguments, SiteAuthContext $context ): array => array() );
 	}
 
 	/** Every independent policy term denies, and the moderation grant is explicit. */
 	public function test_policy_terms(): void {
 		$read  = $this->definition->descriptor();
 		$write = new AbilityDescriptor( 'xnetvn/update-post', RiskTier::Write, 'content', 'edit_posts' );
-		$third = new AbilityDescriptor( 'xnetvn/get-post', RiskTier::Read, 'content', 'edit_posts', true );
+		$third = new AbilityDescriptor( 'xnetvn/get-site-info', RiskTier::Read, 'system', 'read', true );
 		$this->settings->update( array( 'enabled' => false ) );
 		self::assertSame( 'site_disabled', $this->policy->evaluate_scope( $read, $this->context->credential->scope )->reason );
 		$this->settings->update(
@@ -459,7 +459,7 @@ final class SiteDispatcherTest extends TestCase {
 		Functions\when( 'apply_filters' )->alias(
 			static fn( string $tag, mixed $value ): mixed => 'xnetvn_agent_hub_wp_site_policy_decision' === $tag ? true : $value
 		);
-		$narrow     = new SiteScope( RiskTier::Write, array( 'content' ), array( 'xnetvn/list-posts' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
+		$narrow     = new SiteScope( RiskTier::Write, array( 'system' ), array( 'xnetvn/get-session-info' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Narrow', $narrow, new DateTimeImmutable( '@' . time() ) );
 		$denied     = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
 		self::assertFalse( $this->policy->evaluate( $this->definition->descriptor(), $denied, 'http' )->allowed );
@@ -469,11 +469,11 @@ final class SiteDispatcherTest extends TestCase {
 	public function test_cross_blog_dispatch_is_refused(): void {
 		$dispatcher = $this->dispatcher();
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
-		$dispatcher->register( 'xnetvn/get-post', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
-		$scope      = new SiteScope( RiskTier::Write, array( 'content' ), array( 'xnetvn/get-post' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
+		$dispatcher->register( 'xnetvn/get-site-info', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
+		$scope      = new SiteScope( RiskTier::Write, array( 'system' ), array( 'xnetvn/get-site-info' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), 2, 'Other blog', $scope, new DateTimeImmutable( '@' . time() ) );
 		$other      = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
-		$result     = $dispatcher->execute( 'xnetvn/get-post', array(), $other );
+		$result     = $dispatcher->execute( 'xnetvn/get-site-info', array(), $other );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
 	}
@@ -484,10 +484,10 @@ final class SiteDispatcherTest extends TestCase {
 		$request->bind_site( $this->context );
 		$dispatcher = $this->dispatcher();
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
-		$dispatcher->register( 'xnetvn/get-post', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
+		$dispatcher->register( 'xnetvn/get-site-info', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
 		$registry = new Registry( new Policy( $this->settings ), $request, new OutputPipeline( $this->settings ), null, new SafeMcpEnvelope(), $this->policy, $dispatcher );
 		$registry->add( $this->definition );
-		self::assertSame( array( 'xnetvn/get-post' ), $registry->names_for_site_scope( $this->context->credential->scope ) );
+		self::assertSame( array( 'xnetvn/get-site-info' ), $registry->names_for_site_scope( $this->context->credential->scope ) );
 		Functions\when( 'apply_filters' )->alias(
 			static function ( string $tag, mixed $value ) {
 				return 'xnetvn_agent_hub_wp_ability_tier' === $tag ? RiskTier::Admin : $value;
@@ -512,7 +512,7 @@ final class SiteDispatcherTest extends TestCase {
 		$registry->add( $this->definition );
 		self::assertFalse( $registry->allowed( $this->definition ) );
 		self::assertSame( array(), $registry->visible() );
-		$result = $registry->execute( 'xnetvn/get-post', array() );
+		$result = $registry->execute( 'xnetvn/get-site-info', array() );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
 	}
@@ -523,7 +523,7 @@ final class SiteDispatcherTest extends TestCase {
 		$request->bind_site( $this->context );
 		$dispatcher = $this->dispatcher();
 		$dispatcher->bind_catalog( $this->catalog, fn( string $name ): ?AbilityDescriptor => $this->catalog->get( $name )?->descriptor() );
-		$dispatcher->register( 'xnetvn/get-post', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
+		$dispatcher->register( 'xnetvn/get-site-info', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
 		$registry = new Registry( new Policy( $this->settings ), $request, new OutputPipeline( $this->settings ), null, new SafeMcpEnvelope(), $this->policy, $dispatcher );
 		$registry->add( $this->definition );
 		$method = new \ReflectionMethod( Registry::class, 'invoke' );

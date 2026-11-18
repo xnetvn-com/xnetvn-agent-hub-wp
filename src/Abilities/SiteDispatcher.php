@@ -14,6 +14,7 @@ use ReflectionFunction;
 use ReflectionNamedType;
 use WP_Error;
 use XNetVN\AgentHubWP\Abilities\Packs\Content\EditorialAuthors;
+use XNetVN\AgentHubWP\Abilities\Packs\Content\SiteContentOperations;
 use XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\SiteTaxonomyOperations;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\ExpensiveBudget;
@@ -99,7 +100,7 @@ final class SiteDispatcher {
 		if ( null === $this->catalog->get( $canonical_name ) ) {
 			throw new \InvalidArgumentException( 'Unknown site handler.' );
 		}
-		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name || in_array( $canonical_name, SiteTaxonomyOperations::NAMES, true ) ) {
+		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name || in_array( $canonical_name, SiteTaxonomyOperations::NAMES, true ) || in_array( $canonical_name, SiteContentOperations::NAMES, true ) ) {
 			throw new \InvalidArgumentException( 'Duplicate site handler.' );
 		}
 		if ( isset( $this->handlers[ $canonical_name ] ) ) {
@@ -153,6 +154,9 @@ final class SiteDispatcher {
 		}
 		if ( in_array( $canonical_name, SiteTaxonomyOperations::NAMES, true ) ) {
 			return SiteTaxonomyOperations::handler( $canonical_name );
+		}
+		if ( in_array( $canonical_name, SiteContentOperations::NAMES, true ) ) {
+			return SiteContentOperations::handler( $canonical_name );
 		}
 		return null;
 	}
