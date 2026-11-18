@@ -62,7 +62,7 @@ final class AuditController extends ManagementController {
 	}
 
 	/**
-	 * Check authenticated use and require management for cross-owner filters.
+	 * Check authenticated use and require management for site, cross-owner and all-row filters.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return true|WP_Error
@@ -72,8 +72,11 @@ final class AuditController extends ManagementController {
 		if ( is_wp_error( $permission ) ) {
 			return $permission;
 		}
-		$other = $request->get_param( 'user_id' );
-		return true === $request->get_param( 'all' ) || ( null !== $other && get_current_user_id() !== (int) $other ) ? $this->can_manage( $request ) : true;
+		$principal = $request->get_param( 'principal_type' );
+		$reference = $request->get_param( 'credential_ref' );
+		$other     = $request->get_param( 'user_id' );
+		$site      = 'site' === $principal || ( is_string( $reference ) && str_starts_with( $reference, 'xns:' ) );
+		return true === $request->get_param( 'all' ) || $site || ( null !== $other && get_current_user_id() !== (int) $other ) ? $this->can_manage( $request ) : true;
 	}
 
 	/**
