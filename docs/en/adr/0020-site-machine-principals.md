@@ -97,8 +97,16 @@ every credential presented after the change.
 - Store site keys in the per-site table
   `{prefix}xnetvn_agent_hub_wp_site_keys`; never add a `user_id` column.
 - Use the `xns_` prefix and a strict codec; prefixes route without fallback.
-- Authorize through `SitePolicy` and execute only registered handlers in
-  `SiteDispatcher`; the static `SafeMcpEnvelope` is the outer bound.
+- Authorize through `SitePolicy` and execute only explicitly registered
+  handlers plus the fixed, code-owned built-in handlers (the editorial author
+  lookup and the nine reviewed taxonomy operations) resolved by their exact
+  canonical names in `SiteDispatcher` when the bound catalog contains those
+  exact definitions; the built-ins are not passed through
+  `register()`, are never a dynamic class or callback, and no input supplies a
+  handler, class or callback; the same resolution drives `has_handler()` and
+  `execute()`; the built-ins run only after `SitePolicy`; `register()` rejects
+  their reserved names as duplicates; and the static `SafeMcpEnvelope` is the
+  outer bound.
 - Record machine actions with `principal_type = site`, nullable `user_id`,
   `blog_id`, and a namespaced `credential_ref` (`xns:<key_id>`).
 - Keep the human `xnv:` reference and the machine `xns:` reference distinct so

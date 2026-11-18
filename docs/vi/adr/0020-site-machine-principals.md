@@ -96,8 +96,15 @@ thích cho khóa đã triển khai. Các hạn chế runtime vẫn áp dụng ch
   `{prefix}xnetvn_agent_hub_wp_site_keys`; không thêm cột `user_id`.
 - Dùng tiền tố `xns_` và bộ mã hóa chặt; định tuyến theo tiền tố, không dự
   phòng chéo.
-- Cấp quyền qua `SitePolicy` và chỉ chạy handler đã đăng ký trong
-  `SiteDispatcher`; `SafeMcpEnvelope` tĩnh là biên ngoài.
+- Cấp quyền qua `SitePolicy` và chỉ chạy các handler đã đăng ký rõ ràng cùng
+  các handler dựng sẵn cố định do mã sở hữu (handler tra tác giả biên tập và
+  chín thao tác taxonomy đã rà soát), được phân giải theo đúng tên chuẩn
+  trong `SiteDispatcher` khi danh mục đã gắn chứa đúng các định nghĩa đó;
+  các handler dựng sẵn không đi qua `register()`, không bao giờ là lớp
+  hay callback động, và đầu vào không cung cấp handler, lớp hay callback;
+  cùng cách phân giải điều khiển `has_handler()` và `execute()`; các handler
+  dựng sẵn chỉ chạy sau `SitePolicy`; `register()` từ chối tên dành riêng của
+  chúng như bản trùng; và `SafeMcpEnvelope` tĩnh là biên ngoài.
 - Ghi hành động máy với `principal_type = site`, `user_id` rỗng, `blog_id`
   và `credential_ref` có không gian tên (`xns:<key_id>`).
 - Giữ tham chiếu người `xnv:` và máy `xns:` tách biệt để cùng một mã khóa 12
