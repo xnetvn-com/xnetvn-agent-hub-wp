@@ -212,9 +212,18 @@ phép và bị từ chối rõ ràng, thiết lập site, trần mức và quy�
 Filter mở rộng chỉ từ chối được biến cho phép thành từ chối.
 `SiteDispatcher` đăng ký handler máy do server sở hữu, đóng băng sau đăng ký,
 kiểm lại schema và chính sách mỗi lần gọi, áp hạn mức công việc đắt dưới
-`site:<blog_id>:<key_id>`, chỉ gọi handler đã đăng ký và đưa kết quả qua
-đường ống đầu ra hiện có. Handler thiếu không phân biệt được với không khả
-dụng và không bao giờ rơi về closure người.
+`site:<blog_id>:<key_id>` và đưa kết quả qua đường ống đầu ra hiện có. Nó
+phân giải handler đã đăng ký rõ ràng theo đúng tên chuẩn; ngoài ra, với đúng
+tên chuẩn `xnetvn/list-content-authors`, nó phân giải một handler dựng sẵn
+cố định do mã sở hữu khi danh mục đã gắn chứa đúng định nghĩa đó. Handler
+dựng sẵn không đi qua `register()`, không bao giờ là lớp hay callback động,
+và đầu vào không cung cấp handler, lớp hay callback; cùng cách phân giải điều
+khiển `has_handler()` và `execute()`, nó chỉ chạy sau `SitePolicy`, và
+`register()` từ chối tên dành riêng của nó như một bản trùng. Cùng cách phân
+giải áp cho chín tên taxonomy đã rà soát; chúng là handler dựng sẵn cố định
+do mã sở hữu và không đi qua `register()`; mọi thao tác khác vẫn chỉ chạy
+qua handler đã đăng ký rõ ràng. Handler thiếu không phân
+biệt được với không khả dụng và không bao giờ rơi về closure người.
 
 `Registry::names_for_site_scope()` chỉ trả tên có handler máy đã đăng ký, qua
 phong bì và được phạm vi cùng thiết lập site cho phép. Khám phá và
@@ -318,12 +327,22 @@ Các tuyến `/xnetvn-agent-hub-wp/v1/site-keys` chỉ dùng cookie và nonce v�
 
 | Tuyến | Hợp đồng |
 |---|---|
-| `GET /site-keys` | Phân trang, trạng thái tùy chọn, không tham số chéo blog hay mã người dùng, `{items,total,total_pages}`. |
+| `GET /site-keys` | Phân trang, trạng thái tùy chọn, không tham số chéo blog hay mã người dùng, `{items,page,per_page}`; `page` và `per_page` phản chiếu yêu cầu. |
 | `POST /site-keys` | Tên, toolsets và danh sách năng lực tùy chọn, quyền, CIDR, hạn, mật khẩu hiện tại bắt buộc; `201` kèm view và bí mật một lần. |
 | `GET /site-keys/{id}` | Chỉ view site, không bao giờ có bí mật. |
-| `PATCH /site-keys/{id}` | Chỉ trường thu hẹp; mở rộng là `400` hoặc `422`. |
+| `PATCH /site-keys/{id}` | Chỉ trường thu hẹp; mở rộng là `409`. |
 | `DELETE /site-keys/{id}` | Thu hồi với dạng xóa hiện có. |
 | `POST /site-keys/{id}/rotate` | Mật khẩu hiện tại bắt buộc, ân hạn tùy chọn 0 đến 24 giờ, `201` kèm view và bí mật một lần. |
+
+Tổng số cố ý không được công bố trong phần này: phản hồi danh sách không có
+`total`, `total_pages` hay `X-WP-Total`, và `page` cùng `per_page` là siêu dữ
+liệu phân trang duy nhất.
+
+Ma trận hiện có vẫn chi phối: tại cổng quản lý, `400` tham số không hợp lệ, `401` thiếu cookie,
+`403` nonce, năng lực hoặc mật khẩu hiện tại bị từ chối, `409` mở rộng, hạn
+mức đang hoạt động hoặc xoay chưa giải quyết, `429` ngân sách thử lại mật
+khẩu đã cạn và `503` lỗi lưu trữ hoặc khóa; `404` theo từng tuyến và ma trận
+lỗi chung vẫn áp dụng.
 
 View gồm danh tính, phạm vi, mốc thời gian, ghi nhận quản lý và siêu dữ liệu
 lần dùng cuối, không bao giờ có `secret`, `secret_hash`, `pepper_id` hay

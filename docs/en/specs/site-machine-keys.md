@@ -219,10 +219,20 @@ toolsets, explicit allowed and denied names, site settings, tier ceiling and
 moderation grant. Deny-only extension filters may only turn an allow into a
 deny. `SiteDispatcher` registers server-owned machine handlers, freezes after
 registration, re-checks the schema and policy on every call, applies the
-expensive-work budget under `site:<blog_id>:<key_id>`, invokes only the
-registered handler, and passes the result through the existing output
-pipeline. A missing handler is indistinguishable from an unavailable one and
-never falls back to a human closure.
+expensive-work budget under `site:<blog_id>:<key_id>`, and passes the result
+through the existing output pipeline. It resolves the explicitly registered
+handler for the exact canonical name; in addition, for the exact canonical
+name `xnetvn/list-content-authors`, it resolves one fixed, code-owned built-in
+handler when the bound catalog contains that exact definition. The built-in is
+not passed through `register()`, is never a dynamic class or callback, and no
+input supplies a handler, class or callback. The same resolution drives
+`has_handler()` and `execute()`, it runs only after `SitePolicy`, and
+`register()` rejects its reserved name as a duplicate. The same resolution
+covers the nine reviewed taxonomy names, which are fixed, code-owned built-ins
+and are never passed through `register()`; every other operation runs only
+through an explicitly registered handler. A missing handler is
+indistinguishable from an unavailable one and never falls back to a human
+closure.
 
 `Registry::names_for_site_scope()` returns only names that have a registered
 machine handler, pass the envelope, and are permitted by the scope and site
@@ -331,12 +341,22 @@ require `Capabilities::MANAGE`:
 
 | Route | Contract |
 |---|---|
-| `GET /site-keys` | Paginated, optional state, no cross-blog or user ID parameters, `{items,total,total_pages}`. |
+| `GET /site-keys` | Paginated, optional state, no cross-blog or user ID parameters, `{items,page,per_page}`; `page` and `per_page` echo the request. |
 | `POST /site-keys` | Name, optional toolsets and ability lists, permissions, CIDRs, expiry, required current password; `201` with view and one-time secret. |
 | `GET /site-keys/{id}` | Site view only, never a secret. |
-| `PATCH /site-keys/{id}` | Narrowing fields only; widening is `400` or `422`. |
+| `PATCH /site-keys/{id}` | Narrowing fields only; widening is `409`. |
 | `DELETE /site-keys/{id}` | Revocation with the existing deletion shape. |
 | `POST /site-keys/{id}/rotate` | Required current password, optional grace 0 to 24 hours, `201` with view and one-time secret. |
+
+Totals are intentionally not exposed in this slice: the list response carries
+no `total`, `total_pages` or `X-WP-Total` value, and `page` and `per_page` are
+the only pagination metadata.
+
+The existing matrix still governs: at the management gate, `400` invalid input, `401` missing cookie,
+`403` nonce, capability or current-password refusal, `409` widening, active
+quota or unresolved rotation, `429` password retry budget exhausted and `503`
+storage or lock failure; route-specific `404` and the general error matrix
+still apply.
 
 The view contains identity, scope, timestamps, management attribution and
 last-use metadata, and never `secret`, `secret_hash`, `pepper_id` or
