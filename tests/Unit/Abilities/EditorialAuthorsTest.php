@@ -9,14 +9,31 @@ declare(strict_types=1);
 
 namespace XNetVN\AgentHubWP\Tests\Unit\Abilities;
 
-// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- Test-only WordPress doubles must live beside the test.
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound, Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Test-only WordPress doubles and the fixed handler signatures.
 
 use Brain\Monkey;
 use Brain\Monkey\Functions;
 use Closure;
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use XNetVN\AgentHubWP\Abilities\DefinitionFactory;
+use XNetVN\AgentHubWP\Abilities\OutputPipeline;
+use XNetVN\AgentHubWP\Abilities\Packs\Content\ContentPack;
 use XNetVN\AgentHubWP\Abilities\Packs\Content\EditorialAuthors;
+use XNetVN\AgentHubWP\Abilities\SiteDispatcher;
+use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
+use XNetVN\AgentHubWP\Contracts\AbilitySpec;
+use XNetVN\AgentHubWP\Contracts\ExpensiveBudget;
+use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
 use XNetVN\AgentHubWP\Domain\Decision;
+use XNetVN\AgentHubWP\Domain\KeyId;
+use XNetVN\AgentHubWP\Domain\RiskTier;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
+use XNetVN\AgentHubWP\Domain\SiteCredential;
+use XNetVN\AgentHubWP\Domain\SiteScope;
+use XNetVN\AgentHubWP\Policy\SitePolicy;
+use XNetVN\AgentHubWP\Support\Json;
+use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
 
 /** Minimal user double for the author guard. */
 final class EditorialAuthorUser {
@@ -101,6 +118,197 @@ final class EditorialAuthorDatabase {
 	}
 }
 
+
+/** Catalog containing the exact definitions under test. */
+final class EditorialAuthorsCatalog implements AbilityCatalog {
+
+	/** Definitions by canonical name.
+	 *
+	 * @var array<string,AbilitySpec>
+	 */
+	private array $definitions;
+
+	/**
+	 * Bind the definitions.
+	 *
+	 * @param array<string,AbilitySpec> $definitions Definitions.
+	 */
+	public function __construct( array $definitions ) {
+		$this->definitions = $definitions;
+	}
+
+	/**
+	 * List every definition.
+	 *
+	 * @return array<AbilitySpec>
+	 */
+	public function all(): array {
+		return array_values( $this->definitions );
+	}
+
+	/**
+	 * Resolve one canonical name.
+	 *
+	 * @param string $name Canonical name.
+	 * @return AbilitySpec|null
+	 */
+	public function get( string $name ): ?AbilitySpec {
+		return $this->definitions[ $name ] ?? null;
+	}
+
+	/**
+	 * List visible definitions.
+	 *
+	 * @return array<AbilitySpec>
+	 */
+	public function visible(): array {
+		return $this->all();
+	}
+
+	/**
+	 * Execute the human catalog path.
+	 *
+	 * @param string              $name Canonical name.
+	 * @param array<string,mixed> $arguments Arguments.
+	 * @return mixed
+	 */
+	public function execute( string $name, array $arguments ): mixed {
+		return array( 'catalog' => $name );
+	}
+}
+
+/** Human definition fixture that must never run on the machine path. */
+final class EditorialAuthorsCanary implements AbilitySpec {
+
+	/** Recorded human executions.
+	 *
+	 * @var int
+	 */
+	public int $calls = 0;
+
+	/**
+	 * Wrap the real definition contract.
+	 *
+	 * @param AbilitySpec $definition Real definition.
+	 */
+	public function __construct( private AbilitySpec $definition ) {
+	}
+
+	/**
+	 * Return the real descriptor.
+	 *
+	 * @return AbilityDescriptor
+	 */
+	public function descriptor(): AbilityDescriptor {
+		return $this->definition->descriptor();
+	}
+
+	/**
+	 * Return the real wire name.
+	 *
+	 * @return string
+	 */
+	public function tool_name(): string {
+		return $this->definition->tool_name();
+	}
+
+	/**
+	 * Return the real label.
+	 *
+	 * @return string
+	 */
+	public function label(): string {
+		return $this->definition->label();
+	}
+
+	/**
+	 * Return the real description.
+	 *
+	 * @return string
+	 */
+	public function description(): string {
+		return $this->definition->description();
+	}
+
+	/**
+	 * Return the real input schema.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function input_schema(): array {
+		return $this->definition->input_schema();
+	}
+
+	/**
+	 * Return the real output schema.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function output_schema(): array {
+		return $this->definition->output_schema();
+	}
+
+	/**
+	 * Return the real annotations.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function annotations(): array {
+		return $this->definition->annotations();
+	}
+
+	/**
+	 * Return the real example.
+	 *
+	 * @return mixed
+	 */
+	public function example(): mixed {
+		return $this->definition->example();
+	}
+
+	/**
+	 * Return the real cost flag.
+	 *
+	 * @return bool
+	 */
+	public function costly(): bool {
+		return $this->definition->costly();
+	}
+
+	/**
+	 * Return a canary payload instead of the machine result.
+	 *
+	 * @param array<string,mixed> $arguments Arguments.
+	 * @return mixed
+	 */
+	public function execute( array $arguments ): mixed {
+		++$this->calls;
+		return array( 'canary' => true );
+	}
+}
+
+/** Budget double recording any expensive-work identity. */
+final class EditorialAuthorsBudget implements ExpensiveBudget {
+
+	/** Recorded identities.
+	 *
+	 * @var array<string>
+	 */
+	public array $identities = array();
+
+	/**
+	 * Run the work and record the identity.
+	 *
+	 * @param string  $identity Identity.
+	 * @param Closure $work Work.
+	 * @return mixed
+	 */
+	public function run( string $identity, Closure $work ): mixed {
+		$this->identities[] = $identity;
+		return $work();
+	}
+}
+
 /**
  * The stored-baseline list is never authorization; the live recheck is.
  *
@@ -130,6 +338,7 @@ final class EditorialAuthorsTest extends TestCase {
 		$GLOBALS['wpdb'] = new EditorialAuthorDatabase();
 		Functions\when( 'get_current_blog_id' )->justReturn( self::BLOG );
 		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
+		Functions\when( 'rest_validate_value_from_schema' )->justReturn( true );
 		$this->roles();
 	}
 
@@ -542,6 +751,142 @@ final class EditorialAuthorsTest extends TestCase {
 		self::assertSame( 'xnetvn_agent_hub_wp_internal_error', $result->get_error_code() );
 	}
 
+	/** The machine path uses the real 20th definition and the fixed built-in handler. */
+	public function test_machine_path_uses_the_real_definition_and_built_in_handler(): void {
+		$this->eligible_machine_users( array( 42 ) );
+		$definitions = $this->pack();
+		self::assertArrayHasKey( 'xnetvn/list-content-authors', $definitions );
+		$budget     = new EditorialAuthorsBudget();
+		$dispatcher = $this->dispatcher( $definitions, new MemorySettings(), $budget );
+		$context    = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		self::assertTrue( $dispatcher->has_handler( 'xnetvn/list-content-authors' ) );
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+
+		self::assertIsArray( $result );
+		self::assertSame( array( 42 ), array_column( $result['items'], 'id' ) );
+		self::assertSame( 'Machine author 42', $result['items'][0]['name'] );
+		self::assertSame( array(), $budget->identities );
+	}
+
+	/** The machine path never falls back to the human definition closure. */
+	public function test_machine_path_never_falls_back_to_the_human_closure(): void {
+		$this->eligible_machine_users( array( 42 ) );
+		$definitions = $this->pack();
+		$canary      = new EditorialAuthorsCanary( $definitions['xnetvn/list-content-authors'] );
+		$dispatcher  = $this->dispatcher( array( 'xnetvn/list-content-authors' => $canary ) );
+		$context     = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+
+		self::assertIsArray( $result );
+		self::assertSame( array( 42 ), array_column( $result['items'], 'id' ) );
+		self::assertSame( 0, $canary->calls );
+	}
+
+	/** A definition absent from the bound catalog leaves the name unavailable. */
+	public function test_machine_path_requires_the_bound_definition(): void {
+		$dispatcher = $this->dispatcher( array() );
+		$context    = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		self::assertFalse( $dispatcher->has_handler( 'xnetvn/list-content-authors' ) );
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
+	}
+
+	/** Denied, revoked and cross-blog contexts never reach the handler. */
+	public function test_machine_path_denials_precede_the_handler(): void {
+		$this->eligible_machine_users( array( 42 ) );
+		$definitions = $this->pack();
+		$canary      = new EditorialAuthorsCanary( $definitions['xnetvn/list-content-authors'] );
+		$dispatcher  = $this->dispatcher( array( 'xnetvn/list-content-authors' => $canary ) );
+		$cases       = array(
+			$this->context( array( 'xnetvn/list-posts' ) ),
+			$this->context( array( 'xnetvn/list-content-authors' ), self::BLOG, true ),
+			$this->context( array( 'xnetvn/list-content-authors' ), self::BLOG + 1 ),
+		);
+		foreach ( $cases as $context ) {
+			$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
+		}
+		self::assertSame( 0, $canary->calls );
+
+		$handler = EditorialAuthors::handler();
+		$result  = $handler( array(), $this->context( array( 'xnetvn/list-content-authors' ), self::BLOG + 1 ) );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
+		self::assertSame( array(), $this->database()->queries );
+	}
+
+	/** Invalid page and per-page arguments are refused before any mutation path. */
+	public function test_machine_path_rejects_invalid_arguments(): void {
+		$this->eligible_machine_users( array( 42 ) );
+		$dispatcher = $this->dispatcher( $this->pack() );
+		$context    = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		$handler = EditorialAuthors::handler();
+		$result  = $handler( array( 'page' => 0 ), $context );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+
+		Functions\when( 'rest_validate_value_from_schema' )->justReturn( false );
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array( 'per_page' => 101 ), $context );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+	}
+
+	/** The reserved built-in name cannot be registered as an explicit handler. */
+	public function test_register_rejects_the_reserved_built_in_name(): void {
+		$dispatcher = $this->dispatcher( $this->pack() );
+		try {
+			$dispatcher->register(
+				'xnetvn/list-content-authors',
+				static fn( array $arguments, SiteAuthContext $context ): array => array()
+			);
+			self::fail( 'The reserved built-in name was registered.' );
+		} catch ( \InvalidArgumentException ) {
+			self::assertTrue( $dispatcher->has_handler( 'xnetvn/list-content-authors' ) );
+		}
+	}
+
+	/** A low output ceiling truncates items while exact totals stay unchanged. */
+	public function test_low_output_ceiling_truncates_items_with_exact_totals(): void {
+		$this->eligible_machine_users( array( 41, 42, 43 ) );
+		$settings   = new MemorySettings( array( 'output_max_bytes' => 160 ) );
+		$dispatcher = $this->dispatcher( $this->pack(), $settings );
+		$context    = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['truncated'] );
+		self::assertSame( 3, $result['total'] );
+		self::assertSame( 1, $result['total_pages'] );
+		self::assertSame( 1, $result['page'] );
+		self::assertSame( 20, $result['per_page'] );
+		self::assertLessThan( 3, count( $result['items'] ) );
+		self::assertSame(
+			array_slice( array( 41, 42, 43 ), 0, count( $result['items'] ) ),
+			array_column( $result['items'], 'id' )
+		);
+		self::assertLessThanOrEqual( 160, strlen( Json::encode( $result ) ) );
+	}
+
+	/** An impossible output ceiling returns invalid_output, never a partial success. */
+	public function test_impossible_output_ceiling_returns_invalid_output(): void {
+		$this->eligible_machine_users( array( 42 ) );
+		$settings   = new MemorySettings( array( 'output_max_bytes' => 1 ) );
+		$dispatcher = $this->dispatcher( $this->pack(), $settings );
+		$context    = $this->context( array( 'xnetvn/list-content-authors' ) );
+
+		$result = $dispatcher->execute( 'xnetvn/list-content-authors', array(), $context );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_output', $result->get_error_code() );
+	}
+
 	/**
 	 * Return the fixed bounded candidate query.
 	 *
@@ -555,6 +900,90 @@ final class EditorialAuthorsTest extends TestCase {
 			'order'         => 'ASC',
 			'number'        => EditorialAuthors::MAX_CANDIDATE_SCAN + 1,
 			'cache_results' => false,
+		);
+	}
+
+	/**
+	 * Return the real Content pack definitions by canonical name.
+	 *
+	 * @return array<string,AbilitySpec>
+	 */
+	private function pack(): array {
+		$definitions = array();
+		foreach ( ( new ContentPack( new DefinitionFactory() ) )->definitions() as $definition ) {
+			$definitions[ $definition->descriptor()->name ] = $definition;
+		}
+		return $definitions;
+	}
+
+	/**
+	 * Build the dispatcher with a bound fixture catalog.
+	 *
+	 * @param array<string,AbilitySpec> $definitions Definitions.
+	 * @param MemorySettings|null       $settings Optional settings.
+	 * @param ExpensiveBudget|null      $budget Optional budget.
+	 * @return SiteDispatcher
+	 */
+	private function dispatcher( array $definitions, ?MemorySettings $settings = null, ?ExpensiveBudget $budget = null ): SiteDispatcher {
+		$settings   = $settings ?? new MemorySettings();
+		$catalog    = new EditorialAuthorsCatalog( $definitions );
+		$dispatcher = new SiteDispatcher( new SitePolicy( $settings ), new OutputPipeline( $settings ), $budget );
+		$dispatcher->bind_catalog( $catalog, static fn( string $name ): ?AbilityDescriptor => $catalog->get( $name )?->descriptor() );
+		return $dispatcher;
+	}
+
+	/**
+	 * Build a machine identity with an explicit scope.
+	 *
+	 * @param array<string> $allowed Allowed ability names.
+	 * @param int           $blog_id Credential blog.
+	 * @param bool          $revoked Whether the credential is revoked.
+	 * @return SiteAuthContext
+	 */
+	private function context( array $allowed, int $blog_id = self::BLOG, bool $revoked = false ): SiteAuthContext {
+		$scope      = new SiteScope(
+			RiskTier::Read,
+			array( 'content' ),
+			$allowed,
+			array(),
+			array(),
+			array(),
+			new DateTimeImmutable( '@' . ( time() + 3600 ) )
+		);
+		$credential = new SiteCredential(
+			1,
+			new KeyId( 'abcdefghijkl' ),
+			$blog_id,
+			'Fixture',
+			$scope,
+			new DateTimeImmutable( '@' . time() ),
+			$revoked ? new DateTimeImmutable( '@' . time() ) : null
+		);
+		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+	}
+
+	/**
+	 * Install stored-baseline eligible machine authors for the default seam.
+	 *
+	 * @param array<int> $ids Author identifiers.
+	 * @return void
+	 */
+	private function eligible_machine_users( array $ids ): void {
+		$users = array();
+		foreach ( $ids as $id ) {
+			$users[ $id ] = new \WP_User( $id, array( 'editor' ), 'Machine author ' . $id, array( 'edit_posts' => true ) );
+		}
+		$this->users( $users );
+		$this->members( $ids );
+		Functions\when( 'get_users' )->justReturn( $ids );
+		Functions\when( 'is_multisite' )->justReturn( false );
+		Functions\when( 'is_super_admin' )->justReturn( false );
+		Functions\when( 'apply_filters' )->alias( static fn( string $tag, mixed $value ): mixed => $value );
+		Functions\when( 'user_can' )->alias(
+			static function ( mixed $user, string $capability ) use ( $ids ): bool {
+				$reviewed = array( 'edit_posts', 'use_xnetvn_agent_hub_wp' );
+				return in_array( $capability, $reviewed, true ) && in_array( (int) $user->ID, $ids, true );
+			}
 		);
 	}
 

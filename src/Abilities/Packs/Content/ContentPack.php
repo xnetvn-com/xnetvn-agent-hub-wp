@@ -8,6 +8,7 @@
 declare(strict_types=1);
 namespace XNetVN\AgentHubWP\Abilities\Packs\Content;
 
+use XNetVN\AgentHubWP\Abilities\SchemaFactory;
 use XNetVN\AgentHubWP\Contracts\AbilityFactory;
 use XNetVN\AgentHubWP\Contracts\AbilityPack;
 use XNetVN\AgentHubWP\Contracts\AbilitySpec;
@@ -51,7 +52,7 @@ final class ContentPack implements AbilityPack {
 	public function is_available(): bool {
 		return function_exists( 'rest_get_route_for_post_type_items' ); }
 	/**
-	 * Build nineteen definitions without capturing a user or late post types.
+	 * Build twenty definitions without capturing a user or late post types.
 	 *
 	 * @return iterable<AbilitySpec>
 	 */
@@ -128,5 +129,80 @@ final class ContentPack implements AbilityPack {
 				)
 			);
 		}
+		yield $this->author_lookup_definition( new EditorialAuthors() );
+	}
+
+	/**
+	 * Build the bounded editorial author lookup outside the content TOOLS map.
+	 *
+	 * @param EditorialAuthors $authors Author guard.
+	 * @return AbilitySpec
+	 */
+	private function author_lookup_definition( EditorialAuthors $authors ): AbilitySpec {
+		return $this->factory->create(
+			array(
+				'name'          => 'xnetvn/list-content-authors',
+				'label'         => 'List content authors',
+				'description'   => 'List bounded eligible current-site editorial authors for attribution only. Returns only each numeric user ID and sanitized display name; never email, login, roles, capabilities, metadata or user administration.',
+				'inputSchema'   => SchemaFactory::object( SchemaFactory::pagination() ),
+				'outputSchema'  => SchemaFactory::object(
+					array(
+						'items'       => array(
+							'type'  => 'array',
+							'items' => SchemaFactory::object(
+								array(
+									'id'   => array(
+										'type'    => 'integer',
+										'minimum' => 1,
+									),
+									'name' => array(
+										'type'      => 'string',
+										'maxLength' => 200,
+									),
+								),
+								array( 'id', 'name' )
+							),
+						),
+						'page'        => array(
+							'type'    => 'integer',
+							'minimum' => 1,
+						),
+						'per_page'    => array(
+							'type'    => 'integer',
+							'minimum' => 1,
+							'maximum' => 100,
+						),
+						'total'       => array(
+							'type'    => 'integer',
+							'minimum' => 0,
+						),
+						'total_pages' => array(
+							'type'    => 'integer',
+							'minimum' => 0,
+						),
+					),
+					array( 'items', 'page', 'per_page', 'total', 'total_pages' ),
+					true
+				),
+				'tier'          => RiskTier::Read,
+				'toolset'       => 'content',
+				'visibilityCap' => 'edit_posts',
+				'annotations'   => array(
+					'readonly'      => true,
+					'destructive'   => false,
+					'idempotent'    => true,
+					'openWorldHint' => false,
+				),
+				'handler'       => static fn( array $args ): mixed => $authors->list_eligible( (int) ( $args['page'] ?? 1 ), (int) ( $args['per_page'] ?? 20 ) ),
+				'example'       => array(
+					'items'       => array(),
+					'page'        => 1,
+					'per_page'    => 20,
+					'total'       => 0,
+					'total_pages' => 0,
+				),
+				'costly'        => false,
+			)
+		);
 	}
 }
