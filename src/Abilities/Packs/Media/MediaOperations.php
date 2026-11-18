@@ -13,6 +13,7 @@ use WP_REST_Request;
 use XNetVN\AgentHubWP\Contracts\SiteSettings;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 
 /** No file replacement, user reassignment or caller-selected route exists. */
 final class MediaOperations {
@@ -31,15 +32,22 @@ final class MediaOperations {
 	 * @var UploadPolicy
 	 */
 	private UploadPolicy $upload;
+	/** Scoped editorial HTML boundary.
+	 *
+	 * @var SafeEditorialHtml
+	 */
+	private SafeEditorialHtml $html;
 	/**
 	 * Bind dynamic site policy.
 	 *
-	 * @param SiteSettings $settings Settings.
+	 * @param SiteSettings           $settings Settings.
+	 * @param SafeEditorialHtml|null $html Scoped editorial HTML boundary.
 	 */
-	public function __construct( private SiteSettings $settings ) {
+	public function __construct( private SiteSettings $settings, ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->projection = new MediaProjection();
-		$this->upload     = new UploadPolicy( $settings ); }
+		$this->upload     = new UploadPolicy( $settings );
+		$this->html       = $html ?? new SafeEditorialHtml(); }
 	/**
 	 * Execute one registry-authorized media operation.
 	 *
@@ -50,6 +58,8 @@ final class MediaOperations {
 	public function execute( string $name, array $args ): mixed {
 		if ( ! current_user_can( 'upload_files' ) ) {
 			return R::error( 'forbidden' ); }
+		if ( array_key_exists( 'author', $args ) && in_array( $name, array( 'upload-media-from-url', 'upload-media-from-data', 'update-media' ), true ) ) {
+			return new WP_Error( 'rest_invalid_param', 'The author field is not accepted for human media operations.', array( 'status' => 400 ) ); }
 		if ( 'get-media-upload-limits' === $name ) {
 			return $this->limits(); }
 		$route = rest_get_route_for_post_type_items( 'attachment' );
@@ -91,10 +101,10 @@ final class MediaOperations {
 			return $this->upload_bytes( $route, $bytes, $args['filename'], $args['mime_type'], $args );
 		}
 		if ( 'update-media' === $name ) {
-			$params = array_diff_key( $args, array( 'id' => true ) );
+			$params = $this->sanitize_changes( array_intersect_key( $args, MediaSchemas::changes() ) );
 			if ( ! $params ) {
 				return R::error( 'invalid_params' ); }
-			$response = $this->rest->dispatch( 'POST', $route . '/' . $id, $params, 'attachment' );
+			$response = $this->html->run( fn(): mixed => $this->rest->dispatch( 'POST', $route . '/' . $id, $params, 'attachment' ) );
 			if ( is_wp_error( $response ) ) {
 				return $response; }
 			return $response instanceof \XNetVN\AgentHubWP\Abilities\MutationResponse ? $response->project( fn( array $row ): mixed => $this->projection->project( $row ) ) : R::error( 'partial_failure' );
@@ -156,9 +166,9 @@ final class MediaOperations {
 		$request->set_header( 'Content-Type', $checked['mime'] );
 		$request->set_header( 'Content-Disposition', 'attachment; filename="' . str_replace( '"', '', $checked['filename'] ) . '"' );
 		$request->set_body( $bytes );
-		$request->set_query_params( array_intersect_key( $args, MediaSchemas::changes() ) );
+		$request->set_query_params( $this->sanitize_changes( array_intersect_key( $args, MediaSchemas::changes() ) ) );
 		try {
-			$response = $this->rest->send( $request, 'attachment' );
+			$response = $this->html->run( fn(): mixed => $this->rest->send( $request, 'attachment' ) );
 		} finally {
 			if ( ! headers_sent() ) {
 				header_remove( 'X-WP-Upload-Attachment-ID' ); }
@@ -166,6 +176,25 @@ final class MediaOperations {
 		if ( is_wp_error( $response ) ) {
 			return $response; }
 		return $response instanceof \XNetVN\AgentHubWP\Abilities\MutationResponse ? $response->project( fn( array $row ): mixed => $this->projection->project( $row ) ) : R::error( 'partial_failure' );
+	}
+	/**
+	 * Apply field-appropriate editorial sanitization before dispatch.
+	 *
+	 * @param array<string,mixed> $changes Editable attachment metadata.
+	 * @return array<string,mixed>
+	 */
+	private function sanitize_changes( array $changes ): array {
+		foreach ( array( 'title', 'alt_text' ) as $field ) {
+			if ( isset( $changes[ $field ] ) && is_string( $changes[ $field ] ) ) {
+				$changes[ $field ] = $this->html->filter_plain_text( $changes[ $field ] );
+			}
+		}
+		foreach ( array( 'caption', 'description' ) as $field ) {
+			if ( isset( $changes[ $field ] ) && is_string( $changes[ $field ] ) ) {
+				$changes[ $field ] = $this->html->filter_post_html( $changes[ $field ] );
+			}
+		}
+		return $changes;
 	}
 	/**
 	 * Report effective user-specific limits with no private paths.
