@@ -59,6 +59,9 @@ final class ContentOperations {
 			return $this->inventory( $name ); }
 		if ( 'search-content' === $name ) {
 			return $this->search( $args ); }
+		// Human writes always derive the author from the authenticated actor; machine attribution belongs to the machine path.
+		if ( in_array( $name, array( 'create-post', 'duplicate-post' ), true ) && array_key_exists( 'author', $args ) ) {
+			return R::error( 'invalid_params' ); }
 		$slug = (string) ( $args['post_type'] ?? 'post' );
 		$type = $this->types->resolve( $slug );
 		if ( is_wp_error( $type ) ) {
