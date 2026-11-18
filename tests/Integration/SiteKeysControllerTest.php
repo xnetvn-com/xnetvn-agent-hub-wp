@@ -857,6 +857,259 @@ final class SiteKeysControllerTest extends WP_UnitTestCase {
 		self::assertNotSame( $site_key, $cross->get_data()['key_id'] ?? '' );
 	}
 
+	/** Every route refuses an unexpected query key before any service call. */
+	public function test_every_route_rejects_unexpected_query_keys(): void {
+		$this->login( $this->admin );
+		$this->controller();
+
+		$active = $this->mutating(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Query fixture',
+				'current_password' => self::PASSWORD,
+				'expires_in_days'  => 30,
+			)
+		);
+		$this->assert_status( 201, $active );
+		$id                   = (int) $active->get_data()['key']['id'];
+		$this->created_rows[] = array( 1, $id );
+		$before               = $this->rows();
+
+		$refusals = array(
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'Query create',
+					'current_password' => self::PASSWORD,
+				),
+				array( 'blog_id' => 2 ),
+				array( self::PASSWORD, 'Query create' ),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'Query owner',
+					'current_password' => self::PASSWORD,
+				),
+				array( 'user_id' => 1 ),
+				array( self::PASSWORD, 'Query owner' ),
+			),
+			array( 'PATCH', '/site-keys/' . $id, array( 'name' => 'Query patch' ), array( 'user_id' => 1 ), array( 'Query patch' ) ),
+			array( 'DELETE', '/site-keys/' . $id, array(), array( 'blog_id' => 2 ), array() ),
+			array( 'POST', '/site-keys/' . $id . '/rotate', array( 'current_password' => self::PASSWORD ), array( 'principal_type' => 'site' ), array( self::PASSWORD ) ),
+		);
+		foreach ( $refusals as $case ) {
+			$this->assert_refused(
+				400,
+				$this->mutating( $case[0], $case[1], $case[2], $case[3] ),
+				'xnetvn_agent_hub_wp_management_unavailable',
+				$case[4]
+			);
+			self::assertSame( $before, $this->rows() );
+		}
+		self::assertNull( $this->row( $id )['revoked_at'] );
+
+		$locale = $this->mutating(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Locale fixture',
+				'current_password' => self::PASSWORD,
+			),
+			array( '_locale' => 'user' )
+		);
+		$this->assert_status( 201, $locale );
+		$locale_id            = (int) $locale->get_data()['key']['id'];
+		$this->created_rows[] = array( 1, $locale_id );
+		$this->assert_status(
+			200,
+			$this->mutating( 'PATCH', '/site-keys/' . $locale_id, array( 'name' => 'Locale patched' ), array( '_locale' => 'user' ) )
+		);
+	}
+
+	/** The create and patch routes accept exactly one JSON object on the wire. */
+	public function test_raw_body_must_be_one_json_object(): void {
+		$this->login( $this->admin );
+		$this->controller();
+
+		$active = $this->call(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Shape fixture',
+				'current_password' => self::PASSWORD,
+				'expires_in_days'  => 30,
+			)
+		);
+		$this->assert_status( 201, $active );
+		$id                   = (int) $active->get_data()['key']['id'];
+		$this->created_rows[] = array( 1, $id );
+		$before               = $this->rows();
+
+		foreach ( array( '[]', '[{}]', '{', '', '   ', '5', '"text"', 'true', 'null' ) as $raw ) {
+			$this->assert_refused( 400, $this->raw( 'POST', '/site-keys', $raw ), 'rest_' );
+			self::assertSame( $before, $this->rows() );
+		}
+		$this->assert_refused( 400, $this->raw_form( 'POST', '/site-keys', 'name=Shape+form&current_password=form' ), 'rest_', array( 'Shape+form' ) );
+		self::assertSame( $before, $this->rows() );
+
+		foreach ( array( '[]', '[{}]', '', 'null' ) as $raw ) {
+			$this->assert_refused( 400, $this->raw( 'PATCH', '/site-keys/' . $id, $raw ), 'xnetvn_agent_hub_wp_management_unavailable' );
+			self::assertSame( $before, $this->rows() );
+		}
+		foreach ( array( '{', '   ' ) as $raw ) {
+			$this->assert_refused( 400, $this->raw( 'PATCH', '/site-keys/' . $id, $raw ), 'rest_' );
+			self::assertSame( $before, $this->rows() );
+		}
+		$this->assert_refused( 400, $this->raw_form( 'PATCH', '/site-keys/' . $id, 'name=Shape+form' ), 'xnetvn_agent_hub_wp_management_unavailable', array( 'Shape+form' ) );
+		self::assertSame( $before, $this->rows() );
+
+		$this->assert_status( 200, $this->raw( 'PATCH', '/site-keys/' . $id, '{}' ) );
+		$created = $this->call(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Typed fixture',
+				'current_password' => self::PASSWORD,
+			)
+		);
+		$this->assert_status( 201, $created );
+		$this->created_rows[] = array( 1, (int) $created->get_data()['key']['id'] );
+	}
+
+	/** The controller enforces the declared JSON types instead of accepting core coercion. */
+	public function test_declared_body_types_are_not_coerced(): void {
+		$this->login( $this->admin );
+		$this->controller();
+
+		$active = $this->call(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Type fixture',
+				'current_password' => self::PASSWORD,
+				'expires_in_days'  => 30,
+			)
+		);
+		$this->assert_status( 201, $active );
+		$id                   = (int) $active->get_data()['key']['id'];
+		$this->created_rows[] = array( 1, $id );
+		$before               = $this->rows();
+		$gate                 = 'xnetvn_agent_hub_wp_management_unavailable';
+
+		$gate_rows = array(
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'String expiry',
+					'current_password' => self::PASSWORD,
+					'expires_in_days'  => '90',
+				),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'String permission',
+					'current_password' => self::PASSWORD,
+					'permissions'      => SiteScope::PERMISSION_BAN_USERS,
+				),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'Object permission',
+					'current_password' => self::PASSWORD,
+					'permissions'      => (object) array(),
+				),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'Object toolset',
+					'current_password' => self::PASSWORD,
+					'toolsets'         => (object) array(),
+				),
+			),
+			array( 'PATCH', '/site-keys/' . $id, array( 'expires_in_days' => '90' ) ),
+			array( 'PATCH', '/site-keys/' . $id, array( 'permissions' => (object) array() ) ),
+			array( 'PATCH', '/site-keys/' . $id, array( 'toolsets' => (object) array() ) ),
+			array(
+				'POST',
+				'/site-keys/' . $id . '/rotate',
+				array(
+					'current_password' => self::PASSWORD,
+					'grace_hours'      => '1',
+				),
+			),
+		);
+		foreach ( $gate_rows as $case ) {
+			$this->assert_refused( 400, $this->mutating( $case[0], $case[1], $case[2] ), $gate, array( self::PASSWORD ) );
+			self::assertSame( $before, $this->rows() );
+		}
+
+		$core_rows = array(
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'List toolset',
+					'current_password' => self::PASSWORD,
+					'toolsets'         => array( 1 ),
+				),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 5,
+					'current_password' => self::PASSWORD,
+				),
+			),
+			array(
+				'POST',
+				'/site-keys',
+				array(
+					'name'             => 'Boolean password',
+					'current_password' => false,
+				),
+			),
+		);
+		foreach ( $core_rows as $case ) {
+			$this->assert_refused( 400, $this->mutating( $case[0], $case[1], $case[2] ), 'rest_', array( self::PASSWORD ) );
+			self::assertSame( $before, $this->rows() );
+		}
+
+		$typed = $this->call(
+			'POST',
+			'/site-keys',
+			array(
+				'name'             => 'Typed create',
+				'current_password' => self::PASSWORD,
+				'expires_in_days'  => 30,
+			)
+		);
+		$this->assert_status( 201, $typed );
+		$this->created_rows[] = array( 1, (int) $typed->get_data()['key']['id'] );
+		$this->assert_status( 200, $this->call( 'PATCH', '/site-keys/' . $id, array( 'permissions' => array() ) ) );
+		$rotated = $this->call(
+			'POST',
+			'/site-keys/' . $id . '/rotate',
+			array(
+				'current_password' => self::PASSWORD,
+				'grace_hours'      => 1,
+			)
+		);
+		$this->assert_status( 201, $rotated );
+		$this->created_rows[] = array( 1, (int) $rotated->get_data()['key']['id'] );
+	}
+
 	/**
 	 * Build the isolated controller on a fresh REST server.
 	 *
@@ -1108,6 +1361,42 @@ final class SiteKeysControllerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Dispatch an exact raw form body.
+	 *
+	 * @param string $method HTTP method.
+	 * @param string $path Path.
+	 * @param string $body Exact raw body.
+	 * @return WP_REST_Response
+	 */
+	private function raw_form( string $method, string $path, string $body ): WP_REST_Response {
+		$request = $this->request( $method, $path );
+		$request->set_header( 'content-type', 'application/x-www-form-urlencoded' );
+		$request->set_body( $body );
+		return rest_do_request( $request );
+	}
+
+	/**
+	 * Dispatch a mutating route with explicit query parameters and a JSON body.
+	 *
+	 * @param string              $method HTTP method.
+	 * @param string              $path Path.
+	 * @param array<string,mixed> $body Fields for POST and PATCH.
+	 * @param array<string,mixed> $params Query parameters.
+	 * @return WP_REST_Response
+	 */
+	private function mutating( string $method, string $path, array $body = array(), array $params = array() ): WP_REST_Response {
+		$request = $this->request( $method, $path );
+		if ( array() !== $params ) {
+			$request->set_query_params( $params );
+		}
+		if ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
+			$request->set_header( 'content-type', 'application/json' );
+			$request->set_body( (string) wp_json_encode( (object) $body ) );
+		}
+		return rest_do_request( $request );
+	}
+
+	/**
 	 * Dispatch a collection read with explicit query filters.
 	 *
 	 * @param array<string,mixed> $params Listing filters.
@@ -1142,6 +1431,30 @@ final class SiteKeysControllerTest extends WP_UnitTestCase {
 	 */
 	private function assert_status( int $expected, WP_REST_Response $response ): void {
 		self::assertSame( $expected, $response->get_status(), (string) wp_json_encode( $response->get_data() ) );
+	}
+
+	/**
+	 * Assert one refusal without printing the response payload.
+	 *
+	 * @param int              $status Expected status.
+	 * @param WP_REST_Response $response Response.
+	 * @param string           $code_prefix Required error code prefix.
+	 * @param array<string>    $markers Submitted values that must stay absent.
+	 */
+	private function assert_refused( int $status, WP_REST_Response $response, string $code_prefix = '', array $markers = array() ): void {
+		self::assertSame( $status, $response->get_status() );
+		$data = $response->get_data();
+		self::assertIsArray( $data );
+		self::assertArrayNotHasKey( 'secret', $data );
+		if ( '' !== $code_prefix ) {
+			self::assertArrayHasKey( 'code', $data );
+			self::assertIsString( $data['code'] );
+			self::assertStringStartsWith( $code_prefix, $data['code'] );
+		}
+		$encoded = (string) wp_json_encode( $data );
+		foreach ( $markers as $marker ) {
+			self::assertFalse( str_contains( $encoded, $marker ), 'A submitted value appeared in the refusal payload.' );
+		}
 	}
 
 	/**
