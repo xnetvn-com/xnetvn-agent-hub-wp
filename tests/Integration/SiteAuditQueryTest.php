@@ -291,10 +291,12 @@ final class SiteAuditQueryTest extends WP_UnitTestCase {
 				$request->set_param( $name, $value );
 			}
 			$error = $controller->get_items( $request );
-			self::assertWPError( $error, $label );
-			self::assertSame( 'rest_invalid_param', $error->get_error_code(), $label );
-			self::assertSame( 'The requested audit filters conflict.', $error->get_error_message(), $label );
-			self::assertSame( 400, $error->get_error_data()['status'], $label );
+			self::assertInstanceOf( WP_REST_Response::class, $error, $label );
+			self::assertSame( 400, $error->get_status(), $label );
+			self::assertSame( 'rest_invalid_param', $error->get_data()['code'], $label );
+			self::assertSame( 'The requested audit filters conflict.', $error->get_data()['message'], $label );
+			self::assertSame( 400, $error->get_data()['data']['status'], $label );
+			self::assertSame( 'no-store', $error->get_headers()['Cache-Control'], $label );
 		}
 		self::assertSame( array(), $double->calls );
 	}

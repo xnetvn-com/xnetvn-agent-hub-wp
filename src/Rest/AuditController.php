@@ -113,7 +113,14 @@ final class AuditController extends ManagementController {
 				|| ( 'site' === $principal && null !== $key_id )
 				|| ( null !== $key_id && null !== $reference && 'xnv:' . $key_id !== $reference );
 			if ( $conflict ) {
-				return new WP_Error( 'rest_invalid_param', 'The requested audit filters conflict.', array( 'status' => 400 ) );
+				return $this->response(
+					array(
+						'code'    => 'rest_invalid_param',
+						'message' => 'The requested audit filters conflict.',
+						'data'    => array( 'status' => 400 ),
+					),
+					400
+				);
 			}
 			$unscoped = true === $request->get_param( 'all' ) || 'site' === $principal || ( null !== $reference && str_starts_with( $reference, 'xns:' ) );
 			$filter   = array(
