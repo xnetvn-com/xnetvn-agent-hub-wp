@@ -122,8 +122,12 @@ final class RoleSeoPermissionsTest extends WP_UnitTestCase {
 
 	/** A write key cannot reach an admin tool. */
 	public function test_write_scope_denies_admin_tool(): void {
+		// The static envelope admits only reviewed names. No reviewed admin-tier user
+		// operation exists in the current envelope, so this fixture keeps the admin tier,
+		// users toolset and promote_users capability under a reviewed human name; the
+		// three assertions below still prove the site-tier, admin and key-tier gates.
 		$decision = self::decide(
-			new AbilityDescriptor( 'xnetvn/set-user-status', RiskTier::Admin, 'users', 'promote_users' ),
+			new AbilityDescriptor( 'xnetvn/get-site-info', RiskTier::Admin, 'users', 'promote_users' ),
 			new Scope( RiskTier::Write, array( 'system', 'users' ) ),
 			array(
 				'tier_ceiling'     => 'admin',
@@ -178,7 +182,7 @@ final class RoleSeoPermissionsTest extends WP_UnitTestCase {
 	/** A disabled admin tier denies admin tools. */
 	public function test_admin_off_denies_admin_tool(): void {
 		$decision = self::decide(
-			new AbilityDescriptor( 'xnetvn/set-user-status', RiskTier::Admin, 'users', 'promote_users' ),
+			new AbilityDescriptor( 'xnetvn/get-site-info', RiskTier::Admin, 'users', 'promote_users' ),
 			new Scope( RiskTier::Admin, array( 'system', 'users' ) ),
 			array(
 				'tier_ceiling'     => 'admin',
@@ -193,7 +197,7 @@ final class RoleSeoPermissionsTest extends WP_UnitTestCase {
 	public function test_admin_on_admits_admin_tool(): void {
 		$admin    = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$decision = self::decide(
-			new AbilityDescriptor( 'xnetvn/set-user-status', RiskTier::Admin, 'users', 'promote_users' ),
+			new AbilityDescriptor( 'xnetvn/get-site-info', RiskTier::Admin, 'users', 'promote_users' ),
 			new Scope( RiskTier::Admin, array( 'system', 'users' ) ),
 			array(
 				'allow_admin_tier' => true,

@@ -17,10 +17,16 @@ use XNetVN\AgentHubWP\Auth\TokenParser;
 use XNetVN\AgentHubWP\Bootstrap\Notice;
 use XNetVN\AgentHubWP\Bootstrap\Requirements;
 use XNetVN\AgentHubWP\Contracts\KeyRepository;
+use XNetVN\AgentHubWP\Contracts\SiteKeyRepository;
 use XNetVN\AgentHubWP\Contracts\RequestContext;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
 use XNetVN\AgentHubWP\Contracts\SiteSettings;
+use XNetVN\AgentHubWP\Domain\AuthContext;
 use XNetVN\AgentHubWP\Domain\Scope;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
+use XNetVN\AgentHubWP\Domain\SiteScope;
+use XNetVN\AgentHubWP\Auth\SiteTokenCodec;
+use XNetVN\AgentHubWP\Contracts\SiteRequestContext;
 use XNetVN\AgentHubWP\Http\RouteMatcher;
 use XNetVN\AgentHubWP\Policy\CapabilityMemo;
 
@@ -43,15 +49,16 @@ final class ServerGateway implements ServiceProvider {
 	/**
 	 * Bind the reviewed registry and current request boundary.
 	 *
-	 * @param Registry             $registry Authoritative definitions.
-	 * @param RequestContext       $request Safe actor identity.
-	 * @param SiteSettings         $settings Site policy.
-	 * @param Closure|null         $version Version reader for isolated tests.
-	 * @param KeyRepository|null   $keys Optional credential store for the scope hint.
-	 * @param HeaderExtractor|null $headers Optional credential header reader for the scope hint.
+	 * @param Registry               $registry Authoritative definitions.
+	 * @param RequestContext         $request Safe actor identity.
+	 * @param SiteSettings           $settings Site policy.
+	 * @param Closure|null           $version Version reader for isolated tests.
+	 * @param KeyRepository|null     $keys Optional credential store for the scope hint.
+	 * @param HeaderExtractor|null   $headers Optional credential header reader for the scope hint.
+	 * @param SiteKeyRepository|null $site_keys Optional site credential store for an `xns_` hint.
 	 * @phpstan-param Closure():?string|null $version
 	 */
-	public function __construct( private Registry $registry, private RequestContext $request, private SiteSettings $settings, ?Closure $version = null, private ?KeyRepository $keys = null, private ?HeaderExtractor $headers = null ) {
+	public function __construct( private Registry $registry, private RequestContext $request, private SiteSettings $settings, ?Closure $version = null, private ?KeyRepository $keys = null, private ?HeaderExtractor $headers = null, private ?SiteKeyRepository $site_keys = null ) {
 		$this->version = $version ?? static function (): ?string {
 			return defined( 'WP_MCP_VERSION' ) && is_string( WP_MCP_VERSION ) ? WP_MCP_VERSION : null;
 		};
@@ -118,7 +125,7 @@ final class ServerGateway implements ServiceProvider {
 					$this->tool_names(),
 					array(),
 					array(),
-					fn(): bool => null !== $this->request->current() && get_current_user_id() === $this->request->current()->user_id,
+					fn(): bool => $this->admits_request(),
 				)
 			);
 			$this->created = ! is_wp_error( $result );
@@ -126,6 +133,25 @@ final class ServerGateway implements ServiceProvider {
 			$this->created = false;
 		}
 	}
+	/**
+	 * Admit only a verified same-blog machine principal or the unchanged human principal.
+	 *
+	 * @return bool
+	 */
+	private function admits_request(): bool {
+		if ( $this->request instanceof SiteRequestContext ) {
+			if ( $this->request->has_conflicting_principals() ) {
+				return false;
+			}
+			$site = $this->request->site_current();
+			if ( $site instanceof SiteAuthContext ) {
+				return 0 === get_current_user_id() && get_current_blog_id() === $site->blog_id();
+			}
+		}
+		$human = $this->request->current();
+		return $human instanceof AuthContext && get_current_user_id() === $human->user_id;
+	}
+
 	/**
 	 * Advertise only the tool objects the current request can use.
 	 *
@@ -144,6 +170,9 @@ final class ServerGateway implements ServiceProvider {
 			return array();
 		}
 		$scope = $this->scope_hint();
+		if ( $scope instanceof SiteScope ) {
+			return $this->registry->names_for_site_scope( $scope );
+		}
 		return null === $scope ? $this->registry->names() : $this->registry->names_for_scope( $scope );
 	}
 	/**
@@ -153,14 +182,28 @@ final class ServerGateway implements ServiceProvider {
 	 * unauthorized credential falls back to the complete catalog. The authoritative
 	 * decision stays in {@see Registry::allowed()} for every advertised tool.
 	 *
-	 * @return Scope|null
+	 * @return Scope|SiteScope|null
 	 */
-	private function scope_hint(): ?Scope {
-		if ( null === $this->keys || null === $this->headers ) {
+	private function scope_hint(): Scope|SiteScope|null {
+		if ( null === $this->headers ) {
 			return null;
 		}
 		$token = $this->headers->bearer();
 		if ( null === $token ) {
+			return null;
+		}
+		if ( str_starts_with( $token, SiteTokenCodec::PREFIX ) ) {
+			if ( null === $this->site_keys ) {
+				return null;
+			}
+			$parsed = SiteTokenCodec::parse( $token );
+			if ( null === $parsed ) {
+				return null;
+			}
+			$stored = $this->site_keys->find_by_key_id( $parsed->id );
+			return null === $stored ? null : $stored->key->scope;
+		}
+		if ( null === $this->keys ) {
 			return null;
 		}
 		$parsed = TokenParser::parse( $token );

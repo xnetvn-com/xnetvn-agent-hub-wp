@@ -13,6 +13,7 @@ use Closure;
 use ReflectionFunction;
 use ReflectionNamedType;
 use WP_Error;
+use XNetVN\AgentHubWP\Abilities\Packs\Content\EditorialAuthors;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\ExpensiveBudget;
 use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
@@ -21,6 +22,9 @@ use XNetVN\AgentHubWP\Policy\SitePolicy;
 
 /** Never falls back to a human closure, a user, or an unregistered handler. */
 final class SiteDispatcher {
+
+	/** Fixed, code-owned built-in author lookup. */
+	private const EDITORIAL_AUTHOR_LOOKUP = 'xnetvn/list-content-authors';
 
 	/** Bound authoritative catalog.
 	 *
@@ -91,6 +95,9 @@ final class SiteDispatcher {
 		if ( null === $this->catalog ) {
 			throw new \LogicException( 'The catalog is not bound.' );
 		}
+		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name ) {
+			throw new \InvalidArgumentException( 'Duplicate site handler.' );
+		}
 		if ( null === $this->catalog->get( $canonical_name ) ) {
 			throw new \InvalidArgumentException( 'Unknown site handler.' );
 		}
@@ -118,13 +125,32 @@ final class SiteDispatcher {
 	}
 
 	/**
-	 * Whether an exact handler is registered.
+	 * Whether an exact explicit or fixed built-in handler is available.
 	 *
 	 * @param string $canonical_name Canonical operation name.
 	 * @return bool
 	 */
 	public function has_handler( string $canonical_name ): bool {
-		return isset( $this->handlers[ $canonical_name ] );
+		if ( isset( $this->handlers[ $canonical_name ] ) ) {
+			return true;
+		}
+		return self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name && null !== $this->catalog?->get( $canonical_name );
+	}
+
+	/**
+	 * Resolve the exact explicit or fixed built-in handler without input selection.
+	 *
+	 * @param string $canonical_name Canonical operation name.
+	 * @return Closure(array<string,mixed>,SiteAuthContext):mixed|null
+	 */
+	private function handler_for( string $canonical_name ): ?Closure {
+		if ( isset( $this->handlers[ $canonical_name ] ) ) {
+			return $this->handlers[ $canonical_name ];
+		}
+		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name && null !== $this->catalog?->get( $canonical_name ) ) {
+			return EditorialAuthors::handler();
+		}
+		return null;
 	}
 
 	/**
@@ -149,7 +175,8 @@ final class SiteDispatcher {
 		if ( null === $definition ) {
 			return $this->unavailable();
 		}
-		if ( ! isset( $this->handlers[ $canonical_name ] ) ) {
+		$handler = $this->handler_for( $canonical_name );
+		if ( null === $handler ) {
 			return $this->unavailable();
 		}
 		if ( get_current_blog_id() !== $context->blog_id() ) {
@@ -162,9 +189,8 @@ final class SiteDispatcher {
 			return ReasonMapper::error( 'invalid_params' );
 		}
 		try {
-			$handler = $this->handlers[ $canonical_name ];
-			$work    = static fn(): mixed => $handler( $arguments, $context );
-			$result  = $definition->costly() && null !== $this->expensive
+			$work   = static fn(): mixed => $handler( $arguments, $context );
+			$result = $definition->costly() && null !== $this->expensive
 				? $this->expensive->run( 'site:' . $context->blog_id() . ':' . $context->credential->key_id->value, $work )
 				: $work();
 			return $this->output->process( $result, $definition->output_schema() );

@@ -143,7 +143,7 @@ final class Plugin {
 		$site_keys = new WpdbSiteKeyRepository( $wpdb, $clock, max( 1, (int) get_current_blog_id() ) );
 		$site_auth = new SiteAuthenticator( $site_keys, $peppers, $settings, $limits, $transport, $clock );
 		$gate      = new ManagementGate();
-		$gateway   = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ) );
+		$gateway   = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ), $site_keys );
 		return array(
 			new MigrationProvider( $plugin_file, new Migrator( $wpdb, $clock ) ),
 			new DeactivationProvider( $plugin_file ),
