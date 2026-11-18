@@ -936,4 +936,567 @@
 			load();
 		}
 	});
+
+	/**
+	 * Switch the personal and the site key panel without sending a request.
+	 *
+	 * The roving tabindex follows the ARIA tabs pattern: arrows move focus and
+	 * activate, Home and End jump to the first and last tab, and Enter or Space
+	 * activates the focused tab in place.
+	 */
+	const initKeyTabs = () => {
+		const tablist = document.querySelector('.xnetvn-tabs[role="tablist"]');
+		if (!tablist) return;
+		const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+		const panels = tabs.map(tab => document.getElementById(tab.getAttribute('aria-controls') || '')).filter(Boolean);
+		if (tabs.length !== 2 || panels.length !== tabs.length) return;
+		const activate = tab => {
+			tabs.forEach(candidate => {
+				const selected = candidate === tab;
+				candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
+				candidate.setAttribute('tabindex', selected ? '0' : '-1');
+			});
+			panels.forEach(panel => {
+				panel.hidden = document.getElementById(panel.getAttribute('aria-labelledby') || '') !== tab;
+			});
+		};
+		const move = (index, offset) => {
+			const target = tabs[(index + offset + tabs.length) % tabs.length];
+			target.focus();
+			activate(target);
+		};
+		tablist.addEventListener('keydown', event => {
+			const index = tabs.indexOf(document.activeElement);
+			if (index < 0) return;
+			if (event.key === 'ArrowRight') {
+				event.preventDefault();
+				move(index, 1);
+			} else if (event.key === 'ArrowLeft') {
+				event.preventDefault();
+				move(index, -1);
+			} else if (event.key === 'Home' || event.key === 'End') {
+				event.preventDefault();
+				const target = event.key === 'Home' ? tabs[0] : tabs[tabs.length - 1];
+				target.focus();
+				activate(target);
+			} else if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+				event.preventDefault();
+				activate(tabs[index]);
+			}
+		});
+		tabs.forEach(tab => tab.addEventListener('click', () => activate(tab)));
+	};
+	initKeyTabs();
+
+	/**
+	 * Wire the manager-only accountless site key mode.
+	 *
+	 * Every request uses the cookie session, the REST nonce and the native
+	 * fetch implementation. No secret, password or key enters browser storage,
+	 * and no mutation is ever retried.
+	 */
+	const initSiteKeys = () => {
+		const root = document.querySelector('[data-view="site-keys"]');
+		if (!root) return;
+		const settings = config.site && typeof config.site === 'object' ? config.site : null;
+		if (!settings || typeof settings.endpoint !== 'string' || settings.endpoint === '') return;
+		const endpoint = settings.endpoint;
+		const status = root.querySelector('.xnetvn-status');
+		if (!status) return;
+		const heading = root.querySelector('#xnetvn-site-heading');
+		const table = root.querySelector('[data-site-keys]');
+		const loadingEl = root.querySelector('[data-loading]');
+		const errorEl = root.querySelector('[data-error]');
+		const errorText = root.querySelector('[data-error-text]');
+		const emptyEl = root.querySelector('[data-empty]');
+		const retryButton = root.querySelector('[data-retry]');
+		const unknownEl = root.querySelector('[data-site-unknown]');
+		const previousButton = root.querySelector('[data-prev]');
+		const nextButton = root.querySelector('[data-next]');
+		const pageLabel = root.querySelector('[data-page]');
+		const secretDialog = root.querySelector('[data-site-secret-dialog]');
+		const secretInput = root.querySelector('#xnetvn-site-secret');
+		const actionDialog = root.querySelector('[data-site-action-dialog]');
+		const actionMessage = root.querySelector('[data-site-action-message]');
+		const actionPasswordGroup = root.querySelector('[data-site-action-password-group]');
+		const actionPassword = root.querySelector('#xnetvn-site-action-password');
+		const confirmButton = root.querySelector('[data-site-confirm]');
+		const cancelButton = root.querySelector('[data-site-cancel]');
+		const createButton = root.querySelector('[data-site-create]');
+		const nameField = root.querySelector('[data-site-field="name"]');
+		const daysField = root.querySelector('[data-site-field="expires_in_days"]');
+		const passwordField = root.querySelector('#xnetvn-site-password');
+		const permissionBoxes = Array.from(root.querySelectorAll('[data-site-field="permissions"]'));
+		if (!table || !secretDialog || !secretInput || !actionDialog || !confirmButton) return;
+
+		const sessionMessage = __('Your session may have expired. Reload the page and log in again.', 'xnetvn-agent-hub-wp');
+		const refusedMessage = __('The operation was refused. Check the fields and your current password, then try again.', 'xnetvn-agent-hub-wp');
+		const quotaMessage = __('The active site key quota is full. Revoke a site key before creating another.', 'xnetvn-agent-hub-wp');
+		const unresolvedMessage = __('A site key rotation is unresolved. Resolve it before rotating another site key.', 'xnetvn-agent-hub-wp');
+		const waitMessage = __('Too many current-password attempts. Wait a minute before trying again.', 'xnetvn-agent-hub-wp');
+		const unavailableMessage = __('The site key service is unavailable. Try again later.', 'xnetvn-agent-hub-wp');
+		const notFoundMessage = __('That site key no longer exists. Reload the list.', 'xnetvn-agent-hub-wp');
+		const genericMessage = __('The operation could not complete. Check the fields and your permissions. Refresh the page if your session has expired.', 'xnetvn-agent-hub-wp');
+		const uncertainMessage = __('The key change finished with an uncertain result. Reload the list before creating a replacement key.', 'xnetvn-agent-hub-wp');
+		const refreshMessage = __('Metadata refresh failed. The key change was saved; reload the page to see the current list.', 'xnetvn-agent-hub-wp');
+
+		const say = message => {
+			status.textContent = message;
+			wp.a11y.speak(message, 'polite');
+		};
+		const sayUncertain = () => {
+			if (unknownEl) {
+				unknownEl.textContent = uncertainMessage;
+				unknownEl.hidden = false;
+			}
+			say(uncertainMessage);
+		};
+		const clearUncertain = () => {
+			if (unknownEl) {
+				unknownEl.textContent = '';
+				unknownEl.hidden = true;
+			}
+		};
+		/**
+		 * Send one site request and never retry it.
+		 *
+		 * @param {string} path Query string or item suffix appended to the endpoint.
+		 * @param {Object} options Fetch options with an optional JSON body.
+		 * @return {Promise<Response>} Native fetch response.
+		 */
+		const siteFetch = (path, options = {}) => {
+			const headers = Object.assign({}, options.headers || {}, { 'X-WP-Nonce': config.nonce });
+			if (Object.prototype.hasOwnProperty.call(options, 'body') && options.body !== undefined && options.body !== null) {
+				headers['Content-Type'] = 'application/json';
+			}
+			return window.fetch(endpoint + path, Object.assign({}, options, {
+				credentials: 'same-origin',
+				cache: 'no-store',
+				redirect: 'error',
+				headers,
+			}));
+		};
+		/**
+		 * Read the safe code of a failed response without guessing the outcome.
+		 *
+		 * @param {Response} response Failed response.
+		 * @return {Promise<Object>} Status and error code.
+		 */
+		const responseError = async response => {
+			let code = '';
+			try {
+				const payload = await response.json();
+				if (payload && typeof payload.code === 'string') code = payload.code;
+			} catch (error) {
+				code = '';
+			}
+			return { status: response.status, code };
+		};
+		/**
+		 * Map one failed response to a fixed safe message.
+		 *
+		 * @param {Object} failure Status and error code.
+		 * @return {string} User-facing message.
+		 */
+		const messageFor = failure => {
+			if (failure.status === 401) return sessionMessage;
+			if (failure.status === 403) {
+				if (failure.code === 'rest_cookie_invalid_nonce' || failure.code === 'xnetvn_agent_hub_wp_nonce_required' || failure.code === 'xnetvn_agent_hub_wp_cookie_required') return sessionMessage;
+				return refusedMessage;
+			}
+			if (failure.status === 404) return notFoundMessage;
+			if (failure.status === 409) return failure.code === 'xnetvn_agent_hub_wp_rotation_unresolved' ? unresolvedMessage : quotaMessage;
+			if (failure.status === 429) return waitMessage;
+			if (failure.status === 503) return unavailableMessage;
+			return genericMessage;
+		};
+
+		let page = 1;
+		let lastGood = 1;
+		let lastCount = 0;
+		let busy = false;
+		let seq = 0;
+		let failedPage = null;
+		let mutationPending = false;
+		let pendingAction = null;
+		let returnFocus = null;
+
+		const beginRead = () => {
+			seq += 1;
+			busy = true;
+			root.setAttribute('aria-busy', 'true');
+			if (loadingEl) loadingEl.hidden = false;
+			if (errorEl) errorEl.hidden = true;
+			if (retryButton) retryButton.disabled = true;
+			[previousButton, nextButton].forEach(button => { if (button) button.disabled = true; });
+			return seq;
+		};
+		const settleRead = (id, message) => {
+			if (id !== seq) return false;
+			busy = false;
+			root.setAttribute('aria-busy', 'false');
+			if (loadingEl) loadingEl.hidden = true;
+			if (retryButton) retryButton.disabled = false;
+			if (message) {
+				if (errorText) errorText.textContent = message;
+				if (errorEl) errorEl.hidden = false;
+				say(message);
+			}
+			return true;
+		};
+		const renderPager = () => {
+			if (previousButton) previousButton.disabled = busy || page <= 1;
+			if (nextButton) nextButton.disabled = busy || lastCount !== 20;
+			if (pageLabel) pageLabel.textContent = wp.i18n.sprintf(__('Page %d', 'xnetvn-agent-hub-wp'), page);
+		};
+		const siteDate = value => {
+			if (!value) return __('Never', 'xnetvn-agent-hub-wp');
+			const moment = new Date(String(value));
+			return Number.isNaN(moment.getTime()) ? 'REDACTED' : moment.toLocaleString();
+		};
+		const siteStatus = key => {
+			if (key.revoked_at) {
+				const revoked = new Date(String(key.revoked_at));
+				return Number.isNaN(revoked.getTime()) ? 'REDACTED' : __('Revoked', 'xnetvn-agent-hub-wp');
+			}
+			if (!key.expires_at) return 'REDACTED';
+			const expires = new Date(String(key.expires_at));
+			if (Number.isNaN(expires.getTime())) return 'REDACTED';
+			return expires.getTime() <= Date.now() ? __('Expired', 'xnetvn-agent-hub-wp') : __('Active', 'xnetvn-agent-hub-wp');
+		};
+		const siteScope = key => {
+			const parts = [];
+			if (typeof key.profile === 'string' && key.profile !== '') parts.push(key.profile);
+			if (Array.isArray(key.toolsets) && key.toolsets.length) parts.push(key.toolsets.join(', '));
+			const allowed = Array.isArray(key.allowed_abilities) ? key.allowed_abilities.length : 0;
+			parts.push(wp.i18n.sprintf(__('%d abilities', 'xnetvn-agent-hub-wp'), allowed));
+			return parts.join(' · ');
+		};
+		const renderRows = items => {
+			clear(table);
+			items.forEach(key => {
+				if (!key || typeof key !== 'object') return;
+				const displayName = typeof key.name === 'string' && key.name !== '' ? key.name : __('Unavailable', 'xnetvn-agent-hub-wp');
+				const row = node('tr');
+				row.appendChild(node('td', displayName));
+				row.appendChild(node('td', typeof key.credential_ref === 'string' && key.credential_ref !== '' ? key.credential_ref : 'REDACTED'));
+				row.appendChild(node('td', siteScope(key)));
+				row.appendChild(node('td', Array.isArray(key.permissions) && key.permissions.length ? key.permissions.join(', ') : __('Never', 'xnetvn-agent-hub-wp')));
+				row.appendChild(node('td', typeof key.tier_ceiling === 'string' && key.tier_ceiling !== '' ? key.tier_ceiling : 'REDACTED'));
+				row.appendChild(node('td', siteDate(key.created_at)));
+				row.appendChild(node('td', siteDate(key.last_used_at)));
+				row.appendChild(node('td', siteDate(key.expires_at)));
+				row.appendChild(node('td', siteStatus(key)));
+				const actions = node('td');
+				const rotate = node('button', __('Rotate', 'xnetvn-agent-hub-wp'), { type: 'button', class: 'button', 'data-site-mutation': 'rotate', 'aria-label': wp.i18n.sprintf(__('Rotate WordPress MCP API Key: %s', 'xnetvn-agent-hub-wp'), displayName) });
+				rotate.addEventListener('click', () => askSite('rotate', key, rotate));
+				const revoke = node('button', __('Revoke', 'xnetvn-agent-hub-wp'), { type: 'button', class: 'button', 'data-site-mutation': 'revoke', 'aria-label': wp.i18n.sprintf(__('Revoke WordPress MCP API Key: %s', 'xnetvn-agent-hub-wp'), displayName) });
+				revoke.addEventListener('click', () => askSite('revoke', key, revoke));
+				actions.appendChild(rotate);
+				actions.appendChild(revoke);
+				row.appendChild(actions);
+				table.appendChild(row);
+			});
+		};
+		const load = async (quiet = false) => {
+			const id = beginRead();
+			const wanted = page;
+			const failRead = (message, target) => {
+				if (!settleRead(id, message)) return;
+				page = lastGood;
+				failedPage = target;
+				renderPager();
+			};
+			let response;
+			try {
+				const separator = endpoint.indexOf('?') === -1 ? '?' : '&';
+				response = await siteFetch(separator + 'page=' + wanted + '&per_page=20', { method: 'GET' });
+			} catch (error) {
+				failRead(quiet ? '' : unavailableMessage, wanted);
+				if (quiet) say(refreshMessage);
+				return;
+			}
+			if (!response.ok) {
+				const failure = await responseError(response);
+				failRead(quiet ? '' : messageFor(failure), wanted);
+				if (quiet) say(refreshMessage);
+				return;
+			}
+			let result;
+			try {
+				result = await response.json();
+			} catch (error) {
+				failRead(quiet ? '' : genericMessage, wanted);
+				if (quiet) say(refreshMessage);
+				return;
+			}
+			if (id !== seq) return;
+			if (!result || !Array.isArray(result.items) || typeof result.page !== 'number' || typeof result.per_page !== 'number') {
+				failRead(quiet ? '' : genericMessage, wanted);
+				if (quiet) say(refreshMessage);
+				return;
+			}
+			lastCount = result.items.length;
+			lastGood = wanted;
+			failedPage = null;
+			renderRows(result.items);
+			if (emptyEl) emptyEl.hidden = result.items.length !== 0;
+			settleRead(id, '');
+			renderPager();
+		};
+		const refreshAfterMutation = async () => {
+			try {
+				await load(true);
+			} catch (error) {
+				say(refreshMessage);
+			}
+		};
+
+		/**
+		 * Drop every password value the site panel holds.
+		 */
+		const clearPasswords = () => {
+			if (passwordField) passwordField.value = '';
+			if (actionPassword) actionPassword.value = '';
+		};
+		/**
+		 * Restore focus to the invoking control or to the site heading.
+		 */
+		const restoreSiteFocus = () => {
+			const trigger = returnFocus;
+			returnFocus = null;
+			if (trigger && trigger.isConnected && trigger.getClientRects().length > 0) {
+				trigger.focus();
+				if (document.activeElement === trigger) return;
+			}
+			if (heading) heading.focus();
+		};
+		const groupValid = () => [nameField, daysField].every(field => field !== null && field.checkValidity() && String(field.value).trim() !== '');
+		const updateCreateState = () => {
+			if (!createButton) return;
+			createButton.disabled = mutationPending || !groupValid();
+		};
+		const lockActions = value => {
+			root.querySelectorAll('[data-site-mutation], [data-site-confirm]').forEach(control => { control.disabled = value; });
+			if (value) {
+				if (createButton) createButton.disabled = true;
+			} else {
+				updateCreateState();
+			}
+		};
+		/**
+		 * Run one site mutation at a time and release every control afterwards.
+		 *
+		 * @param {Function} operation Request body executed once.
+		 * @return {Promise<void>} Resolves after the lock is released.
+		 */
+		const runSiteMutation = async operation => {
+			if (mutationPending) return;
+			mutationPending = true;
+			clearUncertain();
+			lockActions(true);
+			try {
+				await operation();
+			} finally {
+				mutationPending = false;
+				clearPasswords();
+				lockActions(false);
+				if (!secretDialog.open && (!document.activeElement || document.activeElement === document.body)) restoreSiteFocus();
+			}
+		};
+		/**
+		 * Show the one-time secret without writing it anywhere else.
+		 *
+		 * @param {Object} result Successful create or rotate body.
+		 */
+		const showSiteSecret = result => {
+			if (!result || typeof result.secret !== 'string' || result.secret === '') {
+				sayUncertain();
+				return;
+			}
+			secretInput.value = result.secret;
+			delete result.secret;
+			secretDialog.showModal();
+			secretInput.focus();
+			secretInput.select();
+			wp.a11y.speak(__('Your new WordPress MCP API Key is shown once. Save it now.', 'xnetvn-agent-hub-wp'), 'polite');
+		};
+		/**
+		 * Open the confirmation dialog for a site key action.
+		 *
+		 * @param {string} kind rotate or revoke.
+		 * @param {Object} key Listed site key metadata.
+		 * @param {Element} trigger Invoking control.
+		 */
+		const askSite = (kind, key, trigger) => {
+			if (mutationPending) return;
+			const id = Number(key && key.id);
+			if (!Number.isInteger(id) || id < 1) return;
+			returnFocus = trigger;
+			pendingAction = { kind: kind, id: id };
+			const needsPassword = kind === 'rotate';
+			if (actionPasswordGroup) actionPasswordGroup.hidden = !needsPassword;
+			if (actionPassword) {
+				actionPassword.required = needsPassword;
+				actionPassword.value = '';
+			}
+			if (actionMessage) {
+				actionMessage.textContent = needsPassword
+					? wp.i18n.sprintf(__('Rotate "%s"? A replacement key inherits the same scope, and the old key expires within 24 hours.', 'xnetvn-agent-hub-wp'), String(key.name || ''))
+					: wp.i18n.sprintf(__('Revoke "%s"? Future requests with this key will be denied.', 'xnetvn-agent-hub-wp'), String(key.name || ''));
+			}
+			actionDialog.showModal();
+			if (needsPassword && actionPassword) actionPassword.focus();
+			else confirmButton.focus();
+		};
+
+		secretDialog.addEventListener('close', () => {
+			secretInput.value = '';
+			clearPasswords();
+			if (!actionDialog.open) restoreSiteFocus();
+		});
+		actionDialog.addEventListener('close', () => {
+			clearPasswords();
+			pendingAction = null;
+			if (!mutationPending && !secretDialog.open) restoreSiteFocus();
+		});
+		window.addEventListener('pagehide', () => {
+			secretInput.value = '';
+			clearPasswords();
+		});
+		const savedButton = root.querySelector('[data-site-saved]');
+		const copyButton = root.querySelector('[data-site-copy]');
+		if (savedButton) savedButton.addEventListener('click', () => secretDialog.close());
+		if (copyButton) {
+			copyButton.addEventListener('click', async () => {
+				try {
+					if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('clipboard unavailable');
+					await navigator.clipboard.writeText(secretInput.value);
+					say(__('Key copied. Store it securely before closing this window.', 'xnetvn-agent-hub-wp'));
+				} catch (error) {
+					secretInput.focus();
+					secretInput.select();
+					say(__('Copy was unavailable. Use your keyboard copy command on the selected key.', 'xnetvn-agent-hub-wp'));
+				}
+			});
+		}
+		if (cancelButton) cancelButton.addEventListener('click', () => actionDialog.close());
+		confirmButton.addEventListener('click', () => {
+			if (mutationPending || !pendingAction) return;
+			const operation = pendingAction;
+			let password = '';
+			if (operation.kind === 'rotate') {
+				if (!actionPassword || !actionPassword.reportValidity()) return;
+				password = actionPassword.value;
+				actionPassword.value = '';
+			}
+			actionDialog.close();
+			runSiteMutation(async () => {
+				const path = '/' + operation.id + (operation.kind === 'rotate' ? '/rotate' : '');
+				const options = operation.kind === 'rotate' ? { method: 'POST', body: JSON.stringify({ current_password: password }) } : { method: 'DELETE' };
+				let response;
+				try {
+					response = await siteFetch(path, options);
+				} catch (error) {
+					sayUncertain();
+					return;
+				}
+				if (!response.ok) {
+					say(messageFor(await responseError(response)));
+					return;
+				}
+				if (operation.kind === 'rotate') {
+					let result;
+					try {
+						result = await response.json();
+					} catch (error) {
+						sayUncertain();
+						return;
+					}
+					showSiteSecret(result);
+				} else {
+					say(__('WordPress MCP API Key revoked.', 'xnetvn-agent-hub-wp'));
+				}
+				await refreshAfterMutation();
+			});
+		});
+		if (createButton) {
+			createButton.addEventListener('click', () => {
+				if (mutationPending || !groupValid()) {
+					updateCreateState();
+					return;
+				}
+				const invalid = [nameField, daysField, passwordField].find(field => !field.reportValidity());
+				if (invalid) {
+					invalid.focus();
+					return;
+				}
+				const data = {
+					name: nameField.value,
+					permissions: permissionBoxes.filter(box => box.checked).map(box => box.value),
+					expires_in_days: Number(daysField.value),
+					current_password: passwordField.value,
+				};
+				const body = JSON.stringify(data);
+				delete data.current_password;
+				passwordField.value = '';
+				returnFocus = createButton;
+				runSiteMutation(async () => {
+					let response;
+					try {
+						response = await siteFetch('', { method: 'POST', body: body });
+					} catch (error) {
+						sayUncertain();
+						return;
+					}
+					if (!response.ok) {
+						say(messageFor(await responseError(response)));
+						return;
+					}
+					let result;
+					try {
+						result = await response.json();
+					} catch (error) {
+						sayUncertain();
+						return;
+					}
+					showSiteSecret(result);
+					updateCreateState();
+					await refreshAfterMutation();
+				});
+			});
+		}
+		[nameField, daysField, passwordField].forEach(field => {
+			if (field) field.addEventListener('input', updateCreateState);
+		});
+		permissionBoxes.forEach(box => box.addEventListener('change', updateCreateState));
+		if (previousButton) {
+			previousButton.addEventListener('click', () => {
+				if (busy || page <= 1) return;
+				failedPage = null;
+				page -= 1;
+				load().catch(() => {});
+			});
+		}
+		if (nextButton) {
+			nextButton.addEventListener('click', () => {
+				if (busy || lastCount !== 20) return;
+				failedPage = null;
+				page += 1;
+				load().catch(() => {});
+			});
+		}
+		if (retryButton) {
+			retryButton.addEventListener('click', () => {
+				if (busy) return;
+				page = failedPage !== null ? failedPage : page;
+				failedPage = null;
+				load().catch(() => {});
+			});
+		}
+		updateCreateState();
+		renderPager();
+		load().catch(() => {});
+	};
+	initSiteKeys();
 }());
