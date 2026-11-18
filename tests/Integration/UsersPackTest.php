@@ -288,8 +288,8 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertNull( BanSnapshot::load( $uid ) );
 	}
 
-	/** A refused re-ban keeps the recovery snapshot that already existed. */
-	public function test_ban_reguard_failure_keeps_existing_snapshot(): void {
+	/** A dirty banned state is refused and keeps the recovery snapshot that already existed. */
+	public function test_ban_refuses_a_dirty_banned_state_and_keeps_snapshot(): void {
 		$uid = self::factory()->user->create( array( 'role' => 'author' ) );
 		$ban = $this->call(
 			'set-user-status',
@@ -310,26 +310,18 @@ final class UsersPackTest extends WP_UnitTestCase {
 		$before_roles = array_values( (array) get_userdata( $uid )->roles );
 		$before_caps  = (array) get_userdata( $uid )->caps;
 		self::assertArrayHasKey( 'read', $before_caps );
-		$calls = 0;
-		$deny  = static function ( bool $allowed ) use ( &$calls ): bool {
-			++$calls;
-			return $calls < 3 && $allowed;
-		};
-		add_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10, 1 );
-		try {
-			$res = $this->call(
-				'set-user-status',
-				array(
-					'id'          => $uid,
-					'status'      => 'banned',
-					'reason_code' => 'spam',
-				)
-			);
-		} finally {
-			remove_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10 );
-		}
+		// The leftover direct capability makes the re-ban build a snapshot whose roles are
+		// ['banned'], which strict validation refuses before any guard, role or snapshot write.
+		$res = $this->call(
+			'set-user-status',
+			array(
+				'id'          => $uid,
+				'status'      => 'banned',
+				'reason_code' => 'spam',
+			)
+		);
 		self::assertWPError( $res );
-		self::assertSame( 'xnetvn_agent_hub_wp_protected_account', $res->get_error_code() );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $res->get_error_code() );
 		$after = get_userdata( $uid );
 		self::assertSame( $before_roles, array_values( (array) $after->roles ) );
 		self::assertSame( $before_caps, (array) $after->caps );
@@ -344,13 +336,64 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertIsArray( $unban );
 		self::assertSame( 'active', $unban['status'] );
 		self::assertSame( array( 'author' ), array_values( get_userdata( $uid )->roles ) );
+		self::assertNull( BanSnapshot::load( $uid ) );
+	}
+
+	/** A post-save guard refusal keeps the recovery snapshot that already existed. */
+	public function test_ban_post_save_reguard_failure_keeps_existing_snapshot(): void {
+		$uid     = self::factory()->user->create( array( 'role' => 'author' ) );
+		$created = false;
+		self::assertTrue(
+			BanSnapshot::save(
+				$uid,
+				BanSnapshot::build( array( 'author' ), array(), (int) get_current_user_id(), 'spam' ),
+				$created
+			)
+		);
+		self::assertTrue( $created );
+		$original = BanSnapshot::load( $uid );
+		self::assertIsArray( $original );
+		self::assertSame( array( 'author' ), $original['roles'] );
+		$before_roles = array_values( (array) get_userdata( $uid )->roles );
+		$before_caps  = (array) get_userdata( $uid )->caps;
+		$calls        = 0;
+		$deny         = static function ( bool $allowed ) use ( &$calls ): bool {
+			++$calls;
+			return $calls < 3 && $allowed;
+		};
+		add_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10, 1 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'          => $uid,
+					'status'      => 'banned',
+					'reason_code' => 'spam',
+				)
+			);
+			self::assertWPError( $res );
+			self::assertSame( 'xnetvn_agent_hub_wp_protected_account', $res->get_error_code() );
+			self::assertSame( $before_roles, array_values( (array) get_userdata( $uid )->roles ) );
+			self::assertSame( $before_caps, (array) get_userdata( $uid )->caps );
+			self::assertSame( $original, BanSnapshot::load( $uid ) );
+		} finally {
+			remove_filter( 'xnetvn_agent_hub_wp_user_allowed', $deny, 10 );
+			BanSnapshot::clear( $uid );
+		}
 	}
 
 	/** A failed capability write clears only the snapshot this attempt created. */
 	public function test_ban_role_write_failure_clears_new_snapshot(): void {
 		$uid  = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$fail = static function ( $check, $object_id, $meta_key ) use ( $uid ) {
-			if ( (int) $object_id === $uid && 'wp_capabilities' === $meta_key ) {
+		$user = get_userdata( $uid );
+		self::assertInstanceOf( \WP_User::class, $user );
+		$cap_key = $user->cap_key;
+		self::assertIsString( $cap_key );
+		self::assertNotSame( '', $cap_key );
+		$fired = false;
+		$fail  = static function ( $check, $object_id, $meta_key ) use ( $uid, $cap_key, &$fired ) {
+			if ( (int) $object_id === $uid && $cap_key === $meta_key ) {
+				$fired = true;
 				throw new \RuntimeException( 'Fixture capability write failure.' );
 			}
 			return $check;
@@ -368,6 +411,7 @@ final class UsersPackTest extends WP_UnitTestCase {
 		} finally {
 			remove_filter( 'update_user_metadata', $fail, 10 );
 		}
+		self::assertTrue( $fired );
 		self::assertWPError( $res );
 		self::assertSame( 'xnetvn_agent_hub_wp_internal_error', $res->get_error_code() );
 		self::assertSame( array( 'subscriber' ), array_values( get_userdata( $uid )->roles ) );
