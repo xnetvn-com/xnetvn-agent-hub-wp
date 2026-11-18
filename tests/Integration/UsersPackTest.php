@@ -243,6 +243,7 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertSame( 'active', $unban['status'] );
 		$restored = get_userdata( $uid );
 		self::assertSame( array( 'author' ), array_values( $restored->roles ) );
+		self::assertNull( BanSnapshot::load( $uid ) );
 	}
 
 	/** Banning administrators is refused. */
@@ -435,6 +436,7 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertSame( 'active', $unban['status'] );
 		self::assertTrue( $unban['changed'] );
 		self::assertSame( array( 'editor' ), array_values( get_userdata( $uid )->roles ) );
+		self::assertNull( BanSnapshot::load( $uid ) );
 		$back = $this->call(
 			'set-user-role',
 			array(
@@ -534,6 +536,124 @@ final class UsersPackTest extends WP_UnitTestCase {
 		self::assertWPError( $unban );
 		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $unban->get_error_code() );
 		self::assertSame( array( 'banned' ), array_values( get_userdata( $uid )->roles ) );
+	}
+
+	/** A protected post-restore state keeps the recovery snapshot. */
+	public function test_unban_keeps_snapshot_when_post_restore_state_is_protected(): void {
+		$uid = self::factory()->user->create( array( 'role' => 'author' ) );
+		$ban = $this->call(
+			'set-user-status',
+			array(
+				'id'          => $uid,
+				'status'      => 'banned',
+				'reason_code' => 'spam',
+			)
+		);
+		self::assertIsArray( $ban );
+		$elevate = static function ( int $user_id ): void {
+			$target = get_userdata( $user_id );
+			if ( $target instanceof \WP_User ) {
+				$target->add_cap( 'edit_users' );
+			}
+		};
+		add_action( 'set_user_role', $elevate, 10, 1 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'     => $uid,
+					'status' => 'active',
+				)
+			);
+		} finally {
+			remove_action( 'set_user_role', $elevate, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $res->get_error_code() );
+		$snapshot = BanSnapshot::load( $uid );
+		self::assertIsArray( $snapshot );
+		self::assertSame( array( 'author' ), $snapshot['roles'] );
+		self::assertContains( 'author', array_values( (array) get_userdata( $uid )->roles ) );
+	}
+
+	/** A capability write that is not persisted keeps the recovery snapshot. */
+	public function test_unban_keeps_snapshot_when_cap_write_is_not_persisted(): void {
+		$uid  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$user = get_userdata( $uid );
+		self::assertInstanceOf( \WP_User::class, $user );
+		$user->add_cap( 'xnetvn_demo_cap', true );
+		$ban = $this->call(
+			'set-user-status',
+			array(
+				'id'          => $uid,
+				'status'      => 'banned',
+				'reason_code' => 'spam',
+			)
+		);
+		self::assertIsArray( $ban );
+		$stored = BanSnapshot::load( $uid );
+		self::assertIsArray( $stored );
+		self::assertTrue( $stored['caps']['xnetvn_demo_cap'] ?? null );
+		$drop = static function ( mixed $check, int $object_id, string $meta_key, mixed $meta_value ) use ( $uid ): mixed {
+			if ( $uid !== $object_id || ! str_ends_with( $meta_key, 'capabilities' ) || ! is_array( $meta_value ) ) {
+				return $check;
+			}
+			return array_key_exists( 'xnetvn_demo_cap', $meta_value ) ? false : $check;
+		};
+		add_filter( 'update_user_metadata', $drop, 10, 4 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'     => $uid,
+					'status' => 'active',
+				)
+			);
+		} finally {
+			remove_filter( 'update_user_metadata', $drop, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $res->get_error_code() );
+		self::assertIsArray( BanSnapshot::load( $uid ) );
+		self::assertArrayNotHasKey( 'xnetvn_demo_cap', (array) get_userdata( $uid )->caps );
+	}
+
+	/** A write failure in the middle of the restore keeps the recovery snapshot. */
+	public function test_unban_keeps_snapshot_when_restore_write_fails(): void {
+		$uid  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$user = get_userdata( $uid );
+		self::assertInstanceOf( \WP_User::class, $user );
+		$user->add_role( 'editor' );
+		$ban = $this->call(
+			'set-user-status',
+			array(
+				'id'          => $uid,
+				'status'      => 'banned',
+				'reason_code' => 'spam',
+			)
+		);
+		self::assertIsArray( $ban );
+		$fail = static function (): void {
+			throw new \RuntimeException( 'simulated restore write failure' );
+		};
+		add_action( 'add_user_role', $fail, 10, 0 );
+		try {
+			$res = $this->call(
+				'set-user-status',
+				array(
+					'id'     => $uid,
+					'status' => 'active',
+				)
+			);
+		} finally {
+			remove_action( 'add_user_role', $fail, 10 );
+		}
+		self::assertWPError( $res );
+		self::assertSame( 'xnetvn_agent_hub_wp_internal_error', $res->get_error_code() );
+		$snapshot = BanSnapshot::load( $uid );
+		self::assertIsArray( $snapshot );
+		self::assertSame( array( 'author', 'editor' ), $snapshot['roles'] );
+		self::assertSame( array( 'author' ), array_values( (array) get_userdata( $uid )->roles ) );
 	}
 
 	/** Sessions terminate with counts. */
