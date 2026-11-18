@@ -15,6 +15,7 @@ use XNetVN\AgentHubWP\Abilities\MutationResponse;
 use XNetVN\AgentHubWP\Abilities\MutationResult;
 use XNetVN\AgentHubWP\Abilities\PartialFailure;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
 use XNetVN\AgentHubWP\Contracts\RateLimiter;
 
@@ -33,14 +34,22 @@ final class UserOperations {
 	 */
 	private UserProjection $projection;
 
+	/** Reviewed profile-field policy.
+	 *
+	 * @var ProfileFieldPolicy
+	 */
+	private ProfileFieldPolicy $policy;
+
 	/**
 	 * Bind pure infrastructure.
 	 *
-	 * @param RateLimiter $limits Optional budget checker.
+	 * @param RateLimiter|null       $limits Optional budget checker.
+	 * @param SafeEditorialHtml|null $html Optional plain-text boundary.
 	 */
-	public function __construct( private ?RateLimiter $limits = null ) {
+	public function __construct( private ?RateLimiter $limits = null, ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->projection = new UserProjection( static fn( int $id ): bool => current_user_can( 'edit_user', $id ) );
+		$this->policy     = new ProfileFieldPolicy( $html );
 	}
 
 	/**
@@ -534,6 +543,20 @@ final class UserOperations {
 				return $meta_check;
 			}
 		}
+		$registered = array();
+		try {
+			$schema     = ( new \WP_REST_User_Meta_Fields() )->get_field_schema();
+			$registered = is_array( $schema['properties'] ?? null ) ? $schema['properties'] : array();
+		} catch ( \Throwable ) {
+			if ( array_key_exists( 'meta', $changes ) ) {
+				return R::error( 'invalid_params' );
+			}
+		}
+		$filtered = $this->policy->changes( $changes, $registered );
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$changes = $filtered;
 		if ( isset( $changes['locale'] ) ) {
 			$locale_check = $this->check_locale( (string) $changes['locale'] );
 			if ( is_wp_error( $locale_check ) ) {
@@ -552,7 +575,7 @@ final class UserOperations {
 				return R::error( 'duplicate_user' );
 			}
 		}
-		$response = $this->rest->dispatch( 'POST', '/wp/v2/users/me', $changes, 'user', 'user' );
+		$response = $this->with_description_kses( fn(): mixed => $this->rest->dispatch( 'POST', '/wp/v2/users/me', $changes, 'user', 'user' ) );
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
@@ -578,6 +601,29 @@ final class UserOperations {
 				);
 			}
 		);
+	}
+
+	/**
+	 * Ensure core's biography KSES callback is present only for this dispatch.
+	 *
+	 * @template T
+	 * @param callable $work Dispatch work.
+	 * @return mixed
+	 * @phpstan-param callable():T $work
+	 * @phpstan-return T
+	 */
+	private function with_description_kses( callable $work ): mixed {
+		$present = false !== has_filter( 'pre_user_description', 'wp_filter_kses' );
+		if ( ! $present ) {
+			add_filter( 'pre_user_description', 'wp_filter_kses' );
+		}
+		try {
+			return $work();
+		} finally {
+			if ( ! $present ) {
+				remove_filter( 'pre_user_description', 'wp_filter_kses' );
+			}
+		}
 	}
 
 	/**
