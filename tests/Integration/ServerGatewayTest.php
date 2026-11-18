@@ -74,7 +74,7 @@ final class ServerGatewayTest extends WP_UnitTestCase {
 
 	/** The advertised tool list follows the transport and the route, and never the other way round. */
 	public function test_advertised_tool_list_follows_transport_and_route(): void {
-		$fixture_name = 'xnetvn/test-gateway-tools';
+		$fixture_name = 'xnetvn/get-site-info';
 		self::assertTrue( ( new SafeMcpEnvelope() )->evaluate( $fixture_name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed, 'The advertised-list fixture must be inside the reviewed envelope.' );
 		$settings  = new MemorySettings();
 		$transport = 'stdio';

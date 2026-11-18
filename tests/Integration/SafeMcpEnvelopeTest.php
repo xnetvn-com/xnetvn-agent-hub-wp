@@ -135,6 +135,10 @@ final class SafeMcpEnvelopeTest extends WP_UnitTestCase {
 		$site     = self::sorted( self::SITE_ONLY );
 		$outside  = self::sorted( self::OUTSIDE );
 
+		self::assertSame( self::sorted( SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS ), $reviewed, 'The reviewed literal set must equal the static envelope reviewed operations.' );
+		self::assertSame( self::sorted( SafeMcpEnvelope::HUMAN_ONLY_PROFILE_OPERATIONS ), $human, 'The human-only literal set must equal the static envelope human-only operations.' );
+		self::assertSame( self::sorted( SafeMcpEnvelope::SITE_MODERATION_OPERATIONS ), $site, 'The site-only literal set must equal the static envelope site-moderation operations.' );
+
 		self::assertCount( 63, $catalog, 'The plugin must register exactly 63 private catalog abilities.' );
 		self::assertCount( 51, $reviewed, 'The reviewed literal set must keep its measured size.' );
 		self::assertCount( 2, $human, 'The human-only literal set must keep its measured size.' );
