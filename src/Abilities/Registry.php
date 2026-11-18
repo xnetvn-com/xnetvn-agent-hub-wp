@@ -15,11 +15,15 @@ use XNetVN\AgentHubWP\Contracts\AbilityPack;
 use XNetVN\AgentHubWP\Contracts\AbilitySpec;
 use XNetVN\AgentHubWP\Contracts\RequestContext;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
+use XNetVN\AgentHubWP\Contracts\SiteRequestContext;
 use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
 use XNetVN\AgentHubWP\Domain\Scope;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
+use XNetVN\AgentHubWP\Domain\SiteScope;
 use XNetVN\AgentHubWP\Policy\CapabilityMemo;
 use XNetVN\AgentHubWP\Policy\Policy;
 use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
+use XNetVN\AgentHubWP\Policy\SitePolicy;
 use XNetVN\AgentHubWP\Policy\TierResolver;
 
 /** All definition execution paths preserve policy, actor binding and output validation. */
@@ -67,11 +71,94 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @param OutputPipeline                                    $output Logical output pipeline.
 	 * @param \XNetVN\AgentHubWP\Contracts\ExpensiveBudget|null $expensive Atomic work budget.
 	 * @param SafeMcpEnvelope|null                              $envelope Static reviewed-operation boundary.
+	 * @param SitePolicy|null                                   $site_policy Machine policy.
+	 * @param SiteDispatcher|null                               $site_dispatcher Machine dispatcher.
 	 */
-	public function __construct( private Policy $policy, private RequestContext $request, private OutputPipeline $output, private ?\XNetVN\AgentHubWP\Contracts\ExpensiveBudget $expensive = null, ?SafeMcpEnvelope $envelope = null ) {
+	public function __construct( private Policy $policy, private RequestContext $request, private OutputPipeline $output, private ?\XNetVN\AgentHubWP\Contracts\ExpensiveBudget $expensive = null, ?SafeMcpEnvelope $envelope = null, private ?SitePolicy $site_policy = null, private ?SiteDispatcher $site_dispatcher = null ) {
 		$this->tiers    = new TierResolver( fn( string $name ): ?AbilityDescriptor => $this->get( $name )?->descriptor() );
 		$this->envelope = $envelope ?? new SafeMcpEnvelope();
 	}
+	/**
+	 * Build the effective descriptor with the resolved tier.
+	 *
+	 * @param string $name Canonical name.
+	 * @return AbilityDescriptor|null
+	 */
+	public function resolved_descriptor( string $name ): ?AbilityDescriptor {
+		$definition = $this->get( $name );
+		if ( null === $definition ) {
+			return null;
+		}
+		$declared = $definition->descriptor();
+		return new AbilityDescriptor( $declared->name, $this->tiers->tier_for( $declared->name ), $declared->toolset, $declared->visibility_cap, $declared->third_party );
+	}
+	/**
+	 * Detect an impossible dual-principal state.
+	 *
+	 * @return bool
+	 */
+	private function conflicted(): bool {
+		return $this->request instanceof SiteRequestContext && $this->request->has_conflicting_principals();
+	}
+	/**
+	 * Read the verified site principal when present.
+	 *
+	 * @return SiteAuthContext|null
+	 */
+	private function site_principal(): ?SiteAuthContext {
+		return $this->request instanceof SiteRequestContext ? $this->request->site_current() : null;
+	}
+	/**
+	 * List names that have a machine handler and pass the static scope.
+	 *
+	 * @param SiteScope $scope Machine restrictions.
+	 * @return array<string>
+	 */
+	public function names_for_site_scope( SiteScope $scope ): array {
+		if ( null === $this->site_policy || null === $this->site_dispatcher ) {
+			return array();
+		}
+		$names = array();
+		foreach ( $this->names() as $name ) {
+			if ( ! $this->site_dispatcher->has_handler( $name ) ) {
+				continue;
+			}
+			$descriptor = $this->resolved_descriptor( $name );
+			if ( null === $descriptor ) {
+				continue;
+			}
+			if ( ! $this->site_policy->evaluate_scope( $descriptor, $scope )->allowed ) {
+				continue;
+			}
+			$names[] = $name;
+		}
+		return $names;
+	}
+	/**
+	 * Authorize one site definition through the machine policy.
+	 *
+	 * @param AbilitySpec     $definition Definition.
+	 * @param SiteAuthContext $site Verified site identity.
+	 * @return bool
+	 */
+	private function site_allowed( AbilitySpec $definition, SiteAuthContext $site ): bool {
+		if ( null === $this->site_policy || null === $this->site_dispatcher ) {
+			return false;
+		}
+		$name = $definition->descriptor()->name;
+		if ( ! $this->site_dispatcher->has_handler( $name ) ) {
+			return false;
+		}
+		if ( isset( $this->bound[ $name ] ) && wp_get_ability( $name ) !== $this->bound[ $name ] ) {
+			return false;
+		}
+		$descriptor = $this->resolved_descriptor( $name );
+		if ( null === $descriptor ) {
+			return false;
+		}
+		return $this->site_policy->evaluate( $descriptor, $site, 'http' )->allowed;
+	}
+
 	/**
 	 * Add an immutable definition, rejecting duplicate names and wire mappings.
 	 *
@@ -182,6 +269,7 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 				}
 			}
 		}
+		$this->site_dispatcher?->freeze();
 	}
 	/**
 	 * Read only from the authoritative map.
@@ -254,6 +342,9 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @return array<AbilitySpec>
 	 */
 	public function visible(): array {
+		if ( $this->conflicted() ) {
+			return array();
+		}
 		$visible = array();
 		foreach ( $this->names() as $name ) {
 			$definition = $this->definitions[ $name ];
@@ -279,9 +370,26 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @return mixed
 	 */
 	public function execute( string $name, array $arguments ): mixed {
+		if ( $this->conflicted() ) {
+			return $this->denied();
+		}
+		$site       = $this->site_principal();
 		$definition = $this->get( $name );
 		if ( null === $definition || ! $this->allowed( $definition ) || ! wp_has_ability( $name ) ) {
 			return $this->denied();
+		}
+		if ( null !== $site ) {
+			if ( null === $this->site_dispatcher ) {
+				return $this->denied();
+			}
+			do_action( 'xnetvn_agent_hub_wp_tool_started', $name, array_keys( $arguments ) );
+			try {
+				$result = $this->site_dispatcher->execute( $name, $arguments, $site );
+			} catch ( \Throwable ) {
+				$result = ReasonMapper::error( 'internal_error' );
+			}
+			do_action( 'xnetvn_agent_hub_wp_tool_finished', $name, is_wp_error( $result ) ? 'error' : 'success' );
+			return $result;
 		}
 		$ability = wp_get_ability( $name );
 		if ( null === $ability || ( $this->bound[ $name ] ?? null ) !== $ability ) {
@@ -311,6 +419,13 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 		if ( isset( $this->blocked[ $definition->descriptor()->name ] ) ) {
 			return false;
 		}
+		if ( $this->conflicted() ) {
+			return false;
+		}
+		$site = $this->site_principal();
+		if ( null !== $site ) {
+			return $this->site_allowed( $definition, $site );
+		}
 		if ( ! $this->envelope->evaluate( $definition->descriptor()->name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed ) {
 			return false;
 		}
@@ -335,8 +450,15 @@ final class Registry implements AbilityCatalog, ServiceProvider {
 	 * @return mixed
 	 */
 	private function invoke( AbilitySpec $definition, mixed $arguments ): mixed {
-		if ( ! $this->allowed( $definition ) || ! is_array( $arguments ) ) {
+		if ( $this->conflicted() || ! $this->allowed( $definition ) || ! is_array( $arguments ) ) {
 			return $this->denied();
+		}
+		$site = $this->site_principal();
+		if ( null !== $site ) {
+			if ( null === $this->site_dispatcher || null === $this->site_policy ) {
+				return $this->denied();
+			}
+			return $this->site_dispatcher->execute( $definition->descriptor()->name, $arguments, $site );
 		}
 		try {
 			$work = fn(): mixed => $definition->execute( $arguments );
