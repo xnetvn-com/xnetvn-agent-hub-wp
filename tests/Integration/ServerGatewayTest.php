@@ -15,6 +15,7 @@ use XNetVN\AgentHubWP\Abilities\OutputPipeline;
 use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\Mcp\ServerGateway;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
 
 /** A fake boundary pins call signatures; installed-adapter E2E is a separate gate. */
@@ -73,6 +74,8 @@ final class ServerGatewayTest extends WP_UnitTestCase {
 
 	/** The advertised tool list follows the transport and the route, and never the other way round. */
 	public function test_advertised_tool_list_follows_transport_and_route(): void {
+		$fixture_name = 'xnetvn/test-gateway-tools';
+		self::assertTrue( ( new SafeMcpEnvelope() )->evaluate( $fixture_name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed, 'The advertised-list fixture must be inside the reviewed envelope.' );
 		$settings  = new MemorySettings();
 		$transport = 'stdio';
 		$request   = new class( $transport ) implements \XNetVN\AgentHubWP\Contracts\RequestContext {
@@ -118,7 +121,7 @@ final class ServerGatewayTest extends WP_UnitTestCase {
 		$registry->add(
 			( new \XNetVN\AgentHubWP\Abilities\DefinitionFactory() )->create(
 				array(
-					'name'          => 'xnetvn/test-gateway-tools',
+					'name'          => $fixture_name,
 					'label'         => 'Gateway fixture',
 					'description'   => 'Returns a safe private fixture. Use this to verify the advertised tool list of the MCP server.',
 					'inputSchema'   => array(
@@ -163,7 +166,7 @@ final class ServerGatewayTest extends WP_UnitTestCase {
 		};
 		$gateway = new ServerGateway( $registry, $request, $settings, static fn(): ?string => '0.7.0' );
 		$gateway->create( $adapter );
-		self::assertSame( array( 'xnetvn/test-gateway-tools' ), $adapter->arguments[9] );
+		self::assertSame( array( $fixture_name ), $adapter->arguments[9] );
 		$request->transport = 'http';
 		$gateway->create( $adapter );
 		self::assertSame( array(), $adapter->arguments[9] );
