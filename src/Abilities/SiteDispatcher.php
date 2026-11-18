@@ -14,6 +14,7 @@ use ReflectionFunction;
 use ReflectionNamedType;
 use WP_Error;
 use XNetVN\AgentHubWP\Abilities\Packs\Content\EditorialAuthors;
+use XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\SiteTaxonomyOperations;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\ExpensiveBudget;
 use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
@@ -95,11 +96,11 @@ final class SiteDispatcher {
 		if ( null === $this->catalog ) {
 			throw new \LogicException( 'The catalog is not bound.' );
 		}
-		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name ) {
-			throw new \InvalidArgumentException( 'Duplicate site handler.' );
-		}
 		if ( null === $this->catalog->get( $canonical_name ) ) {
 			throw new \InvalidArgumentException( 'Unknown site handler.' );
+		}
+		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name || in_array( $canonical_name, SiteTaxonomyOperations::NAMES, true ) ) {
+			throw new \InvalidArgumentException( 'Duplicate site handler.' );
 		}
 		if ( isset( $this->handlers[ $canonical_name ] ) ) {
 			throw new \InvalidArgumentException( 'Duplicate site handler.' );
@@ -131,10 +132,7 @@ final class SiteDispatcher {
 	 * @return bool
 	 */
 	public function has_handler( string $canonical_name ): bool {
-		if ( isset( $this->handlers[ $canonical_name ] ) ) {
-			return true;
-		}
-		return self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name && null !== $this->catalog?->get( $canonical_name );
+		return null !== $this->handler_for( $canonical_name );
 	}
 
 	/**
@@ -147,8 +145,14 @@ final class SiteDispatcher {
 		if ( isset( $this->handlers[ $canonical_name ] ) ) {
 			return $this->handlers[ $canonical_name ];
 		}
-		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name && null !== $this->catalog?->get( $canonical_name ) ) {
+		if ( null === $this->catalog?->get( $canonical_name ) ) {
+			return null;
+		}
+		if ( self::EDITORIAL_AUTHOR_LOOKUP === $canonical_name ) {
 			return EditorialAuthors::handler();
+		}
+		if ( in_array( $canonical_name, SiteTaxonomyOperations::NAMES, true ) ) {
+			return SiteTaxonomyOperations::handler( $canonical_name );
 		}
 		return null;
 	}
