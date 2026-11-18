@@ -1138,7 +1138,6 @@ final class UserOperations {
 			foreach ( $caps_to_restore as $cap => $enabled ) {
 				$fresh->add_cap( (string) $cap, $enabled );
 			}
-			BanSnapshot::clear( $id );
 		} catch ( \Throwable ) {
 			return R::error( 'internal_error' );
 		}
@@ -1150,6 +1149,10 @@ final class UserOperations {
 		if ( UserTargetGuard::is_protected_user( $after ) ) {
 			return new PartialFailure( $id, false );
 		}
+		if ( ! $this->restore_verified( $after, $roles_to_restore, $caps_to_restore ) ) {
+			return new PartialFailure( $id, false );
+		}
+		BanSnapshot::clear( $id );
 		$result = array(
 			'id'              => $id,
 			'status'          => 'active',
@@ -1158,6 +1161,36 @@ final class UserOperations {
 			'roles'           => array_values( (array) $after->roles ),
 		);
 		return MutationResult::project( $id, false, static fn(): array => $result );
+	}
+
+	/**
+	 * Whether the stored account state matches the requested restore.
+	 *
+	 * @param WP_User            $after            Freshly read target.
+	 * @param array<string>      $roles_to_restore Requested roles.
+	 * @param array<string,bool> $caps_to_restore  Requested direct capabilities.
+	 * @return bool
+	 */
+	private function restore_verified( WP_User $after, array $roles_to_restore, array $caps_to_restore ): bool {
+		try {
+			$actual_roles = array_values( array_unique( array_map( 'strval', (array) $after->roles ) ) );
+			$wanted_roles = array_values( array_unique( array_map( 'strval', $roles_to_restore ) ) );
+			sort( $actual_roles );
+			sort( $wanted_roles );
+			if ( $actual_roles !== $wanted_roles ) {
+				return false;
+			}
+			$direct = is_array( $after->caps ) ? $after->caps : array();
+			foreach ( $caps_to_restore as $cap => $enabled ) {
+				$name = (string) $cap;
+				if ( ! array_key_exists( $name, $direct ) || (bool) $direct[ $name ] !== (bool) $enabled ) {
+					return false;
+				}
+			}
+			return true;
+		} catch ( \Throwable ) {
+			return false;
+		}
 	}
 
 	/**
