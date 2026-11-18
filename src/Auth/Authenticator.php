@@ -24,19 +24,26 @@ use XNetVN\AgentHubWP\Support\Cidr;
 
 /** A prior cookie identity or authentication success never substitutes for a key. */
 final class Authenticator implements ServiceProvider {
+	/** Protected-account eligibility.
+	 *
+	 * @var DelegationEligibility
+	 */
+	private DelegationEligibility $eligibility;
 	/**
 	 * Bind credential, policy, transport and request services.
 	 *
-	 * @param KeyRepository   $keys Credential repository.
-	 * @param PepperStore     $peppers Separate pepper storage.
-	 * @param SiteSettings    $settings Site policy.
-	 * @param HeaderExtractor $headers Header-only credential input.
-	 * @param RateLimiter     $limits Shared budgets.
-	 * @param TransportGuard  $transport TLS policy.
-	 * @param RequestScope    $request Request-local state.
-	 * @param Clock           $clock Wall clock.
+	 * @param KeyRepository              $keys Credential repository.
+	 * @param PepperStore                $peppers Separate pepper storage.
+	 * @param SiteSettings               $settings Site policy.
+	 * @param HeaderExtractor            $headers Header-only credential input.
+	 * @param RateLimiter                $limits Shared budgets.
+	 * @param TransportGuard             $transport TLS policy.
+	 * @param RequestScope               $request Request-local state.
+	 * @param Clock                      $clock Wall clock.
+	 * @param DelegationEligibility|null $eligibility Protected-account eligibility.
 	 */
-	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private SiteSettings $settings, private HeaderExtractor $headers, private RateLimiter $limits, private TransportGuard $transport, private RequestScope $request, private Clock $clock ) {
+	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private SiteSettings $settings, private HeaderExtractor $headers, private RateLimiter $limits, private TransportGuard $transport, private RequestScope $request, private Clock $clock, ?DelegationEligibility $eligibility = null ) {
+		$this->eligibility = $eligibility ?? new DelegationEligibility();
 	}
 	/** Register route-scoped identity, late reauthentication and safe response headers. */
 	public function register(): void {
@@ -98,6 +105,9 @@ final class Authenticator implements ServiceProvider {
 			if ( false === $owner ) {
 				$this->keys->revoke_all_for_user( $key->user_id );
 				return $this->fail( FailureReason::OwnerMissing );
+			}
+			if ( ! $this->eligibility->check( $key->user_id )->allowed ) {
+				return $this->fail( FailureReason::OwnerForbidden );
 			}
 			if ( ! user_can( $owner, Capabilities::USE ) ) {
 				return $this->fail( FailureReason::OwnerForbidden );
