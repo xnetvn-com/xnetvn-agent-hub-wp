@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace XNetVN\AgentHubWP\Tests\Integration;
 
+use DateTimeImmutable;
 use WP_UnitTestCase;
 use XNetVN\AgentHubWP\Audit\AuditLogger;
 use XNetVN\AgentHubWP\Audit\PrivacyExporter;
@@ -17,6 +18,9 @@ use XNetVN\AgentHubWP\Audit\Retention;
 use XNetVN\AgentHubWP\Domain\KeyId;
 use XNetVN\AgentHubWP\Domain\RiskTier;
 use XNetVN\AgentHubWP\Domain\Scope;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
+use XNetVN\AgentHubWP\Domain\SiteCredential;
+use XNetVN\AgentHubWP\Domain\SiteScope;
 use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\Persistence\Migrator;
 use XNetVN\AgentHubWP\Persistence\WpdbAuditRepository;
@@ -363,6 +367,47 @@ final class AuditPrivacyTest extends WP_UnitTestCase {
 			self::assertSame( $case[1], $page['total'] );
 			self::assertSame( $case[2], array_column( $page['items'], 'credential_ref' ) );
 		}
+	}
+
+	/**
+	 * A verified site scope stores the typed machine principal without any credential material.
+	 *
+	 * This asserts the logger-to-database boundary; it is not a real authenticated MCP call.
+	 */
+	public function test_machine_events_store_the_website_principal_without_credentials(): void {
+		global $wpdb;
+		$context = new SiteAuthContext(
+			new SiteCredential(
+				1,
+				new KeyId( 'abcdefghijkl' ),
+				1,
+				'Site fixture',
+				new SiteScope( RiskTier::Read, array( 'content' ), array( 'xnetvn/get-post' ), expires_at: new DateTimeImmutable( '2027-01-01T00:00:00Z' ) ),
+				new DateTimeImmutable( '2026-11-17T00:00:00Z' )
+			),
+			'0123456789abcdef',
+			'203.0.113.9'
+		);
+		$scope   = new RequestScope();
+		$scope->bind_site( $context );
+		$logger = new AuditLogger( $this->audit, $scope, new MemorySettings(), $this->clock );
+		$logger->started( 'xnetvn/bulk-moderate-comments', array( 'ids', 'status', 'xns_abcdefghijkl_CANARY', 'xnv_abcdefghijkl_CANARY' ) );
+		$logger->finished( 'xnetvn/bulk-moderate-comments', 'success' );
+		$logger->flush();
+		$stored = $wpdb->get_row( $wpdb->prepare( 'SELECT request_id,key_id,user_id,principal_type,credential_ref,blog_id,arg_keys FROM %i ORDER BY id DESC LIMIT %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 1 ), ARRAY_A );
+		self::assertNotNull( $stored );
+		self::assertSame( 'site', $stored['principal_type'] );
+		self::assertNull( $stored['key_id'] );
+		self::assertNull( $stored['user_id'] );
+		self::assertSame( 'xns:abcdefghijkl', $stored['credential_ref'] );
+		self::assertSame( '0123456789abcdef', $stored['request_id'] );
+		self::assertSame( 1, (int) $stored['blog_id'] );
+		self::assertSame( '["ids","status"]', $stored['arg_keys'] );
+		$page = $this->audit->query( array( 'principal_type' => 'site' ) );
+		self::assertSame( 1, $page['total'] );
+		self::assertSame( 'site', $page['items'][0]['principal_type'] );
+		self::assertSame( 'xns:abcdefghijkl', $page['items'][0]['credential_ref'] );
+		self::assertStringNotContainsString( 'CANARY', (string) wp_json_encode( $page['items'] ) );
 	}
 
 	/**
