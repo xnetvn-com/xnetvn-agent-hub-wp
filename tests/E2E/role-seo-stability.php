@@ -1597,7 +1597,7 @@ if ( 'phase-cleanup' === $xnetvn_agent_hub_wp_mode ) {
 	$xnetvn_agent_hub_wp_phase_abort_absent   = false;
 	try {
 		$xnetvn_agent_hub_wp_phase_ctx = $xnetvn_agent_hub_wp_begin_phase( $xnetvn_agent_hub_wp_phase_stamp, 'c', $xnetvn_agent_hub_wp_action, $xnetvn_agent_hub_wp_private );
-		if ( ! $xnetvn_agent_hub_wp_quiet( $xnetvn_agent_hub_wp_phase_ctx['client'], $xnetvn_agent_hub_wp_phase_ctx['tokens'], array( 'admin' ), $xnetvn_agent_hub_wp_send, $xnetvn_agent_hub_wp_listed ) ) {
+		if ( ! $xnetvn_agent_hub_wp_quiet( $xnetvn_agent_hub_wp_phase_ctx['client'], $xnetvn_agent_hub_wp_phase_ctx['tokens'], array( 'editor' ), $xnetvn_agent_hub_wp_send, $xnetvn_agent_hub_wp_listed ) ) {
 			throw new RuntimeException( 'Role SEO rate windows stayed hot.' );
 		}
 		$xnetvn_agent_hub_wp_phase_pixel  = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=';
@@ -1612,7 +1612,7 @@ if ( 'phase-cleanup' === $xnetvn_agent_hub_wp_mode ) {
 			$reply    = $xnetvn_agent_hub_wp_tool(
 				$xnetvn_agent_hub_wp_phase_ctx['client'],
 				$envelope,
-				$xnetvn_agent_hub_wp_phase_ctx['tokens']['admin'],
+				$xnetvn_agent_hub_wp_phase_ctx['tokens']['editor'],
 				'upload-media-from-data',
 				array(
 					'filename'    => 'stab-refused-' . $xnetvn_agent_hub_wp_phase_run_c . '.png',
@@ -1630,7 +1630,7 @@ if ( 'phase-cleanup' === $xnetvn_agent_hub_wp_mode ) {
 				$xnetvn_agent_hub_wp_phase_run_c,
 				$xnetvn_agent_hub_wp_phase_open,
 				$xnetvn_agent_hub_wp_phase_read,
-				$xnetvn_agent_hub_wp_phase_ctx['tokens']['admin'],
+				$xnetvn_agent_hub_wp_phase_ctx['tokens']['editor'],
 				$xnetvn_agent_hub_wp_phase_pixel,
 				$xnetvn_agent_hub_wp_phase_refuse,
 				$xnetvn_agent_hub_wp_counts_equal,
@@ -1638,7 +1638,7 @@ if ( 'phase-cleanup' === $xnetvn_agent_hub_wp_mode ) {
 					$xnetvn_agent_hub_wp_phase_abort_ids      = $ids;
 					$xnetvn_agent_hub_wp_phase_workers_closed = $closed;
 
-					$binding_code = '$ids = array(' . implode( ',', $ids ) . '); $ok = true; foreach ($ids as $id) { $p = get_post($id); $ok = $ok && null !== $p && "attachment" === $p->post_type && ' . (int) $xnetvn_agent_hub_wp_phase_ctx['users']['admin'] . ' === (int) $p->post_author; } echo $ok ? "1" : "0";';
+					$binding_code = '$ids = array(' . implode( ',', $ids ) . '); $ok = true; foreach ($ids as $id) { $p = get_post($id); $ok = $ok && null !== $p && "attachment" === $p->post_type && ' . (int) $xnetvn_agent_hub_wp_phase_ctx['users']['editor'] . ' === (int) $p->post_author; } echo $ok ? "1" : "0";';
 					$binding_argv = implode( ' ', array_map( 'escapeshellarg', array( 'bash', '/work/infra/remote/run-wp.sh', $xnetvn_agent_hub_wp_phase_site, 'eval', $binding_code ) ) );
 					$binding_out  = array();
 					$binding_exit = 0;
@@ -1654,7 +1654,7 @@ if ( 'phase-cleanup' === $xnetvn_agent_hub_wp_mode ) {
 								'target'           => $xnetvn_agent_hub_wp_phase_site,
 								'blog'             => 1,
 								'run_id'           => $xnetvn_agent_hub_wp_phase_run_c,
-								'actor'            => $xnetvn_agent_hub_wp_phase_ctx['users']['admin'],
+								'actor'            => $xnetvn_agent_hub_wp_phase_ctx['users']['editor'],
 								'ids'              => $ids,
 								'state'            => 'state.json',
 								'binding_verified' => $binding,
