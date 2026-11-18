@@ -1,6 +1,6 @@
 # Danh mục ability và phạm vi REST lõi
 
-Sáu pack ability đã được triển khai: system (5), content (19), taxonomy (9), media (7), comments (10) và users (12). Các mục ghi `Planned` cần hợp đồng cột mốc và kiểm thử quyền đối tượng; triển khai và nghiệm thu runtime được theo dõi riêng. Điểm vào execute-ability hệ thống kiểm tra lại toàn bộ chính sách của đích; cấp read của điểm vào không cấp quyền write/destructive/admin trên đích.
+Sáu pack ability đã được triển khai: system (5), content (20), taxonomy (9), media (7), comments (10) và users (12). Các mục ghi `Planned` cần hợp đồng cột mốc và kiểm thử quyền đối tượng; triển khai và nghiệm thu runtime được theo dõi riêng. Điểm vào execute-ability hệ thống kiểm tra lại toàn bộ chính sách của đích; cấp read của điểm vào không cấp quyền write/destructive/admin trên đích. `xnetvn/list-content-authors` chỉ trả `{id, name}` cho tác giả đủ điều kiện của site hiện tại và không bao giờ quản trị người dùng WordPress. Với danh tính site, danh sách cho phép tĩnh do mã nguồn sở hữu cho phép 52/63 thao tác: 51 thao tác biên tập và hệ thống đã rà soát cộng `xnetvn/set-user-status` được kiểm soát riêng. Nó loại trừ `xnetvn/get-my-profile` và `xnetvn/update-my-profile` (2 thao tác hồ sơ cá nhân, chỉ người) cùng `xnetvn/list-users`, `xnetvn/get-user`, `xnetvn/list-roles`, `xnetvn/get-user-capabilities`, `xnetvn/create-user`, `xnetvn/update-user`, `xnetvn/set-user-role`, `xnetvn/terminate-user-sessions` và `xnetvn/send-password-reset` (9 thao tác quản trị người dùng, vĩnh viễn không khả dụng cho MCP).
 
 | Ability | Cấp độ | Toolset | Capability hiển thị đề xuất | Nền tảng | Cột mốc | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -12,6 +12,7 @@ Sáu pack ability đã được triển khai: system (5), content (19), taxonomy
 | xnetvn/list-post-types | read | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
 | xnetvn/list-post-statuses | read | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
 | xnetvn/list-posts | read | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
+| xnetvn/list-content-authors | read | content | edit_posts | Trực tiếp | M2 | Đã hiện thực; chờ nghiệm thu |
 | xnetvn/get-post | read | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
 | xnetvn/create-post | write | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
 | xnetvn/update-post | write | content | edit_posts | REST | M2 | Đã hiện thực; chờ nghiệm thu |
