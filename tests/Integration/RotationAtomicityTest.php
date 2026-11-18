@@ -86,7 +86,7 @@ final class RotationAtomicityTest extends WP_UnitTestCase {
 		$this->db->query( 'ROLLBACK' );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		try {
-			foreach ( array( 'keys', 'audit' ) as $suffix ) {
+			foreach ( array( 'keys', 'audit', 'site_keys' ) as $suffix ) {
 				$this->db->query( $this->db->prepare( 'DROP TABLE IF EXISTS %i', $this->db->prefix . 'xnetvn_agent_hub_wp_' . $suffix ) );
 			}
 		} finally {

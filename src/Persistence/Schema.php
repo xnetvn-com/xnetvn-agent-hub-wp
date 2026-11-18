@@ -11,9 +11,9 @@ namespace XNetVN\AgentHubWP\Persistence;
 /** Supplies dbDelta-compatible DDL, containing no caller-controlled SQL. */
 final class Schema {
 	/** Current forward-only schema version. */
-	public const VERSION = 1;
+	public const VERSION = 2;
 	/**
-	 * Describe the two per-site tables.
+	 * Describe the three per-site tables.
 	 *
 	 * @param \wpdb $db Database connection.
 	 * @return array<string>
@@ -25,6 +25,7 @@ final class Schema {
 		}
 		$keys    = $db->prefix . 'xnetvn_agent_hub_wp_keys';
 		$audit   = $db->prefix . 'xnetvn_agent_hub_wp_audit';
+		$sites   = $db->prefix . 'xnetvn_agent_hub_wp_site_keys';
 		$collate = $db->get_charset_collate();
 		return array(
 			"CREATE TABLE $keys (
@@ -74,6 +75,27 @@ KEY occurred_at (occurred_at),
 KEY key_time (key_id,occurred_at),
 KEY user_time (user_id,occurred_at),
 KEY ability_time (ability,occurred_at)
+) $collate;",
+			"CREATE TABLE $sites (
+id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+key_id varchar(12) NOT NULL,
+blog_id bigint(20) unsigned NOT NULL,
+name varchar(100) NOT NULL,
+secret_hash varchar(64) NOT NULL,
+pepper_id int(10) unsigned NOT NULL,
+scope_json longtext NOT NULL,
+expires_at datetime NOT NULL,
+created_at datetime NOT NULL,
+created_by bigint(20) unsigned NULL,
+revoked_at datetime NULL,
+revoked_by bigint(20) unsigned NULL,
+revoke_reason varchar(64) NULL,
+last_used_at datetime NULL,
+last_used_ip varchar(45) NULL,
+last_used_ua varchar(255) NULL,
+PRIMARY KEY  (id),
+UNIQUE KEY key_id (key_id),
+KEY blog_active (blog_id,revoked_at,expires_at)
 ) $collate;",
 		);
 	}

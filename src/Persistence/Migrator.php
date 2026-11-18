@@ -58,7 +58,7 @@ final class Migrator {
 					throw new StorageException( 'Database migration is unavailable.' );
 				}
 			}
-			foreach ( array( 'keys', 'audit' ) as $suffix ) {
+			foreach ( array( 'keys', 'audit', 'site_keys' ) as $suffix ) {
 				$table = $this->db->prefix . 'xnetvn_agent_hub_wp_' . $suffix;
 				if ( $table !== $this->db->get_var( $this->db->prepare( 'SHOW TABLES LIKE %s', $this->db->esc_like( $table ) ) ) ) {
 					throw new StorageException( 'Database migration is incomplete.' );

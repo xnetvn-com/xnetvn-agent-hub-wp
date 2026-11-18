@@ -17,6 +17,7 @@ use XNetVN\AgentHubWP\Domain\RiskTier;
 use XNetVN\AgentHubWP\Domain\Scope;
 use XNetVN\AgentHubWP\Persistence\Migrator;
 use XNetVN\AgentHubWP\Persistence\MigrationProvider;
+use XNetVN\AgentHubWP\Persistence\Schema;
 use XNetVN\AgentHubWP\Persistence\WpdbKeyRepository;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Tests\Support\FrozenClock;
@@ -102,7 +103,7 @@ final class MultisiteTest extends WP_UnitTestCase {
 		try {
 			self::assertFalse( get_option( Migrator::VERSION_OPTION ) );
 			( new MigrationProvider( XNETVN_AGENT_HUB_WP_FILE, new Migrator( $wpdb, $clock ) ) )->ensure_schema();
-			self::assertSame( 1, (int) get_option( Migrator::VERSION_OPTION ) );
+			self::assertSame( (string) Schema::VERSION, (string) get_option( Migrator::VERSION_OPTION ) );
 			self::assertNull( $keys->find_by_key_id( $id ) );
 			$other = $keys->insert( $id, $user, 'Other site fixture', new Scope( RiskTier::Read ), str_repeat( 'b', 64 ), 1 );
 			self::assertSame( 'Other site fixture', $keys->find_by_id( $other->id )->name );
