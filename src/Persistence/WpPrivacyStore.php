@@ -75,7 +75,7 @@ final class WpPrivacyStore implements PrivacyStore {
 		$notices_done       = $this->erase_notices( $ids );
 		$deleted            = $notices_done ? $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, 'DELETE FROM %i WHERE user_id = %d ORDER BY id LIMIT %d', array( $keys_table, $user_id, $limit ) ) ) ) : 0;
 		$preference_removed = delete_user_meta( $user_id, 'xnetvn_agent_hub_wp_notifications' );
-		$anonymized         = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, "UPDATE %i SET user_id = NULL,key_id = NULL,request_id = '0000000000000000',ip = NULL,ua_short = NULL,arg_keys = NULL WHERE user_id = %d ORDER BY id LIMIT %d", array( $audit_table, $user_id, $limit ) ) ) );
+		$anonymized         = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, "UPDATE %i SET user_id = NULL,key_id = NULL,credential_ref = NULL,request_id = '0000000000000000',ip = NULL,ua_short = NULL,arg_keys = NULL WHERE user_id = %d ORDER BY id LIMIT %d", array( $audit_table, $user_id, $limit ) ) ) );
 		$revoker_anonymized = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, 'UPDATE %i SET revoked_by = NULL WHERE revoked_by = %d ORDER BY id LIMIT %d', array( $keys_table, $user_id, $limit ) ) ) );
 		$remaining          = $this->run_query( fn() => $this->db->get_var( PreparedSql::make( $this->db, 'SELECT (SELECT COUNT(*) FROM %i WHERE user_id = %d OR revoked_by = %d) + (SELECT COUNT(*) FROM %i WHERE user_id = %d)', array( $keys_table, $user_id, $user_id, $audit_table, $user_id ) ) ) );
 		if ( ! is_numeric( $remaining ) ) {

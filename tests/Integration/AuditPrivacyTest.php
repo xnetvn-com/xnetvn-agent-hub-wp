@@ -164,7 +164,21 @@ final class AuditPrivacyTest extends WP_UnitTestCase {
 		update_user_meta( $user, 'xnetvn_agent_hub_wp_notifications', '0' );
 		add_option( 'xnetvn_agent_hub_wp_notice_expiry_abcdefghijkl_1791158400', 1791244800, '', false );
 		add_option( 'xnetvn_agent_hub_wp_notice_ip_bcdefghijklm_20261005', 1791244800, '', false );
-		$this->audit->insert_batch( array( $this->event( $user ), $this->event( $user ), $this->event( $other ) ) );
+		$this->audit->insert_batch(
+			array(
+				array_merge( $this->event( $user ), array( 'credential_ref' => 'xnv:abcdefghijkl' ) ),
+				array_merge( $this->event( $user ), array( 'credential_ref' => 'xnv:abcdefghijkl' ) ),
+				$this->event( $other ),
+				array_merge(
+					$this->event( 0 ),
+					array(
+						'principal_type' => 'site',
+						'credential_ref' => 'xns:abcdefghijkl',
+						'blog_id'        => max( 1, (int) get_current_blog_id() ),
+					)
+				),
+			)
+		);
 		$store = new WpPrivacyStore( $wpdb );
 		$first = $store->erase_for_user( $user, 1 );
 		self::assertFalse( $first['done'] );
@@ -177,24 +191,30 @@ final class AuditPrivacyTest extends WP_UnitTestCase {
 		self::assertNotFalse( get_option( 'xnetvn_agent_hub_wp_notice_ip_bcdefghijklm_20261005' ) );
 		self::assertSame( 1, $this->audit->query( array( 'user_id' => $other ) )['total'] );
 		$rows = $this->audit->query()['items'];
-		self::assertSame( 3, count( $rows ) );
-		$stored = $wpdb->get_row( $wpdb->prepare( 'SELECT key_id,ip,ua_short,arg_keys FROM %i ORDER BY id ASC LIMIT %d OFFSET %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 1, 1 ), ARRAY_A );
+		self::assertSame( 4, count( $rows ) );
+		$stored = $wpdb->get_row( $wpdb->prepare( 'SELECT key_id,credential_ref,ip,ua_short,arg_keys FROM %i ORDER BY id ASC LIMIT %d OFFSET %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 1, 1 ), ARRAY_A );
 		self::assertNotNull( $stored );
 		self::assertNull( $stored['key_id'] );
+		self::assertNull( $stored['credential_ref'] );
 		self::assertNull( $stored['ip'] );
 		self::assertNull( $stored['ua_short'] );
 		self::assertNull( $stored['arg_keys'] );
+		$site_row = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,credential_ref FROM %i WHERE principal_type = %s', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 'site' ), ARRAY_A );
+		self::assertNotNull( $site_row );
+		self::assertNull( $site_row['user_id'] );
+		self::assertSame( 'xns:abcdefghijkl', $site_row['credential_ref'] );
+		self::assertSame( 1, $this->audit->query( array( 'principal_type' => 'site' ) )['total'] );
 		self::assertTrue( ( new PrivacyEraser( $store ) )->erase( 'erase@example.test', 9 )['done'] );
 	}
 
-	/** Listing carries only the five columns the activity UI renders; storage-only columns never reach the response. */
+	/** Listing carries only the eight columns the activity listing exposes; storage-only columns never reach the response. */
 	public function test_query_items_expose_only_the_ui_whitelist(): void {
 		self::assertSame( array(), $this->audit->query()['items'] );
 		$this->audit->insert_batch( array( $this->event( 0 ) ) );
 		$rows = $this->audit->query()['items'];
 		self::assertCount( 1, $rows );
 		self::assertSame(
-			array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport' ),
+			array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport', 'principal_type', 'blog_id', 'credential_ref' ),
 			array_keys( $rows[0] )
 		);
 		foreach ( array( 'id', 'request_id', 'key_id', 'protocol_version', 'mcp_method', 'error_code', 'duration_ms', 'ip', 'ua_short', 'arg_keys' ) as $column ) {
@@ -218,7 +238,7 @@ final class AuditPrivacyTest extends WP_UnitTestCase {
 		self::assertCount( 1, $scoped['items'] );
 		self::assertSame( $owner, (int) $scoped['items'][0]['user_id'] );
 		self::assertSame(
-			array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport' ),
+			array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport', 'principal_type', 'blog_id', 'credential_ref' ),
 			array_keys( $scoped['items'][0] )
 		);
 		$combined = $this->audit->query(
@@ -235,6 +255,114 @@ final class AuditPrivacyTest extends WP_UnitTestCase {
 		self::assertIsString( $json );
 		self::assertStringNotContainsString( 'arg_keys', $json );
 		self::assertStringNotContainsString( '203.0.113', $json );
+	}
+
+	/** The audit table stores exactly the allowlisted columns and one composite principal index. */
+	public function test_audit_table_exposes_only_the_allowlisted_columns(): void {
+		global $wpdb;
+		$table = $wpdb->prefix . 'xnetvn_agent_hub_wp_audit';
+		self::assertSame(
+			array( 'id', 'occurred_at', 'request_id', 'key_id', 'user_id', 'transport', 'protocol_version', 'mcp_method', 'ability', 'outcome', 'error_code', 'duration_ms', 'ip', 'ua_short', 'arg_keys', 'principal_type', 'credential_ref', 'blog_id' ),
+			$wpdb->get_col( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $table ) )
+		);
+		$index = $wpdb->get_results( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', $table, 'blog_principal_cred_time' ), ARRAY_A );
+		self::assertIsArray( $index );
+		usort( $index, static fn( array $left, array $right ): int => (int) $left['Seq_in_index'] <=> (int) $right['Seq_in_index'] );
+		self::assertSame( array( 'blog_id', 'principal_type', 'credential_ref', 'occurred_at' ), array_column( $index, 'Column_name' ) );
+	}
+
+	/** The write boundary refuses a malformed or misbound principal without writing any row. */
+	public function test_audit_write_boundary_rejects_misbound_principals(): void {
+		global $wpdb;
+		$table = $wpdb->prefix . 'xnetvn_agent_hub_wp_audit';
+		$base  = $this->event( 0 );
+		$rows  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $table ) );
+		$cases = array(
+			'human user on a site row'   => array(
+				array_merge(
+					$base,
+					array(
+						'principal_type' => 'site',
+						'user_id'        => 7,
+						'credential_ref' => 'xns:abcdefghijkl',
+					)
+				),
+				'Invalid audit principal.',
+			),
+			'personal reference on site' => array(
+				array_merge(
+					$base,
+					array(
+						'principal_type' => 'site',
+						'credential_ref' => 'xnv:abcdefghijkl',
+					)
+				),
+				'Invalid audit principal.',
+			),
+			'unknown principal kind'     => array( array_merge( $base, array( 'principal_type' => 'anonymous' ) ), 'Invalid audit principal.' ),
+			'malformed reference'        => array( array_merge( $base, array( 'credential_ref' => 'xns:ABCDEFGHIJKL' ) ), 'Invalid audit principal.' ),
+			'site row on another blog'   => array(
+				array_merge(
+					$base,
+					array(
+						'principal_type' => 'site',
+						'credential_ref' => 'xns:abcdefghijkl',
+						'blog_id'        => 2,
+					)
+				),
+				'Invalid audit blog.',
+			),
+		);
+		foreach ( $cases as $label => $case ) {
+			try {
+				$this->audit->insert_batch( array( $case[0] ) );
+				self::fail( 'Expected a refused audit row: ' . $label );
+			} catch ( \InvalidArgumentException $error ) {
+				self::assertSame( $case[1], $error->getMessage(), $label );
+			}
+			self::assertSame( $rows, (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $table ) ), $label );
+		}
+	}
+
+	/** Namespaced and legacy filters stay separated and no caller filter widens the current site. */
+	public function test_legacy_and_namespaced_filters_stay_separated(): void {
+		global $wpdb;
+		$owner                   = self::factory()->user->create();
+		$legacy                  = $this->event( 0 );
+		$human                   = $this->event( $owner );
+		$human['credential_ref'] = 'xnv:abcdefghijkl';
+		$site                    = array_merge(
+			$this->event( 0 ),
+			array(
+				'principal_type' => 'site',
+				'credential_ref' => 'xns:abcdefghijkl',
+				'blog_id'        => max( 1, (int) get_current_blog_id() ),
+			)
+		);
+		$other_blog              = array_merge( $this->event( $owner ), array( 'blog_id' => 2 ) );
+		$this->audit->insert_batch( array( $legacy, $human, $site, $other_blog ) );
+		$legacy_row = $wpdb->get_row( $wpdb->prepare( 'SELECT principal_type,blog_id FROM %i ORDER BY id ASC LIMIT %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 1 ), ARRAY_A );
+		self::assertNotNull( $legacy_row );
+		self::assertSame( 'user', $legacy_row['principal_type'] );
+		self::assertSame( 1, (int) $legacy_row['blog_id'] );
+		$other_row = $wpdb->get_row( $wpdb->prepare( 'SELECT blog_id FROM %i ORDER BY id DESC LIMIT %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_audit', 1 ), ARRAY_A );
+		self::assertNotNull( $other_row );
+		self::assertSame( 2, (int) $other_row['blog_id'] );
+		$cases = array(
+			array( array(), 3, array( 'xns:abcdefghijkl', 'xnv:abcdefghijkl', null ) ),
+			array( array( 'key_id' => 'abcdefghijkl' ), 1, array( 'xnv:abcdefghijkl' ) ),
+			array( array( 'user_id' => $owner ), 1, array( 'xnv:abcdefghijkl' ) ),
+			array( array( 'principal_type' => 'user' ), 2, array( 'xnv:abcdefghijkl', null ) ),
+			array( array( 'principal_type' => 'site' ), 1, array( 'xns:abcdefghijkl' ) ),
+			array( array( 'credential_ref' => 'xnv:abcdefghijkl' ), 1, array( 'xnv:abcdefghijkl' ) ),
+			array( array( 'credential_ref' => 'xns:abcdefghijkl' ), 1, array( 'xns:abcdefghijkl' ) ),
+			array( array( 'blog_id' => 2 ), 3, array( 'xns:abcdefghijkl', 'xnv:abcdefghijkl', null ) ),
+		);
+		foreach ( $cases as $case ) {
+			$page = $this->audit->query( $case[0] );
+			self::assertSame( $case[1], $page['total'] );
+			self::assertSame( $case[2], array_column( $page['items'], 'credential_ref' ) );
+		}
 	}
 
 	/**
