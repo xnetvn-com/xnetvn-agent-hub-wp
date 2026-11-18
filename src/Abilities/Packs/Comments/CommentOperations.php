@@ -15,6 +15,7 @@ use XNetVN\AgentHubWP\Abilities\MutationResult;
 use XNetVN\AgentHubWP\Abilities\PartialFailure;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 
 /** Reads and creates use core REST; moderation uses core admin functions. */
 final class CommentOperations {
@@ -35,11 +36,21 @@ final class CommentOperations {
 	 * @var CommentTargetResolver
 	 */
 	private CommentTargetResolver $targets;
-	/** Bind pure infrastructure. */
-	public function __construct() {
+	/** Scoped editorial HTML boundary.
+	 *
+	 * @var SafeEditorialHtml
+	 */
+	private SafeEditorialHtml $html;
+	/**
+	 * Bind pure infrastructure.
+	 *
+	 * @param SafeEditorialHtml|null $html Scoped editorial HTML boundary.
+	 */
+	public function __construct( ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->projection = new CommentProjection( static fn( int $id ): bool => current_user_can( 'edit_comment', $id ) );
 		$this->targets    = new CommentTargetResolver();
+		$this->html       = $html ?? new SafeEditorialHtml();
 	}
 	/**
 	 * Run a reviewed operation after registry schema/policy validation.
@@ -294,7 +305,7 @@ final class CommentOperations {
 			$name = (string) $args['author_name'];
 			if ( '' === trim( $name ) || strlen( $name ) > 245 ) {
 				return '' === trim( $name ) ? R::error( 'invalid_params' ) : R::error( 'payload_too_large' ); }
-			$data['comment_author'] = $name;
+			$data['comment_author'] = $this->html->filter_plain_text( $name );
 		}
 		if ( array_key_exists( 'author_url', $args ) ) {
 			$url = (string) $args['author_url'];
@@ -613,23 +624,16 @@ final class CommentOperations {
 	 * @return mixed
 	 */
 	private function scoped_create( bool $force_hold, callable $operation ): mixed {
-		$approval   = static function ( mixed $approved ) use ( $force_hold ): mixed {
+		$approval = static function ( mixed $approved ) use ( $force_hold ): mixed {
 			if ( $force_hold && ( 1 === $approved || '1' === $approved ) ) {
 				return 0; }
 			return $approved;
 		};
-		$kses_added = false;
-		if ( ! has_filter( 'pre_comment_content', 'wp_filter_kses' ) ) {
-			add_filter( 'pre_comment_content', 'wp_filter_kses' );
-			$kses_added = true;
-		}
 		add_filter( 'pre_comment_approved', $approval, PHP_INT_MAX );
 		try {
-			return $operation();
+			return $this->html->run( $operation );
 		} finally {
 			remove_filter( 'pre_comment_approved', $approval, PHP_INT_MAX );
-			if ( $kses_added ) {
-				remove_filter( 'pre_comment_content', 'wp_filter_kses' ); }
 		}
 	}
 	/**
@@ -639,16 +643,6 @@ final class CommentOperations {
 	 * @return mixed
 	 */
 	private function with_forced_kses( callable $operation ): mixed {
-		$added = false;
-		if ( ! has_filter( 'pre_comment_content', 'wp_filter_kses' ) ) {
-			add_filter( 'pre_comment_content', 'wp_filter_kses' );
-			$added = true;
-		}
-		try {
-			return $operation();
-		} finally {
-			if ( $added ) {
-				remove_filter( 'pre_comment_content', 'wp_filter_kses' ); }
-		}
+		return $this->html->run( $operation );
 	}
 }
