@@ -32,11 +32,31 @@ final class WpPrivacyStore implements PrivacyStore {
 	 * @throws StorageException For unavailable storage.
 	 */
 	public function export_for_user( int $user_id, int $page ): array {
-		$offset = ( max( 1, $page ) - 1 ) * 50;
-		$keys   = $this->run_query( fn() => $this->db->get_results( PreparedSql::make( $this->db, 'SELECT id,key_id,user_id,name,tier_max,toolsets,ability_allow,ability_deny,ip_allowlist,expires_at,last_used_at,last_used_ip,last_used_ua,created_at,created_ip,revoked_at,revoked_by,revoke_reason FROM %i WHERE user_id = %d ORDER BY id ASC LIMIT 50 OFFSET %d', array( $this->db->prefix . 'xnetvn_agent_hub_wp_keys', $user_id, $offset ) ), ARRAY_A ) );
-		$audit  = $this->run_query( fn() => $this->db->get_results( PreparedSql::make( $this->db, 'SELECT * FROM %i WHERE user_id = %d ORDER BY id ASC LIMIT 50 OFFSET %d', array( $this->db->prefix . 'xnetvn_agent_hub_wp_audit', $user_id, $offset ) ), ARRAY_A ) );
-		if ( ! is_array( $keys ) || ! is_array( $audit ) ) {
+		$offset     = ( max( 1, $page ) - 1 ) * 50;
+		$blog_id    = max( 1, (int) get_current_blog_id() );
+		$site_table = $this->db->prefix . 'xnetvn_agent_hub_wp_site_keys';
+		$personal   = $this->run_query( fn() => $this->db->get_results( PreparedSql::make( $this->db, 'SELECT id,key_id,user_id,name,tier_max,toolsets,ability_allow,ability_deny,ip_allowlist,expires_at,last_used_at,last_used_ip,last_used_ua,created_at,created_ip,revoked_at,revoked_by,revoke_reason FROM %i WHERE user_id = %d ORDER BY id ASC LIMIT 50 OFFSET %d', array( $this->db->prefix . 'xnetvn_agent_hub_wp_keys', $user_id, $offset ) ), ARRAY_A ) );
+		$audit      = $this->run_query( fn() => $this->db->get_results( PreparedSql::make( $this->db, 'SELECT * FROM %i WHERE user_id = %d AND principal_type <> %s ORDER BY id ASC LIMIT 50 OFFSET %d', array( $this->db->prefix . 'xnetvn_agent_hub_wp_audit', $user_id, 'site', $offset ) ), ARRAY_A ) );
+		$site_rows  = $this->run_query( fn() => $this->db->get_results( PreparedSql::make( $this->db, 'SELECT id,key_id,blog_id,created_at,expires_at,revoked_at FROM %i WHERE blog_id = %d AND (created_by = %d OR revoked_by = %d) ORDER BY id ASC LIMIT 50 OFFSET %d', array( $site_table, $blog_id, $user_id, $user_id, $offset ) ), ARRAY_A ) );
+		if ( ! is_array( $personal ) || ! is_array( $audit ) || ! is_array( $site_rows ) ) {
 			throw new StorageException( 'Privacy export is unavailable.' );
+		}
+		$attribution = array();
+		foreach ( $site_rows as $row ) {
+			$key_id = $row['key_id'] ?? null;
+			if ( ! is_string( $key_id ) || 1 !== preg_match( '/\A[a-z2-7]{12}\z/', $key_id ) ) {
+				throw new StorageException( 'Privacy export is unavailable.' );
+			}
+			$attribution[] = array(
+				'id'             => 'site:' . (int) $row['id'],
+				'credential_ref' => 'xns:' . $key_id,
+				'name'           => 'Site key ' . $key_id,
+				'role'           => 'issued_site_key',
+				'blog_id'        => (int) $row['blog_id'],
+				'created_at'     => (string) $row['created_at'],
+				'expires_at'     => (string) $row['expires_at'],
+				'revoked_at'     => null === $row['revoked_at'] ? null : (string) $row['revoked_at'],
+			);
 		}
 		$preference  = get_user_meta( $user_id, 'xnetvn_agent_hub_wp_notifications', true );
 		$preferences = 1 === $page && in_array( $preference, array( '0', '1' ), true ) ? array(
@@ -46,10 +66,10 @@ final class WpPrivacyStore implements PrivacyStore {
 			),
 		) : array();
 		return array(
-			'keys'        => $keys,
+			'keys'        => array_merge( $personal, $attribution ),
 			'audit'       => $audit,
 			'preferences' => $preferences,
-			'done'        => count( $keys ) < 50 && count( $audit ) < 50,
+			'done'        => count( $personal ) < 50 && count( $attribution ) < 50 && count( $audit ) < 50,
 		);
 	}
 
@@ -68,6 +88,8 @@ final class WpPrivacyStore implements PrivacyStore {
 		}
 		$keys_table  = $this->db->prefix . 'xnetvn_agent_hub_wp_keys';
 		$audit_table = $this->db->prefix . 'xnetvn_agent_hub_wp_audit';
+		$site_table  = $this->db->prefix . 'xnetvn_agent_hub_wp_site_keys';
+		$blog_id     = max( 1, (int) get_current_blog_id() );
 		$ids         = $this->run_query( fn() => $this->db->get_col( PreparedSql::make( $this->db, 'SELECT key_id FROM %i WHERE user_id = %d ORDER BY id LIMIT %d', array( $keys_table, $user_id, $limit ) ) ) );
 		if ( ! is_array( $ids ) ) {
 			throw new StorageException( 'Privacy erasure is unavailable.' );
@@ -75,14 +97,15 @@ final class WpPrivacyStore implements PrivacyStore {
 		$notices_done       = $this->erase_notices( $ids );
 		$deleted            = $notices_done ? $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, 'DELETE FROM %i WHERE user_id = %d ORDER BY id LIMIT %d', array( $keys_table, $user_id, $limit ) ) ) ) : 0;
 		$preference_removed = delete_user_meta( $user_id, 'xnetvn_agent_hub_wp_notifications' );
-		$anonymized         = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, "UPDATE %i SET user_id = NULL,key_id = NULL,credential_ref = NULL,request_id = '0000000000000000',ip = NULL,ua_short = NULL,arg_keys = NULL WHERE user_id = %d ORDER BY id LIMIT %d", array( $audit_table, $user_id, $limit ) ) ) );
+		$anonymized         = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, "UPDATE %i SET user_id = NULL,key_id = NULL,credential_ref = NULL,request_id = '0000000000000000',ip = NULL,ua_short = NULL,arg_keys = NULL WHERE user_id = %d AND principal_type <> %s ORDER BY id LIMIT %d", array( $audit_table, $user_id, 'site', $limit ) ) ) );
 		$revoker_anonymized = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, 'UPDATE %i SET revoked_by = NULL WHERE revoked_by = %d ORDER BY id LIMIT %d', array( $keys_table, $user_id, $limit ) ) ) );
-		$remaining          = $this->run_query( fn() => $this->db->get_var( PreparedSql::make( $this->db, 'SELECT (SELECT COUNT(*) FROM %i WHERE user_id = %d OR revoked_by = %d) + (SELECT COUNT(*) FROM %i WHERE user_id = %d)', array( $keys_table, $user_id, $user_id, $audit_table, $user_id ) ) ) );
+		$site_anonymized    = $this->write_query( fn() => $this->db->query( PreparedSql::make( $this->db, 'UPDATE %i SET created_by = CASE WHEN created_by = %d THEN NULL ELSE created_by END,revoked_by = CASE WHEN revoked_by = %d THEN NULL ELSE revoked_by END WHERE blog_id = %d AND (created_by = %d OR revoked_by = %d) ORDER BY id LIMIT %d', array( $site_table, $user_id, $user_id, $blog_id, $user_id, $user_id, $limit ) ) ) );
+		$remaining          = $this->run_query( fn() => $this->db->get_var( PreparedSql::make( $this->db, 'SELECT (SELECT COUNT(*) FROM %i WHERE user_id = %d OR revoked_by = %d) + (SELECT COUNT(*) FROM %i WHERE user_id = %d AND principal_type <> %s) + (SELECT COUNT(*) FROM %i WHERE blog_id = %d AND (created_by = %d OR revoked_by = %d))', array( $keys_table, $user_id, $user_id, $audit_table, $user_id, 'site', $site_table, $blog_id, $user_id, $user_id ) ) ) );
 		if ( ! is_numeric( $remaining ) ) {
 			throw new StorageException( 'Privacy erasure is unavailable.' );
 		}
 		return array(
-			'removed' => $preference_removed || $deleted + $anonymized + $revoker_anonymized > 0,
+			'removed' => $preference_removed || $deleted + $anonymized + $revoker_anonymized + $site_anonymized > 0,
 			'done'    => $notices_done && 0 === (int) $remaining,
 		);
 	}

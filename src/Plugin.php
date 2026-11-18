@@ -167,7 +167,7 @@ final class Plugin {
 			new Retention( $audit, $settings, $clock, new WpBucketStore( $wpdb ) ),
 			new PrivacyExporter( $privacy ),
 			new PrivacyEraser( $privacy ),
-			new Notifications( $keys, $settings, $clock ),
+			new Notifications( $keys, $settings, $clock, $site_keys ),
 			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock, null, $site_auth ),
 			$registry,
 			$gateway,

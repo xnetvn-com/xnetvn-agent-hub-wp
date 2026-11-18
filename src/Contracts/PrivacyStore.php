@@ -12,7 +12,7 @@ namespace XNetVN\AgentHubWP\Contracts;
 /** Does not expose secret-hash or pepper columns to privacy exporters. */
 interface PrivacyStore {
 	/**
-	 * Export at most 50 keys and 50 audit records in stable ID order.
+	 * Export at most 50 personal keys, 50 site-key attribution records and 50 audit records in stable ID order; site-key attribution is merged into the keys group so the exporter shape does not change.
 	 *
 	 * @param int $user_id Owner.
 	 * @param int $page One-based page.
