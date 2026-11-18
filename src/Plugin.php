@@ -15,9 +15,12 @@ use XNetVN\AgentHubWP\Auth\Authenticator;
 use XNetVN\AgentHubWP\Auth\SiteAuthenticator;
 use XNetVN\AgentHubWP\Auth\HeaderExtractor;
 use XNetVN\AgentHubWP\Auth\PepperStore;
+use XNetVN\AgentHubWP\Auth\SiteKeyService;
+use XNetVN\AgentHubWP\Auth\SiteTokenCodec;
 use XNetVN\AgentHubWP\Persistence\MigrationProvider;
 use XNetVN\AgentHubWP\Persistence\DeactivationProvider;
 use XNetVN\AgentHubWP\Persistence\Migrator;
+use XNetVN\AgentHubWP\Persistence\SiteKeyLock;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Persistence\WpdbKeyRepository;
 use XNetVN\AgentHubWP\Persistence\WpdbSiteKeyRepository;
@@ -49,6 +52,7 @@ use XNetVN\AgentHubWP\Auth\Notifications;
 use XNetVN\AgentHubWP\Persistence\WpOwnerLock;
 use XNetVN\AgentHubWP\Rest\ManagementGate;
 use XNetVN\AgentHubWP\Rest\KeysController;
+use XNetVN\AgentHubWP\Rest\SiteKeysController;
 use XNetVN\AgentHubWP\Rest\AuditController;
 use XNetVN\AgentHubWP\Rest\SettingsController;
 use XNetVN\AgentHubWP\Admin\Pages;
@@ -137,13 +141,14 @@ final class Plugin {
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Users\UsersPack( new DefinitionFactory(), $limits ) );
 		$registry->add_pack( new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() ) );
 		$site_dispatcher->bind_catalog( $registry, static fn( string $name ): ?AbilityDescriptor => $registry->resolved_descriptor( $name ) );
-		$keys      = new WpdbKeyRepository( $wpdb, $clock );
-		$peppers   = new PepperStore();
-		$service   = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
-		$site_keys = new WpdbSiteKeyRepository( $wpdb, $clock, max( 1, (int) get_current_blog_id() ) );
-		$site_auth = new SiteAuthenticator( $site_keys, $peppers, $settings, $limits, $transport, $clock );
-		$gate      = new ManagementGate();
-		$gateway   = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ), $site_keys );
+		$keys             = new WpdbKeyRepository( $wpdb, $clock );
+		$peppers          = new PepperStore();
+		$service          = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
+		$site_keys        = new WpdbSiteKeyRepository( $wpdb, $clock, max( 1, (int) get_current_blog_id() ) );
+		$site_auth        = new SiteAuthenticator( $site_keys, $peppers, $settings, $limits, $transport, $clock );
+		$site_key_service = new SiteKeyService( $site_keys, new SiteKeyLock( $wpdb ), new SiteTokenCodec(), $peppers, $settings, $registry, $limits, $clock );
+		$gate             = new ManagementGate();
+		$gateway          = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ), $site_keys );
 		return array(
 			new MigrationProvider( $plugin_file, new Migrator( $wpdb, $clock ) ),
 			new DeactivationProvider( $plugin_file ),
@@ -159,6 +164,7 @@ final class Plugin {
 			$gateway,
 			$gate,
 			new KeysController( $gate, $service, $keys ),
+			new SiteKeysController( $gate, $site_key_service, max( 1, (int) get_current_blog_id() ) ),
 			new AuditController( $gate, $audit ),
 			new SettingsController( $gate, $settings, $registry, $keys, $gateway, $transport ),
 			new Pages( $plugin_file, $settings, $registry ),
