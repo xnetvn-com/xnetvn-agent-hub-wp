@@ -1018,7 +1018,7 @@ final class SiteMediaOperationsTest extends TestCase {
 		$this->world->query_found                                      = 3;
 
 		$list = $this->operations->execute( 'xnetvn/list-media', array( 'per_page' => 2 ), $this->context() );
-		self::assertIsArray( $list, is_wp_error( $list ) ? $list->get_error_message() : '' );
+		self::assertIsArray( $list, is_wp_error( $list ) ? $list->get_error_code() : '' );
 		self::assertSame( array( self::ATTACHMENT, 503 ), array_column( $list['items'], 'id' ) );
 		self::assertSame( 2, $list['total'] );
 		self::assertSame( 1, $list['total_pages'] );
@@ -1033,12 +1033,12 @@ final class SiteMediaOperationsTest extends TestCase {
 		self::assertSame( 'xnetvn_agent_hub_wp_not_found', $hidden->get_error_code() );
 
 		$private = $this->operations->execute( 'xnetvn/get-media', array( 'id' => 503 ), $this->context() );
-		self::assertIsArray( $private, is_wp_error( $private ) ? $private->get_error_message() : '' );
+		self::assertIsArray( $private, is_wp_error( $private ) ? $private->get_error_code() : '' );
 		self::assertSame( 'private', $private['status'] );
 
 		$this->world->posts[ self::ATTACHMENT ]->post_parent = 0;
 		$detached = $this->operations->execute( 'xnetvn/get-media', array( 'id' => self::ATTACHMENT ), $this->context() );
-		self::assertIsArray( $detached, is_wp_error( $detached ) ? $detached->get_error_message() : '' );
+		self::assertIsArray( $detached, is_wp_error( $detached ) ? $detached->get_error_code() : '' );
 	}
 
 	/** Raw reads and malformed selectors are refused before any query. */
@@ -1088,7 +1088,7 @@ final class SiteMediaOperationsTest extends TestCase {
 			),
 			$this->context()
 		);
-		self::assertIsArray( $narrow, is_wp_error( $narrow ) ? $narrow->get_error_message() : '' );
+		self::assertIsArray( $narrow, is_wp_error( $narrow ) ? $narrow->get_error_code() : '' );
 		self::assertSame( array( 'id', 'status', 'title' ), array_keys( $narrow['items'][0] ) );
 		self::assertSame( array( 'image/jpeg', 'image/png', 'image/gif' ), $this->world->last_query['post_mime_type'] );
 		self::assertSame( 'date', $this->world->last_query['orderby'] );
@@ -1102,7 +1102,7 @@ final class SiteMediaOperationsTest extends TestCase {
 			),
 			$this->context()
 		);
-		self::assertIsArray( $excerpt, is_wp_error( $excerpt ) ? $excerpt->get_error_message() : '' );
+		self::assertIsArray( $excerpt, is_wp_error( $excerpt ) ? $excerpt->get_error_code() : '' );
 		self::assertSame( 'Pixel caption', $excerpt['description'] );
 	}
 
@@ -1120,7 +1120,7 @@ final class SiteMediaOperationsTest extends TestCase {
 			),
 			$this->context()
 		);
-		self::assertInstanceOf( MutationResult::class, $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		self::assertInstanceOf( MutationResult::class, $result, is_wp_error( $result ) ? $result->get_error_code() : '' );
 		self::assertSame( self::ELIGIBLE, $this->world->posts[ self::ATTACHMENT ]->post_author );
 		$written = $this->world->updated[ self::ATTACHMENT ];
 		self::assertSame( array( 'ID', 'post_title', 'post_excerpt', 'post_content', 'post_parent' ), array_keys( $written ) );
@@ -1201,7 +1201,7 @@ final class SiteMediaOperationsTest extends TestCase {
 	/** Uploads require a positive eligible author before any file work. */
 	public function test_upload_requires_an_eligible_author(): void {
 		$cases = array(
-			'missing'        => array( array(), 'xnetvn_agent_hub_wp_invalid_params' ),
+			'missing'        => array( array( 'author' => null ), 'xnetvn_agent_hub_wp_invalid_params' ),
 			'zero'           => array( array( 'author' => 0 ), 'xnetvn_agent_hub_wp_invalid_params' ),
 			'negative'       => array( array( 'author' => -3 ), 'xnetvn_agent_hub_wp_invalid_params' ),
 			'string'         => array( array( 'author' => '21' ), 'xnetvn_agent_hub_wp_invalid_params' ),
@@ -1312,7 +1312,7 @@ final class SiteMediaOperationsTest extends TestCase {
 			),
 			$this->context()
 		);
-		self::assertInstanceOf( MutationResult::class, $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		self::assertInstanceOf( MutationResult::class, $result, is_wp_error( $result ) ? $result->get_error_code() : '' );
 		self::assertTrue( $result->created );
 		self::assertSame( 1, count( $this->world->inserted ) );
 		$id      = $result->object_id;
@@ -1368,18 +1368,19 @@ final class SiteMediaOperationsTest extends TestCase {
 		$this->world->metadata_override = null;
 
 		$this->world->alt_ignored = true;
-		$alt                      = $this->operations->execute( 'xnetvn/upload-media-from-data', $this->upload_arguments(), $this->context() );
+		$alt                      = $this->operations->execute( 'xnetvn/upload-media-from-data', array_merge( $this->upload_arguments(), array( 'alt_text' => 'Pixel alt' ) ), $this->context() );
 		self::assertInstanceOf( PartialFailure::class, $alt );
 		self::assertTrue( $alt->created );
 		$this->world->alt_ignored = false;
 
 		$before                         = array_keys( $this->world->inserted );
+		$written_before                 = count( $this->world->written );
 		$this->world->deny_after_upload = true;
 		$recheck                        = $this->operations->execute( 'xnetvn/upload-media-from-data', $this->upload_arguments(), $this->context() );
 		self::assertInstanceOf( \WP_Error::class, $recheck );
 		self::assertSame( 'xnetvn_agent_hub_wp_forbidden', $recheck->get_error_code() );
 		self::assertSame( $before, array_keys( $this->world->inserted ) );
-		foreach ( $this->world->written as $file ) {
+		foreach ( array_slice( $this->world->written, $written_before ) as $file ) {
 			self::assertFalse( file_exists( $file ), $file );
 		}
 		$this->world->deny_after_upload = false;
@@ -1408,17 +1409,17 @@ final class SiteMediaOperationsTest extends TestCase {
 
 		$context = $this->context();
 		$listed  = $dispatcher->execute( 'xnetvn/list-media', array(), $context );
-		self::assertIsArray( $listed, is_wp_error( $listed ) ? $listed->get_error_message() : '' );
+		self::assertIsArray( $listed, is_wp_error( $listed ) ? $listed->get_error_code() : '' );
 		self::assertSame( array(), $budget->identities );
 
 		$uploaded = $dispatcher->execute( 'xnetvn/upload-media-from-data', $this->upload_arguments(), $context );
-		self::assertIsArray( $uploaded, is_wp_error( $uploaded ) ? $uploaded->get_error_message() : '' );
+		self::assertIsArray( $uploaded, is_wp_error( $uploaded ) ? $uploaded->get_error_code() : '' );
 		self::assertSame( self::ELIGIBLE, $uploaded['author'] );
 		self::assertSame( 1, count( $this->world->inserted ) );
 		self::assertSame( array( 'site:' . self::BLOG . ':' . str_repeat( 'a', 12 ) ), $budget->identities );
 
 		$limits = $dispatcher->execute( 'xnetvn/get-media-upload-limits', array(), $context );
-		self::assertIsArray( $limits, is_wp_error( $limits ) ? $limits->get_error_message() : '' );
+		self::assertIsArray( $limits, is_wp_error( $limits ) ? $limits->get_error_code() : '' );
 		self::assertSame(
 			array( 'max_upload_bytes', 'data_upload_max_bytes', 'remote_fetch_enabled', 'remote_fetch_max_bytes', 'pixels_max', 'allowed_mime_types' ),
 			array_keys( $limits )
@@ -1657,13 +1658,13 @@ final class SiteMediaOperationsTest extends TestCase {
 						'error' => $this->world->upload_error,
 					);
 				}
-				$path                   = $this->write_file( 'uploads/2026/11/' . $name, $bits );
+				$path                   = $this->write_file( 'uploads/2026/11/' . $name, $this->world->upload_short ? 'x' : $bits );
 				$this->world->written[] = $path;
 				if ( $this->world->deny_after_upload ) {
 					$this->world->deny_next_check = true;
 				}
 				return array(
-					'file'  => $this->world->upload_short ? $this->write_file( 'uploads/short-' . $name, 'x' ) : $path,
+					'file'  => $path,
 					'url'   => 'https://example.test/uploads/2026/11/' . $name,
 					'type'  => 'image/png',
 					'error' => false,
@@ -1673,7 +1674,10 @@ final class SiteMediaOperationsTest extends TestCase {
 		Functions\when( 'wp_insert_attachment' )->alias(
 			function ( array $data, mixed $file = false, int $parent_id = 0 ): int|\WP_Error {
 				$this->world->record( 'insert_attachment' );
-				$id = $this->world->insert( array_merge( $data, array( 'post_parent' => $parent_id ) ) );
+				if ( $parent_id > 0 ) {
+					$data['post_parent'] = $parent_id;
+				}
+				$id = $this->world->insert( $data );
 				if ( is_int( $id ) && is_string( $file ) && '' !== $file ) {
 					$this->world->inserted_file[ $id ] = $file;
 					$this->world->attached[ $id ]      = $file;
