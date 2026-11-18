@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace XNetVN\AgentHubWP\Abilities\Packs\System;
 
 use WP_Error;
+use XNetVN\AgentHubWP\Abilities\SiteDispatcher;
 use XNetVN\AgentHubWP\Contracts\AbilityFactory;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\AbilityPack;
@@ -17,9 +18,18 @@ use XNetVN\AgentHubWP\Contracts\AbilitySpec;
 use XNetVN\AgentHubWP\Contracts\RequestContext;
 use XNetVN\AgentHubWP\Contracts\SchemaBuilder;
 use XNetVN\AgentHubWP\Domain\RiskTier;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
 
 /** Descriptions are fixed English; site content stays untrusted result data. */
 final class SystemPack implements AbilityPack {
+	/** The five reviewed System machine names. */
+	public const NAMES = array(
+		'xnetvn/get-session-info',
+		'xnetvn/get-site-info',
+		'xnetvn/discover-abilities',
+		'xnetvn/get-ability-info',
+		'xnetvn/execute-ability',
+	);
 	/**
 	 * Bind only shared pack contracts.
 	 *
@@ -44,9 +54,9 @@ final class SystemPack implements AbilityPack {
 	 * @return iterable<AbilitySpec>
 	 */
 	public function definitions(): iterable {
-		$string      = array( 'type' => 'string' );
-		$integer     = array( 'type' => 'integer' );
-		$user        = $this->object(
+		$string       = array( 'type' => 'string' );
+		$integer      = array( 'type' => 'integer' );
+		$user         = $this->object(
 			array(
 				'id'           => $integer,
 				'display_name' => $string,
@@ -57,7 +67,8 @@ final class SystemPack implements AbilityPack {
 			),
 			array( 'id', 'display_name', 'roles' )
 		);
-		$key         = $this->object(
+		$user['type'] = array( 'object', 'null' );
+		$key          = $this->object(
 			array(
 				'key_id'     => array(
 					'type'      => 'string',
@@ -77,8 +88,28 @@ final class SystemPack implements AbilityPack {
 			),
 			array( 'key_id', 'name', 'tier_max', 'toolsets', 'expires_at' )
 		);
-		$key['type'] = array( 'object', 'null' );
-		$site        = $this->object(
+		$key['type']  = array( 'object', 'null' );
+		$principal    = $this->object(
+			array(
+				'type'           => array(
+					'type' => 'string',
+					'enum' => array( 'user', 'site' ),
+				),
+				'user_id'        => array( 'type' => array( 'integer', 'null' ) ),
+				'blog_id'        => array( 'type' => array( 'integer', 'null' ) ),
+				'key_id'         => array(
+					'type'      => array( 'string', 'null' ),
+					'minLength' => 12,
+					'maxLength' => 12,
+				),
+				'credential_ref' => array(
+					'type'    => array( 'string', 'null' ),
+					'pattern' => '^xns:[a-z2-7]{12}$',
+				),
+			),
+			array( 'type' )
+		);
+		$site         = $this->object(
 			array(
 				'name'       => $string,
 				'url'        => $string,
@@ -86,17 +117,18 @@ final class SystemPack implements AbilityPack {
 			),
 			array( 'name', 'url', 'wp_version' )
 		);
-		$session     = $this->object(
+		$session      = $this->object(
 			array(
 				'user'       => $user,
+				'principal'  => $principal,
 				'key'        => $key,
 				'site'       => $site,
 				'rate_limit' => $this->object( array( 'remaining' => array( 'type' => array( 'integer', 'null' ) ) ), array( 'remaining' ) ),
 			),
-			array( 'user', 'key', 'site', 'rate_limit' ),
+			array( 'user', 'principal', 'key', 'site', 'rate_limit' ),
 			true
 		);
-		$info        = $this->object(
+		$info         = $this->object(
 			array(
 				'name'           => $string,
 				'label'          => $string,
@@ -110,17 +142,21 @@ final class SystemPack implements AbilityPack {
 			),
 			array( 'name', 'label', 'description', 'tier', 'toolset', 'visibility_cap', 'input_schema', 'output_schema', 'annotations' )
 		);
-		$empty       = $this->object();
-		$sample_site = array(
+		$empty        = $this->object();
+		$sample_site  = array(
 			'name'       => 'Fixture site',
 			'url'        => 'https://example.test',
 			'wp_version' => '6.9',
 		);
-		$sample      = array(
+		$sample       = array(
 			'user'       => array(
 				'id'           => 1,
 				'display_name' => 'Fixture user',
 				'roles'        => array( 'editor' ),
+			),
+			'principal'  => array(
+				'type'    => 'user',
+				'user_id' => 1,
 			),
 			'key'        => null,
 			'site'       => $sample_site,
@@ -216,6 +252,44 @@ final class SystemPack implements AbilityPack {
 		yield $this->make( 'execute-ability', __( 'Execute a permitted ability', 'xnetvn-agent-hub-wp' ), 'Delegates to one reviewed permitted ability after checking its full risk, capability and key policy. Use this only after reading the target schema. The target may modify data when your scope permits it; this entry point never expands authority or executes arbitrary core/third-party abilities.', $execution_input, $execution_output, fn( array $args ): mixed => $this->delegate( $args ), array( 'result' => array( 'name' => 'Fixture site' ) ), false );
 	}
 	/**
+	 * Build the reviewed machine handler for one System name.
+	 *
+	 * @param string $canonical_name Canonical System name.
+	 * @return \Closure(array<string,mixed>,SiteAuthContext):mixed
+	 * @throws \InvalidArgumentException For a name outside the reviewed list.
+	 */
+	public function machine_handler( string $canonical_name ): \Closure {
+		if ( ! in_array( $canonical_name, self::NAMES, true ) ) {
+			throw new \InvalidArgumentException( 'Unknown system machine handler.' );
+		}
+		return function ( array $arguments, SiteAuthContext $context ) use ( $canonical_name ): mixed {
+			if ( get_current_blog_id() !== $context->blog_id() ) {
+				return new WP_Error( 'xnetvn_agent_hub_wp_tool_unavailable', 'The tool is unavailable.' );
+			}
+			return match ( $canonical_name ) {
+				'xnetvn/get-session-info' => $this->session_for( $context ),
+				'xnetvn/get-site-info' => $this->site(),
+				'xnetvn/discover-abilities' => $this->discover( $arguments ),
+				'xnetvn/get-ability-info' => $this->get_info( (string) ( $arguments['name'] ?? '' ) ),
+				'xnetvn/execute-ability' => $this->delegate( $arguments ),
+			};
+		};
+	}
+	/**
+	 * Register the installed System machine handlers on the reviewed seam.
+	 *
+	 * @param SiteDispatcher $dispatcher Site dispatcher.
+	 * @return void
+	 */
+	public function register_machine_handlers( SiteDispatcher $dispatcher ): void {
+		foreach ( self::NAMES as $name ) {
+			if ( null === $this->catalog->get( $name ) || $dispatcher->has_handler( $name ) ) {
+				continue;
+			}
+			$dispatcher->register( $name, $this->machine_handler( $name ) );
+		}
+	}
+	/**
 	 * Create a strictly defined system capability.
 	 *
 	 * @param string              $verb Canonical local name.
@@ -293,7 +367,37 @@ final class SystemPack implements AbilityPack {
 				'display_name' => $user->display_name,
 				'roles'        => array_values( $user->roles ),
 			),
+			'principal'  => array(
+				'type'    => 'user',
+				'user_id' => $user->ID,
+			),
 			'key'        => $key,
+			'site'       => $this->site(),
+			'rate_limit' => array( 'remaining' => $this->request->rate_budget()?->remaining ),
+		);
+	}
+	/**
+	 * Return non-secret machine actor, key and budget metadata.
+	 *
+	 * @param SiteAuthContext $context Verified site principal.
+	 * @return array<string,mixed>
+	 */
+	private function session_for( SiteAuthContext $context ): array {
+		return array(
+			'user'       => null,
+			'principal'  => array(
+				'type'           => 'site',
+				'blog_id'        => $context->blog_id(),
+				'key_id'         => $context->credential->key_id->value,
+				'credential_ref' => $context->credential_ref(),
+			),
+			'key'        => array(
+				'key_id'     => $context->credential->key_id->value,
+				'name'       => $context->credential->name,
+				'tier_max'   => $context->credential->scope->tier_ceiling->value,
+				'toolsets'   => $context->credential->scope->toolsets,
+				'expires_at' => $context->credential->scope->expires_at->format( DATE_ATOM ),
+			),
 			'site'       => $this->site(),
 			'rate_limit' => array( 'remaining' => $this->request->rate_budget()?->remaining ),
 		);
