@@ -101,7 +101,7 @@ final class MultisiteTest extends WP_UnitTestCase {
 		$site   = self::factory()->blog->create();
 		switch_to_blog( $site );
 		try {
-			self::assertFalse( get_option( Migrator::VERSION_OPTION ) );
+			self::assertSame( (string) Schema::VERSION, (string) get_option( Migrator::VERSION_OPTION ) );
 			( new MigrationProvider( XNETVN_AGENT_HUB_WP_FILE, new Migrator( $wpdb, $clock ) ) )->ensure_schema();
 			self::assertSame( (string) Schema::VERSION, (string) get_option( Migrator::VERSION_OPTION ) );
 			self::assertNull( $keys->find_by_key_id( $id ) );
