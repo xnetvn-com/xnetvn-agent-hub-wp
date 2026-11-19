@@ -32,10 +32,12 @@ use XNetVN\AgentHubWP\RateLimit\SlidingWindowLimiter;
 use XNetVN\AgentHubWP\RateLimit\WpBucketStore;
 use XNetVN\AgentHubWP\Abilities\Registry;
 use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
 use XNetVN\AgentHubWP\Abilities\DefinitionFactory;
 use XNetVN\AgentHubWP\Abilities\SchemaBuilder;
 use XNetVN\AgentHubWP\Abilities\OutputPipeline;
 use XNetVN\AgentHubWP\Abilities\SiteDispatcher;
+use XNetVN\AgentHubWP\Abilities\Packs\Media\SiteMediaOperations;
 use XNetVN\AgentHubWP\Abilities\Packs\System\SystemPack;
 use XNetVN\AgentHubWP\Policy\Policy;
 use XNetVN\AgentHubWP\Policy\SitePolicy;
@@ -154,6 +156,28 @@ final class Plugin {
 			},
 			1
 		);
+		add_action(
+			'wp_abilities_api_init',
+			static function () use ( $registry, $site_dispatcher, $settings ): void {
+				$registry->load_packs();
+				$operations = new SiteMediaOperations( $settings );
+				$site_dispatcher->register( 'xnetvn/list-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/list-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/get-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/get-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/update-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/update-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/upload-media-from-url', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/upload-media-from-url', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/upload-media-from-data', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/upload-media-from-data', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/delete-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/delete-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/get-media-upload-limits', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/get-media-upload-limits', $args, $context ) );
+			},
+			9
+		);
+		add_action(
+			'mcp_adapter_init',
+			static function (): void {
+				wp_get_abilities();
+			},
+			9
+		);
 		$keys             = new WpdbKeyRepository( $wpdb, $clock );
 		$peppers          = new PepperStore();
 		$service          = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
@@ -171,7 +195,7 @@ final class Plugin {
 			new Retention( $audit, $settings, $clock, new WpBucketStore( $wpdb ) ),
 			new PrivacyExporter( $privacy ),
 			new PrivacyEraser( $privacy ),
-			new Notifications( $keys, $settings, $clock ),
+			new Notifications( $keys, $settings, $clock, $site_keys ),
 			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock, null, $site_auth ),
 			$registry,
 			$gateway,

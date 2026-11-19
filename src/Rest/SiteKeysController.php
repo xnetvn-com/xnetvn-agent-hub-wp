@@ -18,15 +18,6 @@ use XNetVN\AgentHubWP\Domain\SiteScope;
 
 /** Every route uses the inherited cookie gate and delegates to the blog-bound service. */
 final class SiteKeysController extends ManagementController {
-	/** Exact creation fields. */
-	private const CREATE_FIELDS = array( 'name', 'permissions', 'toolsets', 'ability_allow', 'ability_deny', 'ip_allowlist', 'expires_in_days', 'current_password' );
-
-	/** Exact patch fields; no password field. */
-	private const PATCH_FIELDS = array( 'name', 'permissions', 'toolsets', 'ability_allow', 'ability_deny', 'ip_allowlist', 'expires_in_days' );
-
-	/** Exact rotation fields. */
-	private const ROTATE_FIELDS = array( 'current_password', 'grace_hours' );
-
 	/** Exact collection query allowlist. */
 	private const QUERY_FIELDS = array( 'page', 'per_page', 'state', '_wpnonce', 'rest_route', '_fields', '_envelope', '_locale' );
 
@@ -169,7 +160,11 @@ final class SiteKeysController extends ManagementController {
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
 		}
-		$body = $this->object_body( $request, self::CREATE_FIELDS );
+		$guard = $this->query_guard( $request, self::ITEM_QUERY_FIELDS );
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+		$body = $this->object_body( $request, self::mutation_args( true ) );
 		if ( is_wp_error( $body ) ) {
 			return $body;
 		}
@@ -217,7 +212,7 @@ final class SiteKeysController extends ManagementController {
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
 		}
-		$body = $this->object_body( $request, self::PATCH_FIELDS );
+		$body = $this->object_body( $request, self::mutation_args( false ) );
 		if ( is_wp_error( $body ) ) {
 			return $body;
 		}
@@ -265,7 +260,7 @@ final class SiteKeysController extends ManagementController {
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
 		}
-		$body = $this->object_body( $request, self::ROTATE_FIELDS );
+		$body = $this->object_body( $request, self::rotation_args() );
 		if ( is_wp_error( $body ) ) {
 			return $body;
 		}
@@ -300,18 +295,49 @@ final class SiteKeysController extends ManagementController {
 	}
 
 	/**
-	 * Require one JSON object with no undocumented field.
+	 * Require one strictly typed JSON object with no undocumented field.
 	 *
-	 * @param WP_REST_Request $request Request.
-	 * @param array<string>   $allowed Exact body fields.
+	 * @param WP_REST_Request                   $request Request.
+	 * @param array<string,array<string,mixed>> $fields Declared route fields.
 	 * @return array<string,mixed>|WP_Error
 	 */
-	private function object_body( WP_REST_Request $request, array $allowed ): array|WP_Error {
-		$trimmed = ltrim( $request->get_body() );
-		if ( '' !== $trimmed && '[' === $trimmed[0] ) {
+	private function object_body( WP_REST_Request $request, array $fields ): array|WP_Error {
+		$raw = ltrim( $request->get_body() );
+		if ( '' === $raw || '[' === $raw[0] ) {
 			return $this->failure( 400 );
 		}
-		return $this->body( $request, $allowed );
+		$decoded = json_decode( $raw );
+		if ( ! is_object( $decoded ) ) {
+			return $this->failure( 400 );
+		}
+		foreach ( get_object_vars( $decoded ) as $key => $value ) {
+			if ( ! isset( $fields[ $key ]['type'] ) ) {
+				continue;
+			}
+			$type = $fields[ $key ]['type'];
+			if ( 'string' === $type && ! is_string( $value ) ) {
+				return $this->failure( 400 );
+			}
+			if ( 'integer' === $type && ! is_int( $value ) ) {
+				return $this->failure( 400 );
+			}
+			if ( 'array' !== $type ) {
+				continue;
+			}
+			if ( ! is_array( $value ) || ! array_is_list( $value ) ) {
+				return $this->failure( 400 );
+			}
+			$items = $fields[ $key ]['items'] ?? null;
+			if ( ! is_array( $items ) || 'string' !== ( $items['type'] ?? '' ) ) {
+				continue;
+			}
+			foreach ( $value as $item ) {
+				if ( ! is_string( $item ) ) {
+					return $this->failure( 400 );
+				}
+			}
+		}
+		return $this->body( $request, array_keys( $fields ) );
 	}
 
 	/**
