@@ -422,8 +422,20 @@ final class Pages implements ServiceProvider {
 	 */
 	private function activity_filters(): void {
 		echo '<div class="xnetvn-filters" role="group" aria-label="' . esc_attr__( 'Agent Hub activity filters', 'xnetvn-agent-hub-wp' ) . '">';
+		echo '<p><label for="xnetvn-activity-principal">' . esc_html__( 'Activity source', 'xnetvn-agent-hub-wp' ) . '</label><select id="xnetvn-activity-principal" data-filter="principal_type">';
+		$principals = array(
+			'all'  => __( 'All activity', 'xnetvn-agent-hub-wp' ),
+			'user' => __( 'Human activity', 'xnetvn-agent-hub-wp' ),
+			'site' => __( 'Website MCP key (xns:)', 'xnetvn-agent-hub-wp' ),
+		);
+		foreach ( $principals as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '"' . selected( 'all', $value, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select></p>';
 		echo '<p><label for="xnetvn-activity-owner">' . esc_html__( 'Owner ID (optional)', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-owner" data-filter="owner" type="number" min="1" step="1" inputmode="numeric" autocomplete="off" placeholder="' . esc_attr__( 'All owners', 'xnetvn-agent-hub-wp' ) . '"></p>';
 		echo '<p><label for="xnetvn-activity-key">' . esc_html__( 'Key ID', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-key" data-filter="key_id" type="text" pattern="[a-z2-7]{12}" maxlength="12" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'All keys', 'xnetvn-agent-hub-wp' ) . '"></p>';
+		echo '<p><label for="xnetvn-activity-credential">' . esc_html__( 'Credential ref (optional)', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-credential" data-filter="credential_ref" type="text" pattern="^(?:xnv|xns):[a-z2-7]{12}$" maxlength="16" autocomplete="off" spellcheck="false" aria-describedby="xnetvn-activity-credential-help" placeholder="' . esc_attr__( 'xnv:abcdefghijkl or xns:abcdefghijkl', 'xnetvn-agent-hub-wp' ) . '"></p>';
+		echo '<p class="xnetvn-help" id="xnetvn-activity-credential-help">' . esc_html__( 'Use xnv: for a personal key or xns: for a website key, followed by the 12-character key ID.', 'xnetvn-agent-hub-wp' ) . '</p>';
 		echo '<p><label for="xnetvn-activity-ability">' . esc_html__( 'Ability', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-ability" data-filter="ability" type="text" maxlength="128" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'All abilities', 'xnetvn-agent-hub-wp' ) . '"></p>';
 		echo '<p><label for="xnetvn-activity-outcome">' . esc_html__( 'Outcome', 'xnetvn-agent-hub-wp' ) . '</label><select id="xnetvn-activity-outcome" data-filter="outcome">';
 		$outcomes = array(
