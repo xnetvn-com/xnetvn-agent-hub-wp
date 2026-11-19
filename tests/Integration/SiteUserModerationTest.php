@@ -141,7 +141,7 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 	/** Registration needs the populated catalog and stays discoverable afterwards. */
 	public function test_registration_requires_a_populated_catalog(): void {
 		self::assertTrue( class_exists( SiteUserModeration::class ), 'The machine moderation handler class must exist.' );
-		[ $registry, $dispatcher ] = $this->build();
+		[ $registry, $dispatcher ] = $this->build( null, false );
 
 		try {
 			$dispatcher->register( self::NAME, SiteUserModeration::handler() );
@@ -163,7 +163,8 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		}
 
 		self::assertSame( array( self::NAME ), $registry->names_for_site_scope( $this->scope( array( 'ban-users' ) ) ) );
-		self::assertSame( array(), $registry->names_for_site_scope( $this->scope( array() ) ) );
+		// Discovery follows the key's declared ability allowlist; the directional grants narrow execution, never listing.
+		self::assertContains( self::NAME, $registry->names_for_site_scope( $this->scope( array() ) ) );
 	}
 
 	/** Ban and unban restore roles, caps, content and the single recovery point. */
@@ -239,7 +240,7 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 
 		self::assertSame( $post, get_post( $post )->ID );
 		self::assertSame( $target, (int) get_post( $post )->post_author );
-		self::assertSame( $comment, get_comment( $comment )->comment_ID );
+		self::assertSame( $comment, (int) get_comment( $comment )->comment_ID );
 		self::assertSame( $target, (int) get_comment( $comment )->user_id );
 
 		$again = $dispatcher->execute(
@@ -490,7 +491,18 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 
 	/** Corrupt, privileged and empty recovery data are refused and preserved. */
 	public function test_invalid_recovery_data_is_refused(): void {
-		$target           = self::factory()->user->create( array( 'role' => 'banned' ) );
+		// Roles are a per-site option, so reload the registry before seeding: a stale
+		// in-memory WP_Roles object would hide the missing option and get_role_caps()
+		// would then filter the stored role out of WP_User::$roles.
+		unset( $GLOBALS['wp_roles'] );
+		if ( null === get_role( 'banned' ) ) {
+			add_role( 'banned', 'Banned', array() );
+		}
+		self::assertInstanceOf( \WP_Role::class, get_role( 'banned' ) );
+		$target = self::factory()->user->create();
+		$seeded = new \WP_User( $target );
+		$seeded->set_role( 'banned' );
+		clean_user_cache( $target );
 		[ , $dispatcher ] = $this->build();
 		$unban_only       = $this->context( array( 'unban-users' ) );
 
@@ -508,6 +520,7 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		self::assertInstanceOf( \WP_Error::class, $refused );
 		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $refused->get_error_code() );
 		self::assertSame( $encoded, (string) get_user_option( BanSnapshot::KEY, $target ) );
+		clean_user_cache( $target );
 		self::assertSame( array( 'banned' ), array_values( (array) get_userdata( $target )->roles ) );
 
 		$empty   = BanSnapshot::build( array(), array(), 7, 'spam' );
@@ -641,18 +654,21 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 	 * Build the authoritative registry and dispatcher with the real users pack.
 	 *
 	 * @param ExpensiveBudget|null $budget Optional budget.
+	 * @param bool                 $load Whether to populate the catalog before registering.
 	 * @return array{Registry,SiteDispatcher}
 	 */
-	private function build( ?ExpensiveBudget $budget = null ): array {
+	private function build( ?ExpensiveBudget $budget = null, bool $load = true ): array {
 		$policy     = new SitePolicy( $this->settings );
 		$output     = new OutputPipeline( $this->settings );
 		$dispatcher = new SiteDispatcher( $policy, $output, $budget );
 		$registry   = new Registry( new Policy( $this->settings ), new RequestScope(), $output, $budget, new SafeMcpEnvelope(), $policy, $dispatcher );
 		$registry->add_pack( new UsersPack( new DefinitionFactory(), null ) );
 		$dispatcher->bind_catalog( $registry, static fn( string $name ): ?AbilityDescriptor => $registry->resolved_descriptor( $name ) );
-		$registry->load_packs();
-		if ( class_exists( SiteUserModeration::class ) ) {
-			$dispatcher->register( self::NAME, SiteUserModeration::handler() );
+		if ( $load ) {
+			$registry->load_packs();
+			if ( class_exists( SiteUserModeration::class ) ) {
+				$dispatcher->register( self::NAME, SiteUserModeration::handler() );
+			}
 		}
 		return array( $registry, $dispatcher );
 	}
