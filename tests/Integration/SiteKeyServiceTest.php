@@ -143,13 +143,13 @@ final class SiteKeyServiceTest extends WP_UnitTestCase {
 		parent::tear_down();
 	}
 
-	/** The default creation is one bounded 50-operation editorial credential. */
+	/** The default creation is one bounded 51-operation editorial credential. */
 	public function test_create_defaults_to_the_bounded_editorial_profile(): void {
 		$issued = $this->service->create( $this->input() );
 		self::assertNotInstanceOf( \WP_Error::class, $issued );
 		self::assertSame( $this->clock->now() + 90 * DAY_IN_SECONDS, $issued->key->scope->expires_at->getTimestamp() );
 		self::assertSame( RiskTier::Destructive, $issued->key->scope->tier_ceiling );
-		self::assertCount( 50, $issued->key->scope->allowed_abilities );
+		self::assertCount( 51, $issued->key->scope->allowed_abilities );
 		self::assertContains( 'xnetvn/create-post', $issued->key->scope->allowed_abilities );
 		self::assertNotContains( 'xnetvn/set-user-status', $issued->key->scope->allowed_abilities );
 		self::assertSame( $this->manager, $issued->key->created_by );
@@ -266,7 +266,7 @@ final class SiteKeyServiceTest extends WP_UnitTestCase {
 		self::assertSame( RiskTier::Admin, $issued->key->scope->tier_ceiling );
 		self::assertContains( 'users', $issued->key->scope->toolsets );
 		self::assertContains( 'xnetvn/set-user-status', $issued->key->scope->allowed_abilities );
-		self::assertCount( 51, $issued->key->scope->allowed_abilities );
+		self::assertCount( 52, $issued->key->scope->allowed_abilities );
 	}
 
 	/** A second manager can revoke after the issuer is demoted. */
