@@ -147,8 +147,12 @@ final class Plugin {
 		// Packs load on init 0; register their machine handlers before the dispatcher freezes.
 		add_action(
 			'init',
-			static function () use ( $system_pack, $site_dispatcher ): void {
+			static function () use ( $registry, $system_pack, $site_dispatcher ): void {
 				$system_pack->register_machine_handlers( $site_dispatcher );
+				if ( null === $registry->get( 'xnetvn/set-user-status' ) || $site_dispatcher->has_handler( 'xnetvn/set-user-status' ) ) {
+					return;
+				}
+				$site_dispatcher->register( 'xnetvn/set-user-status', \XNetVN\AgentHubWP\Abilities\Packs\Users\SiteUserModeration::handler() );
 			},
 			1
 		);

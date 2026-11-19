@@ -20,6 +20,7 @@ use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\ExpensiveBudget;
 use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
 use XNetVN\AgentHubWP\Domain\SiteAuthContext;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
 use XNetVN\AgentHubWP\Policy\SitePolicy;
 
 /** Never falls back to a human closure, a user, or an unregistered handler. */
@@ -198,7 +199,8 @@ final class SiteDispatcher {
 		}
 		try {
 			$work   = static fn(): mixed => $handler( $arguments, $context );
-			$result = $definition->costly() && null !== $this->expensive
+			$costly = $definition->costly() || in_array( $canonical_name, SafeMcpEnvelope::SITE_MODERATION_OPERATIONS, true );
+			$result = $costly && null !== $this->expensive
 				? $this->expensive->run( 'site:' . $context->blog_id() . ':' . $context->credential->key_id->value, $work )
 				: $work();
 			return $this->output->process( $result, $definition->output_schema() );
