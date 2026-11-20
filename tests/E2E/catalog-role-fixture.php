@@ -31,10 +31,13 @@ use XNetVN\AgentHubWP\Abilities\SchemaBuilder;
 use XNetVN\AgentHubWP\Auth\Capabilities;
 use XNetVN\AgentHubWP\Auth\KeyGenerator;
 use XNetVN\AgentHubWP\Auth\PepperStore;
+use XNetVN\AgentHubWP\Auth\SiteTokenCodec;
 use XNetVN\AgentHubWP\Domain\RiskTier;
 use XNetVN\AgentHubWP\Domain\Scope;
+use XNetVN\AgentHubWP\Domain\SiteScope;
 use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\Persistence\WpdbKeyRepository;
+use XNetVN\AgentHubWP\Persistence\WpdbSiteKeyRepository;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Policy\Policy;
 use XNetVN\AgentHubWP\RateLimit\SlidingWindowLimiter;
@@ -178,12 +181,13 @@ function xnetvn_agent_hub_wp_catalog_role_report( array $report ): void {
 function xnetvn_agent_hub_wp_catalog_role_counts(): array {
 	global $wpdb;
 	return array(
-		'users'    => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->users ),
-		'keys'     => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->prefix . 'xnetvn_agent_hub_wp_keys' ),
-		'posts'    => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->posts WHERE post_type IN ('post','attachment')" ),
-		'terms'    => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->term_taxonomy ),
-		'media'    => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->posts WHERE post_type = 'attachment'" ),
-		'comments' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->comments ),
+		'users'     => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->users ),
+		'keys'      => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->prefix . 'xnetvn_agent_hub_wp_keys' ),
+		'posts'     => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->posts WHERE post_type IN ('post','attachment')" ),
+		'terms'     => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->term_taxonomy ),
+		'media'     => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->posts WHERE post_type = 'attachment'" ),
+		'comments'  => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->comments ),
+		'site_keys' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $wpdb->prefix . 'xnetvn_agent_hub_wp_site_keys' ),
 	);
 }
 
@@ -211,20 +215,22 @@ function xnetvn_agent_hub_wp_catalog_role_owned_users( array $state ): array {
  */
 function xnetvn_agent_hub_wp_catalog_role_owned_counts( array $state ): array {
 	$counts = array(
-		'users'    => 0,
-		'keys'     => 0,
-		'posts'    => 0,
-		'terms'    => 0,
-		'media'    => 0,
-		'comments' => 0,
+		'users'     => 0,
+		'keys'      => 0,
+		'posts'     => 0,
+		'terms'     => 0,
+		'media'     => 0,
+		'comments'  => 0,
+		'site_keys' => 0,
 	);
 	$map    = array(
-		'user'    => 'users',
-		'key'     => 'keys',
-		'post'    => 'posts',
-		'term'    => 'terms',
-		'media'   => 'media',
-		'comment' => 'comments',
+		'user'     => 'users',
+		'key'      => 'keys',
+		'post'     => 'posts',
+		'term'     => 'terms',
+		'media'    => 'media',
+		'comment'  => 'comments',
+		'site_key' => 'site_keys',
 	);
 	foreach ( $state['ledger'] ?? array() as $entry ) {
 		$type = (string) ( $entry['type'] ?? '' );
@@ -515,6 +521,75 @@ function xnetvn_agent_hub_wp_catalog_role_key( array &$state, string $alias, arr
 		'ref'  => $alias,
 		'id'   => $row->id,
 	);
+	xnetvn_agent_hub_wp_catalog_role_save( $GLOBALS['xnetvn_catalog_role_fixture_state_file'], $state );
+}
+
+/**
+ * Create one owned site key and record its safe metadata plus private token.
+ *
+ * @param array<string,mixed> $state State, by reference.
+ * @param string              $alias Site key alias.
+ * @param array<string,mixed> $spec  Site key specification.
+ * @param string              $control Random control prefix.
+ * @return void
+ */
+function xnetvn_agent_hub_wp_catalog_role_site_key( array &$state, string $alias, array $spec, string $control ): void {
+	global $wpdb;
+	$repo  = new WpdbSiteKeyRepository( $wpdb, new SystemClock(), max( 1, (int) get_current_blog_id() ) );
+	$owner = (int) ( $state['users'][ (string) $spec['created_by'] ] ?? 0 );
+	if ( 1 > $owner ) {
+		throw new RuntimeException( 'Catalog role fixture site key owner unavailable.' );
+	}
+	$journal = (string) $GLOBALS['xnetvn_catalog_role_fixture_journal_file'];
+	$prefix  = 'Catalog Role ' . $state['campaign'] . ' site ' . $alias . ' ';
+	$intent  = array(
+		'type'        => 'site_key_intent',
+		'ref'         => $alias,
+		'blog_id'     => (int) $state['blog'],
+		'name_prefix' => $prefix,
+	);
+	if ( is_link( $journal ) || false === file_put_contents( $journal, json_encode( $intent, JSON_THROW_ON_ERROR ) . "\n", FILE_APPEND | LOCK_EX ) ) {
+		throw new RuntimeException( 'Catalog role fixture site key journal failed.' );
+	}
+	chmod( $journal, 0600 );
+	$generated = ( new SiteTokenCodec() )->generate();
+	$pepper    = ( new PepperStore() )->current();
+	$scope     = new SiteScope(
+		RiskTier::from( (string) $spec['tier'] ),
+		(array) $spec['toolsets'],
+		(array) $spec['allow'],
+		(array) ( $spec['deny'] ?? array() ),
+		(array) $spec['permissions'],
+		(array) $spec['ip_allowlist'],
+		new DateTimeImmutable( '+' . (int) $spec['expires_in_days'] . ' day' )
+	);
+	$row       = $repo->insert(
+		$generated->id,
+		$scope,
+		$prefix . substr( $control, 0, 8 ),
+		$generated->hash_with( $pepper ),
+		$pepper->id,
+		$owner
+	);
+	$entry     = array(
+		'type'    => 'site_key',
+		'ref'     => $alias,
+		'id'      => $row->id,
+		'key_id'  => $row->key_id->value,
+		'blog_id' => $row->blog_id,
+	);
+	if ( is_link( $journal ) || false === file_put_contents( $journal, json_encode( $entry, JSON_THROW_ON_ERROR ) . "\n", FILE_APPEND | LOCK_EX ) ) {
+		throw new RuntimeException( 'Catalog role fixture site key journal failed.' );
+	}
+	chmod( $journal, 0600 );
+	$state['site_keys'][ $alias ] = array(
+		'id'      => $row->id,
+		'key_id'  => $row->key_id->value,
+		'blog_id' => $row->blog_id,
+		'name'    => $row->name,
+	);
+	$state['tokens'][ $alias ]    = $generated->reveal();
+	$state['ledger'][]            = $entry;
 	xnetvn_agent_hub_wp_catalog_role_save( $GLOBALS['xnetvn_catalog_role_fixture_state_file'], $state );
 }
 
@@ -827,9 +902,9 @@ function xnetvn_agent_hub_wp_catalog_role_catalog(): array {
 		$packs[ $descriptor->toolset ] = (int) ( $packs[ $descriptor->toolset ] ?? 0 ) + 1;
 	}
 	ksort( $packs );
-	if ( 62 !== count( $items ) || array(
+	if ( 63 !== count( $items ) || array(
 		'comments' => 10,
-		'content'  => 19,
+		'content'  => 20,
 		'media'    => 7,
 		'system'   => 5,
 		'taxonomy' => 9,
@@ -866,6 +941,9 @@ function xnetvn_agent_hub_wp_catalog_role_cleanup_journal( array $state, array &
 		$entry = json_decode( $line, true, 16 );
 		if ( ! is_array( $entry ) ) {
 			throw new RuntimeException( 'Catalog role fixture journal malformed.' );
+		}
+		if ( 'site_key_intent' === (string) ( $entry['type'] ?? '' ) ) {
+			continue;
 		}
 		xnetvn_agent_hub_wp_catalog_role_delete_entry( $state, $entry, $removed );
 	}
@@ -912,6 +990,20 @@ function xnetvn_agent_hub_wp_catalog_role_delete_entry( array $state, array $ent
 				throw new RuntimeException( 'Catalog role fixture key cleanup failed.' );
 			}
 			++$removed['keys'];
+		}
+		return;
+	}
+	if ( 'site_key' === $type ) {
+		$repo = new WpdbSiteKeyRepository( $wpdb, new SystemClock(), max( 1, (int) get_current_blog_id() ) );
+		$row  = $repo->find_by_id( $id );
+		if ( null !== $row ) {
+			if ( (int) $state['blog'] !== $row->blog_id || (string) ( $entry['key_id'] ?? '' ) !== $row->key_id->value || ! str_starts_with( $row->name, 'Catalog Role ' . $campaign . ' site ' ) ) {
+				throw new RuntimeException( 'Catalog role fixture site key cleanup binding mismatch.' );
+			}
+			if ( false === $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id = %d AND key_id = %s AND blog_id = %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_site_keys', $row->id, $row->key_id->value, $row->blog_id ) ) || null !== $repo->find_by_id( $id ) ) {
+				throw new RuntimeException( 'Catalog role fixture site key cleanup failed.' );
+			}
+			++$removed['site_keys'];
 		}
 		return;
 	}
@@ -1061,6 +1153,17 @@ function xnetvn_agent_hub_wp_catalog_role_sweep( array $state, array &$removed )
 			throw new RuntimeException( 'Catalog role fixture sweep key failed.' );
 		}
 		++$removed['keys'];
+	}
+	$site_repo = new WpdbSiteKeyRepository( $wpdb, new SystemClock(), max( 1, (int) get_current_blog_id() ) );
+	$site_rows = $wpdb->get_results( $wpdb->prepare( 'SELECT id, key_id, blog_id, name FROM %i WHERE blog_id = %d AND name LIKE %s', $wpdb->prefix . 'xnetvn_agent_hub_wp_site_keys', (int) $state['blog'], $wpdb->esc_like( 'Catalog Role ' . $campaign . ' site ' ) . '%' ) );
+	foreach ( (array) $site_rows as $row ) {
+		if ( (int) $row->blog_id !== (int) $state['blog'] || ! str_starts_with( (string) $row->name, 'Catalog Role ' . $campaign . ' site ' ) ) {
+			continue;
+		}
+		if ( false === $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id = %d AND key_id = %s AND blog_id = %d', $wpdb->prefix . 'xnetvn_agent_hub_wp_site_keys', (int) $row->id, (string) $row->key_id, (int) $row->blog_id ) ) || null !== $site_repo->find_by_id( (int) $row->id ) ) {
+			throw new RuntimeException( 'Catalog role fixture sweep site key failed.' );
+		}
+		++$removed['site_keys'];
 	}
 }
 
@@ -1367,6 +1470,7 @@ try {
 			),
 			'users'      => array(),
 			'keys'       => array(),
+			'site_keys'  => array(),
 			'tokens'     => array(),
 			'ids'        => array(),
 			'ledger'     => array(),
@@ -1399,6 +1503,12 @@ try {
 				continue;
 			}
 			xnetvn_agent_hub_wp_catalog_role_key( $xnetvn_agent_hub_wp_catalog_role_state, (string) $xnetvn_agent_hub_wp_catalog_role_alias, (array) $xnetvn_agent_hub_wp_catalog_role_spec, $xnetvn_agent_hub_wp_catalog_role_control );
+		}
+		foreach ( $xnetvn_agent_hub_wp_catalog_role_declarations['site_keys'] as $xnetvn_agent_hub_wp_catalog_role_alias => $xnetvn_agent_hub_wp_catalog_role_spec ) {
+			if ( true !== ( $xnetvn_agent_hub_wp_catalog_role_spec['seeded'] ?? false ) ) {
+				continue;
+			}
+			xnetvn_agent_hub_wp_catalog_role_site_key( $xnetvn_agent_hub_wp_catalog_role_state, (string) $xnetvn_agent_hub_wp_catalog_role_alias, (array) $xnetvn_agent_hub_wp_catalog_role_spec, $xnetvn_agent_hub_wp_catalog_role_control );
 		}
 		xnetvn_agent_hub_wp_catalog_role_install_mu( $xnetvn_agent_hub_wp_catalog_role_state );
 		foreach ( $xnetvn_agent_hub_wp_catalog_role_declarations['targets'] as $xnetvn_agent_hub_wp_catalog_role_key => $xnetvn_agent_hub_wp_catalog_role_spec ) {
@@ -1476,6 +1586,13 @@ try {
 				throw new RuntimeException( 'Catalog role fixture key mismatch.' );
 			}
 		}
+		$site_repo = new WpdbSiteKeyRepository( $GLOBALS['wpdb'], new SystemClock(), max( 1, (int) get_current_blog_id() ) );
+		foreach ( $state['site_keys'] as $alias => $site_key ) {
+			$row = $site_repo->find_by_id( (int) $site_key['id'] );
+			if ( null === $row || $row->blog_id !== (int) $state['blog'] || $row->key_id->value !== (string) $site_key['key_id'] || ! str_starts_with( $row->name, 'Catalog Role ' . $state['campaign'] . ' site ' . $alias . ' ' ) || $row->is_revoked() ) {
+				throw new RuntimeException( 'Catalog role fixture site key mismatch.' );
+			}
+		}
 		$settings = new WpSiteSettings();
 		if ( 'admin' !== $settings->get( 'tier_ceiling' ) || true !== $settings->get( 'allow_admin_tier' ) ) {
 			throw new RuntimeException( 'Catalog role fixture settings mismatch.' );
@@ -1501,13 +1618,15 @@ try {
 			$state = xnetvn_agent_hub_wp_catalog_role_require_state( $xnetvn_agent_hub_wp_catalog_role_state );
 			xnetvn_agent_hub_wp_catalog_role_marker_ok( $state );
 			$remaining = array(
-				'users'    => 0,
-				'keys'     => 0,
-				'posts'    => 0,
-				'terms'    => 0,
-				'media'    => 0,
-				'comments' => 0,
+				'users'     => 0,
+				'keys'      => 0,
+				'posts'     => 0,
+				'terms'     => 0,
+				'media'     => 0,
+				'comments'  => 0,
+				'site_keys' => 0,
 			);
+			$site_repo = new WpdbSiteKeyRepository( $GLOBALS['wpdb'], new SystemClock(), max( 1, (int) get_current_blog_id() ) );
 			foreach ( $state['ledger'] as $entry ) {
 				$type = (string) ( $entry['type'] ?? '' );
 				$id   = (int) ( $entry['id'] ?? 0 );
@@ -1515,6 +1634,8 @@ try {
 					++$remaining['users'];
 				} elseif ( 'key' === $type && null !== $GLOBALS['xnetvn_catalog_role_fixture_keys_repo']->find_by_id( $id ) ) {
 					++$remaining['keys'];
+				} elseif ( 'site_key' === $type && null !== $site_repo->find_by_id( $id ) ) {
+					++$remaining['site_keys'];
 				} elseif ( 'post' === $type && null !== get_post( $id ) ) {
 					++$remaining['posts'];
 				} elseif ( 'media' === $type && null !== get_post( $id ) ) {
@@ -1546,14 +1667,18 @@ try {
 			);
 			exit( 2 );
 		}
-		$left = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SELECT COUNT(*) FROM ' . $GLOBALS['wpdb']->users . ' WHERE user_login LIKE %s', $GLOBALS['wpdb']->esc_like( 'catalog-role-' . $xnetvn_agent_hub_wp_catalog_role_campaign . '-' ) . '%' ) );
+		$left      = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SELECT COUNT(*) FROM ' . $GLOBALS['wpdb']->users . ' WHERE user_login LIKE %s', $GLOBALS['wpdb']->esc_like( 'catalog-role-' . $xnetvn_agent_hub_wp_catalog_role_campaign . '-' ) . '%' ) );
+		$site_left = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SELECT COUNT(*) FROM %i WHERE blog_id = %d AND name LIKE %s', $GLOBALS['wpdb']->prefix . 'xnetvn_agent_hub_wp_site_keys', (int) get_current_blog_id(), $GLOBALS['wpdb']->esc_like( 'Catalog Role ' . $xnetvn_agent_hub_wp_catalog_role_campaign . ' site ' ) . '%' ) );
 		xnetvn_agent_hub_wp_catalog_role_report(
 			array(
-				'reconciled' => 0 === $left,
-				'remaining'  => array( 'users' => $left ),
+				'reconciled' => 0 === $left && 0 === $site_left,
+				'remaining'  => array(
+					'users'     => $left,
+					'site_keys' => $site_left,
+				),
 			)
 		);
-		if ( 0 !== $left ) {
+		if ( 0 !== $left || 0 !== $site_left ) {
 			exit( 2 );
 		}
 		return;
@@ -1567,30 +1692,37 @@ try {
 			if ( 0 < xnetvn_agent_hub_wp_catalog_role_journal_count() ) {
 				exit( 2 );
 			}
+			$site_left = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SELECT COUNT(*) FROM %i WHERE blog_id = %d AND name LIKE %s', $GLOBALS['wpdb']->prefix . 'xnetvn_agent_hub_wp_site_keys', (int) get_current_blog_id(), $GLOBALS['wpdb']->esc_like( 'Catalog Role ' . $xnetvn_agent_hub_wp_catalog_role_campaign . ' site ' ) . '%' ) );
 			xnetvn_agent_hub_wp_catalog_role_report(
 				array(
-					'restored' => true,
-					'removed'  => array(
-						'users'    => 0,
-						'keys'     => 0,
-						'posts'    => 0,
-						'terms'    => 0,
-						'media'    => 0,
-						'comments' => 0,
+					'restored'  => true,
+					'removed'   => array(
+						'users'     => 0,
+						'keys'      => 0,
+						'posts'     => 0,
+						'terms'     => 0,
+						'media'     => 0,
+						'comments'  => 0,
+						'site_keys' => 0,
 					),
+					'remaining' => array( 'site_keys' => $site_left ),
 				)
 			);
+			if ( 0 !== $site_left ) {
+				exit( 2 );
+			}
 			return;
 		}
 		$state = xnetvn_agent_hub_wp_catalog_role_require_state( $xnetvn_agent_hub_wp_catalog_role_state );
 		xnetvn_agent_hub_wp_catalog_role_marker_ok( $state );
 		$removed = array(
-			'users'    => 0,
-			'keys'     => 0,
-			'posts'    => 0,
-			'terms'    => 0,
-			'media'    => 0,
-			'comments' => 0,
+			'users'     => 0,
+			'keys'      => 0,
+			'posts'     => 0,
+			'terms'     => 0,
+			'media'     => 0,
+			'comments'  => 0,
+			'site_keys' => 0,
 		);
 		xnetvn_agent_hub_wp_catalog_role_remove_mu( $state );
 		( new WpSiteSettings() )->update( $state['snapshot']['settings'] );
