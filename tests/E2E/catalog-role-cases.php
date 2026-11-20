@@ -293,11 +293,11 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 			'AUTH-01' => 'CAT-system-get-session-info-subscriber-denied',
 			'AUTH-02' => 'CAT-system-get-session-info-banned-denied',
 			'AUTH-03' => 'CAT-system-get-session-info-anonymous-denied',
-			'FX-01'   => 'CAT-content-create-post-admin-allowed',
-			'LIFE-01' => 'CAT-content-create-post-admin-allowed',
-			'LIFE-04' => 'CAT-content-delete-post-admin-allowed',
-			'IMG-01'  => 'CAT-media-get-media-admin-allowed',
-			'SEO-03'  => 'CAT-taxonomy-assign-post-terms-admin-allowed',
+			'FX-01'   => 'CAT-content-create-post-editor-allowed',
+			'LIFE-01' => 'CAT-content-create-post-editor-allowed',
+			'LIFE-04' => 'CAT-content-delete-post-editor-allowed',
+			'IMG-01'  => 'CAT-media-get-media-editor-allowed',
+			'SEO-03'  => 'CAT-taxonomy-assign-post-terms-editor-allowed',
 			'NET-01'  => 'CAT-blog-site-info-admin-allowed',
 			'STAB-01' => 'CAT-rate-auth-burst-denied',
 			'STAB-02' => 'CAT-concurrency-content-update-post-admin-allowed',
@@ -421,6 +421,46 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 				'toolsets' => $toolsets,
 				'deny'     => array( 'xnetvn/get-post' ),
 			),
+		),
+		'site_keys'          => array(
+			// Granted policy envelope row: 52 reviewed names plus the single
+			// moderation operation. It is never seeded; the integration envelope
+			// matrix uses it as the 52/11 site-principal assertion only.
+			'site_editorial'       => array(
+				'tier'            => 'admin',
+				'toolsets'        => $toolsets,
+				'allow'           => array_merge(
+					\XNetVN\AgentHubWP\Policy\SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS,
+					\XNetVN\AgentHubWP\Policy\SafeMcpEnvelope::SITE_MODERATION_OPERATIONS
+				),
+				'deny'            => array(),
+				'permissions'     => array( 'ban-users' ),
+				'ip_allowlist'    => array(),
+				'expires_in_days' => 1,
+				'created_by'      => 'admin',
+				'seeded'          => false,
+			),
+			// Read-only accountless row the E2E fixture seeds. Its allow list
+			// stays at the full 51 reviewed names; only the handler-backed ten
+			// wire names are visible to this principal.
+			'site_editorial_plain' => array(
+				'tier'            => 'destructive',
+				'toolsets'        => $toolsets,
+				'allow'           => \XNetVN\AgentHubWP\Policy\SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS,
+				'deny'            => array(),
+				'permissions'     => array(),
+				'ip_allowlist'    => array(),
+				'expires_in_days' => 1,
+				'created_by'      => 'admin',
+				'seeded'          => true,
+			),
+		),
+		// Ten canonical names with a fixed machine handler, identical to
+		// SiteDispatcher::handler_for(). Registry::names_for_site_scope()
+		// narrows them at runtime; the 52-name envelope is asserted elsewhere.
+		'machine_handlers'   => array_merge(
+			array( 'xnetvn/list-content-authors' ),
+			\XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\SiteTaxonomyOperations::NAMES
 		),
 		'revisions'          => array(
 			'admin'       => 5701,
@@ -1050,6 +1090,7 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 			'xnetvn/list-post-types'         => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'read', 'edit_posts', $all_authed, 'none', 'content.list_post_types' ),
 			'xnetvn/list-post-statuses'      => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'read', 'edit_posts', $all_authed, 'none', 'content.list_post_statuses' ),
 			'xnetvn/list-posts'              => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'read', 'edit_posts', $all_authed, 'none', 'content.list_posts' ),
+			'xnetvn/list-content-authors'    => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'read', 'edit_posts', $all_authed, 'none', 'content.list_authors' ),
 			'xnetvn/get-post'                => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'read', 'edit_posts', $all_authed, $posts, 'content.get_post' ),
 			'xnetvn/create-post'             => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'write', 'edit_posts', $all_authed, 'none', 'content.create_post' ),
 			'xnetvn/update-post'             => xnetvn_agent_hub_wp_catalog_role_tool( 'content', 'write', 'edit_posts', $all_authed, $posts, 'content.update_post' ),
@@ -1346,6 +1387,15 @@ function xnetvn_agent_hub_wp_catalog_role_visible( array $data, string $tool, st
  */
 function xnetvn_agent_hub_wp_catalog_role_visible_tools( array $data, string $actor ): array {
 	$names = array();
+	if ( isset( $data['site_keys'][ $actor ] ) ) {
+		// A site principal has no WordPress user and sees only the fixed
+		// machine-handler list; the surrounding envelope is not the catalog.
+		foreach ( (array) $data['machine_handlers'] as $name ) {
+			$names[] = str_replace( '/', '-', (string) $name );
+		}
+		sort( $names, SORT_STRING );
+		return $names;
+	}
 	foreach ( array_keys( $data['tools'] ) as $tool ) {
 		if ( xnetvn_agent_hub_wp_catalog_role_visible( $data, $tool, $actor ) ) {
 			$names[] = str_replace( '/', '-', $tool );
@@ -1395,6 +1445,30 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			$id     = 'CAT-' . $tool['pack'] . '-' . $slug . '-' . $actor . '-';
 			$target = xnetvn_agent_hub_wp_catalog_role_target_for( $tool, $actor );
 			$key    = xnetvn_agent_hub_wp_catalog_role_key_for( $data, $actor, $tool['pack'] );
+			if ( in_array( $actor, array( 'admin', 'super-admin' ), true ) ) {
+				// DelegationEligibility denies every personal Administrator and
+				// explicit Super Admin credential (delegation_protected_account)
+				// and Authenticator maps it to OwnerForbidden, so no such token
+				// can ever reach a tool. These rows are recorded as not
+				// applicable; the refusal itself is proven in the integration
+				// suite and the dormant admin keys stay seeded and readable.
+				$case                 = array(
+					'id'       => $id . 'na',
+					'tool'     => $wire,
+					'name'     => $name,
+					'pack'     => $tool['pack'],
+					'actor'    => $actor,
+					'key'      => $key,
+					'expected' => 'na',
+					'reason'   => 'protected_account_personal_key',
+					'layer'    => 'na',
+					'target'   => $target,
+					'payload'  => $tool['payload'],
+					'variant'  => 'na',
+				);
+				$cases[ $case['id'] ] = $case;
+				continue;
+			}
 			if ( in_array( $actor, $data['auth_denied'], true ) ) {
 				$case                 = array(
 					'id'       => $id . 'denied',
@@ -1471,8 +1545,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			'tool'     => 'xnetvn-upload-media-from-url',
 			'name'     => 'xnetvn/upload-media-from-url',
 			'pack'     => 'media',
-			'actor'    => 'admin',
-			'key'      => 'admin_core',
+			// Protected Administrator substitution: the row keeps its remote-fetch
+			// not-applicable proof and runs it with the eligible editorial key.
+			'actor'    => 'editor',
+			'key'      => 'editor',
 			'expected' => 'na',
 			'reason'   => 'remote_fetch_disabled_default',
 			'layer'    => 'na',
@@ -1482,13 +1558,16 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 		),
 	);
 	foreach ( array( 'admin', 'editor', 'author', 'contributor' ) as $actor ) {
-		$extras[] = array(
+		// No personal Administrator credential can authenticate, so the admin
+		// row keeps its identifier but runs with the eligible editorial key.
+		$principal = 'admin' === $actor ? 'editor' : $actor;
+		$extras[]  = array(
 			'id'       => 'CAT-catalog-tools-list-' . $actor . '-allowed',
 			'tool'     => 'xnetvn-discover-abilities',
 			'name'     => 'xnetvn/discover-abilities',
 			'pack'     => 'system',
-			'actor'    => $actor,
-			'key'      => xnetvn_agent_hub_wp_catalog_role_key_for( $data, $actor, 'system' ),
+			'actor'    => $principal,
+			'key'      => xnetvn_agent_hub_wp_catalog_role_key_for( $data, $principal, 'system' ),
 			'expected' => 'allowed',
 			'reason'   => 'unavailable',
 			'layer'    => 'tool',
@@ -1502,8 +1581,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 		'tool'         => 'xnetvn-discover-abilities',
 		'name'         => 'xnetvn/discover-abilities',
 		'pack'         => 'system',
-		'actor'        => 'super-admin',
-		'key'          => 'super_admin',
+		// An explicit Super Admin personal credential is denied before any tool,
+		// so the row keeps its identifier and runs with the editorial key.
+		'actor'        => 'editor',
+		'key'          => 'editor',
 		'expected'     => 'allowed',
 		'reason'       => 'unavailable',
 		'layer'        => 'tool',
@@ -1518,8 +1599,9 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			'tool'     => 'xnetvn-discover-abilities',
 			'name'     => 'xnetvn/discover-abilities',
 			'pack'     => $pack,
-			'actor'    => 'admin',
-			'key'      => 'admin_users',
+			// Protected Administrator substitution: same discovery proof, editor key.
+			'actor'    => 'editor',
+			'key'      => 'editor',
 			'expected' => 'allowed',
 			'reason'   => 'unavailable',
 			'layer'    => 'tool',
@@ -1536,8 +1618,9 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			'tool'     => 'xnetvn-get-ability-info',
 			'name'     => 'xnetvn/get-ability-info',
 			'pack'     => 'system',
-			'actor'    => 'admin',
-			'key'      => 'admin_users',
+			// Protected Administrator substitution: same information proof, editor key.
+			'actor'    => 'editor',
+			'key'      => 'editor',
 			'expected' => 'allowed',
 			'reason'   => 'unavailable',
 			'layer'    => 'tool',
@@ -1653,8 +1736,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'           => 'xnetvn-delete-post',
 				'name'           => 'xnetvn/delete-post',
 				'pack'           => 'content',
-				'actor'          => 'admin',
-				'key'            => 'admin_core',
+				// Protected Administrator substitution; the ceiling-write variant
+				// still denies the eligible editorial principal.
+				'actor'          => 'editor',
+				'key'            => 'editor',
 				'expected'       => 'denied',
 				'reason'         => 'unavailable',
 				'layer'          => 'policy',
@@ -1668,8 +1753,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'           => 'xnetvn-create-user',
 				'name'           => 'xnetvn/create-user',
 				'pack'           => 'users',
-				'actor'          => 'admin',
-				'key'            => 'admin_users',
+				// Protected Administrator substitution; the admin-off variant
+				// still denies the eligible editorial principal.
+				'actor'          => 'editor',
+				'key'            => 'editor',
 				'expected'       => 'denied',
 				'reason'         => 'unavailable',
 				'layer'          => 'policy',
@@ -1753,8 +1840,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-set-user-status',
 				'name'     => 'xnetvn/set-user-status',
 				'pack'     => 'users',
-				'actor'    => 'admin',
-				'key'      => 'admin_users',
+				// Protected Administrator substitution: the editorial principal
+				// still hits the protected target and is denied.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'denied',
 				'reason'   => 'protected_account',
 				'layer'    => 'tool',
@@ -1795,8 +1884,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-create-post',
 				'name'     => 'xnetvn/create-post',
 				'pack'     => 'content',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the invalid payload is
+				// rejected for the eligible editorial principal too.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'denied',
 				'reason'   => 'invalid_params',
 				'layer'    => 'tool',
@@ -1809,8 +1900,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-update-post-meta',
 				'name'     => 'xnetvn/update-post-meta',
 				'pack'     => 'content',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the invalid payload is
+				// rejected for the eligible editorial principal too.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'denied',
 				'reason'   => 'invalid_params',
 				'layer'    => 'tool',
@@ -1823,8 +1916,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-get-site-info',
 				'name'     => 'xnetvn/get-site-info',
 				'pack'     => 'system',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the site-info read proof
+				// stays identical for the eligible editorial principal.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'allowed',
 				'reason'   => 'unavailable',
 				'layer'    => 'tool',
@@ -1837,8 +1932,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-purge-comments',
 				'name'     => 'xnetvn/purge-comments',
 				'pack'     => 'comments',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the editorial principal
+				// still holds moderation and purges the admin-owned review target.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'allowed',
 				'reason'   => 'unavailable',
 				'layer'    => 'tool',
@@ -1865,8 +1962,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-list-posts',
 				'name'     => 'xnetvn/list-posts',
 				'pack'     => 'content',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the pagination proof is
+				// identical for the eligible editorial principal.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'allowed',
 				'reason'   => 'unavailable',
 				'layer'    => 'tool',
@@ -1879,8 +1978,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-list-posts',
 				'name'     => 'xnetvn/list-posts',
 				'pack'     => 'content',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the size-limit proof is
+				// identical for the eligible editorial principal.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'allowed',
 				'reason'   => 'unavailable',
 				'layer'    => 'tool',
@@ -1908,8 +2009,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'     => 'xnetvn-update-post',
 				'name'     => 'xnetvn/update-post',
 				'pack'     => 'content',
-				'actor'    => 'admin',
-				'key'      => 'admin_core',
+				// Protected Administrator substitution: the dedicated concurrency
+				// target stays; the eligible editor holds edit_others_posts.
+				'actor'    => 'editor',
+				'key'      => 'editor',
 				'expected' => 'allowed',
 				'reason'   => 'unavailable',
 				'layer'    => 'concurrency',
@@ -1922,8 +2025,10 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'tool'         => 'xnetvn-get-session-info',
 				'name'         => 'xnetvn/get-session-info',
 				'pack'         => 'system',
-				'actor'        => 'admin',
-				'key'          => 'admin_core',
+				// Protected Administrator substitution: a blog-A editorial key
+				// presented to blog B must still be refused.
+				'actor'        => 'editor',
+				'key'          => 'editor',
 				'expected'     => 'denied',
 				'reason'       => 'authentication_required',
 				'layer'        => 'auth',
@@ -1935,6 +2040,60 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			),
 		)
 	);
+	// Accountless site-principal rows. A site key has no WordPress user and the
+	// dispatcher exposes only the fixed machine-handler set, so the machine
+	// catalog is the ten-name subset and every other reviewed ability is
+	// refused as unavailable before any handler can run.
+	$cases['CAT-site-catalog-tools-list-site-editorial-plain-allowed']   = array(
+		'id'       => 'CAT-site-catalog-tools-list-site-editorial-plain-allowed',
+		'tool'     => 'xnetvn-discover-abilities',
+		'name'     => 'xnetvn/discover-abilities',
+		'pack'     => 'system',
+		'actor'    => 'site_editorial_plain',
+		'key'      => 'site_editorial_plain',
+		'expected' => 'allowed',
+		'reason'   => 'unavailable',
+		'layer'    => 'tool',
+		'target'   => 'none',
+		'payload'  => 'catalog.tools_list',
+		'variant'  => 'allowed',
+	);
+	$cases['CAT-site-list-content-authors-site-editorial-plain-allowed'] = array(
+		'id'       => 'CAT-site-list-content-authors-site-editorial-plain-allowed',
+		'tool'     => 'xnetvn-list-content-authors',
+		'name'     => 'xnetvn/list-content-authors',
+		'pack'     => 'content',
+		'actor'    => 'site_editorial_plain',
+		'key'      => 'site_editorial_plain',
+		'expected' => 'allowed',
+		'reason'   => 'unavailable',
+		'layer'    => 'tool',
+		'target'   => 'none',
+		'payload'  => 'content.list_authors',
+		'variant'  => 'allowed',
+	);
+	foreach ( array( 'get-my-profile', 'update-my-profile', 'list-users', 'create-user' ) as $machine_unavailable ) {
+		$machine_name         = 'xnetvn/' . $machine_unavailable;
+		$machine_tool         = $data['tools'][ $machine_name ];
+		$machine_id           = 'CAT-site-' . $machine_unavailable . '-site-editorial-plain-denied';
+		$cases[ $machine_id ] = array(
+			'id'       => $machine_id,
+			'tool'     => str_replace( '/', '-', $machine_name ),
+			'name'     => $machine_name,
+			// The declared pack, target and payload keep the intent schema-valid
+			// so the refusal is observed at the policy layer, not at input
+			// validation.
+			'pack'     => (string) $machine_tool['pack'],
+			'actor'    => 'site_editorial_plain',
+			'key'      => 'site_editorial_plain',
+			'expected' => 'denied',
+			'reason'   => 'unavailable',
+			'layer'    => 'policy',
+			'target'   => (string) $machine_tool['target'],
+			'payload'  => (string) $machine_tool['payload'],
+			'variant'  => 'denied',
+		);
+	}
 	foreach ( $extras as $extra ) {
 		$cases[ $extra['id'] ] = $extra;
 	}
@@ -2014,6 +2173,11 @@ function xnetvn_agent_hub_wp_catalog_role_payload( array $case, array $ctx ): ar
 			);
 		case 'content.get_post':
 			return array( 'id' => $target );
+		case 'content.list_authors':
+			return array(
+				'page'     => 1,
+				'per_page' => 20,
+			);
 		case 'content.list_posts_page2':
 			return array(
 				'per_page' => 1,
