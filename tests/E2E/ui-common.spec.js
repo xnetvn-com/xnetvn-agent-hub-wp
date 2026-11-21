@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
-const { loginAs, hubFor, installSecretCleanup, assertSafeArtifacts } = require('./ui-helpers');
+const { loginAs, loginFresh, hubFor, installSecretCleanup, assertSafeArtifacts } = require('./ui-helpers');
 
 const ARTIFACTS_DIR = process.env.RTL_ARTIFACTS_DIR;
 
@@ -53,6 +53,10 @@ test('UI-COM-01 unified navigation marks the current view and keeps one heading'
 		await expect(current, `current link on ${view}`).toHaveCount(1);
 		await expect(current).toHaveAttribute('href', new RegExp(VIEW_URL[view].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(#|$)'));
 	}
+	await page.goto('/wp-admin/profile.php');
+	await expect(page.locator('[data-protected-personal-notice]')).toBeVisible();
+	await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]')).toHaveCount(0);
+	await loginFresh(page, 'editor');
 	await page.goto('/wp-admin/profile.php');
 	await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]')).toBeVisible();
 	await expect(page.locator('nav.xnetvn-nav')).toHaveCount(0);

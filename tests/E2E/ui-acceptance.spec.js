@@ -418,7 +418,8 @@ if (TARGET.group === GROUP_SITE) {
 			await expect(page.locator('#wpbody-content .wrap > h1').first(), `heading on ${view}`).toBeVisible();
 		}
 		await page.goto(PROFILE);
-		await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]'), 'keys hub on profile').toBeVisible();
+		await expect(page.locator('[data-protected-personal-notice]'), 'protected personal notice on the Administrator profile').toBeVisible();
+		await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]'), 'no personal hub on the Administrator profile').toHaveCount(0);
 		await expect(page.locator('nav.xnetvn-nav'), 'no management nav on profile').toHaveCount(0);
 		await page.goto(DASHBOARD);
 		const notice = page.locator('.notice.notice-error', { hasText: '99.0-fixture' });
@@ -588,8 +589,10 @@ if (TARGET.group === GROUP_SITE) {
 		});
 		const name = `UI-ACC once ${runId}`;
 		const ledger = { run_id: runId, site: SITE_LABEL, user_id: 0, name, id: 0 };
-		await loginAs(page, 'administrator');
-		const hub = await hubFor(page, 'keys');
+		await loginAs(page, 'editor');
+		await page.goto(PROFILE);
+		const hub = page.locator('.xnetvn-agent-hub[data-view="keys"]');
+		await expect(hub).toBeVisible();
 		ledger.user_id = await currentUserId(page);
 		let failure = null;
 		try {
@@ -609,6 +612,7 @@ if (TARGET.group === GROUP_SITE) {
 				return response.status;
 			}, { path: restPath(SITE_LABEL, 'keys'), keyId: ledger.id });
 			expect(revoked).toBe(200);
+			await loginFresh(page, 'administrator');
 			const after = await keyState(page, SITE_LABEL, ledger.id);
 			expect(after.state, 'the revoked key must report the revoked state').toBe('revoked');
 		} catch (error) {
