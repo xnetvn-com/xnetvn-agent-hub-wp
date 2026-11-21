@@ -205,21 +205,18 @@ final class SiteUserModeration {
 		if ( ! $target instanceof WP_User ) {
 			return R::error( 'not_found' );
 		}
-		$snapshot = BanSnapshot::build_for_site( $target, $context, $reason );
-		if ( ! BanSnapshot::validate( $snapshot ) ) {
-			return R::error( 'invalid_state' );
-		}
-		if ( array() === array_values( (array) ( $snapshot['roles'] ?? array() ) ) ) {
-			$stored = BanSnapshot::load( $id );
-			if ( null === $stored || ! $this->reusable( $stored ) ) {
+		$snapshot = BanSnapshot::load( $id );
+		$created  = false;
+		if ( null === $snapshot ) {
+			$snapshot = BanSnapshot::build_for_site( $target, $context, $reason );
+			if ( ! BanSnapshot::validate( $snapshot ) || ! $this->reusable( $snapshot ) ) {
 				return R::error( 'invalid_state' );
+			}
+			if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
+				return R::error( 'internal_error' );
 			}
 		} elseif ( ! $this->reusable( $snapshot ) ) {
 			return R::error( 'invalid_state' );
-		}
-		$created = false;
-		if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
-			return R::error( 'internal_error' );
 		}
 		$guarded = $this->guarded( $id );
 		if ( null !== $guarded ) {
