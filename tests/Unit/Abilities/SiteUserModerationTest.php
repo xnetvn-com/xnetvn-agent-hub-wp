@@ -655,6 +655,88 @@ final class SiteUserModerationTest extends TestCase {
 		self::assertCount( 1, SiteModerationSessions::$destroyed );
 	}
 
+	/** A roleless target is refused before the ban writes anything. */
+	public function test_ban_refuses_a_target_with_no_captured_roles_without_writing(): void {
+		$target                            = $this->add_user( self::TARGET, array(), array( 'read' => true ) );
+		$tokens                            = array( 'session' => array( 'expiration' => 1900000000 ) );
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = $tokens;
+
+		$refused = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $refused->get_error_code() );
+		self::assertArrayNotHasKey( self::TARGET, $this->snapshots );
+		self::assertSame( array(), $target->roles );
+		self::assertSame( array( 'read' => true ), $target->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( $tokens, SiteModerationSessions::$remaining );
+	}
+
+	/** A recovery point the unban cannot consume is refused before every write. */
+	public function test_ban_refuses_a_recovery_point_the_unban_cannot_consume(): void {
+		$this->registry_roles->roles['content_editor'] = array(
+			'name'         => 'Content Editor',
+			'capabilities' => array(
+				'read'       => true,
+				'edit_posts' => true,
+			),
+		);
+		$live                              = $this->add_user( self::TARGET, array( 'content_editor' ) );
+		$token                             = array( 'live' => array( 'expiration' => 1900000000 ) );
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = $token;
+		$unconsumable                      = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+		$live_tokens                       = SiteModerationSessions::$remaining;
+
+		$stored  = $this->add_user( self::OTHER, array() );
+		$record  = BanSnapshot::build( array( 'reviewer' ), array( 'edit_posts' => true ), 7, 'spam' );
+		$created = false;
+		self::assertTrue( BanSnapshot::save( self::OTHER, $record, $created ) );
+		self::assertTrue( $created );
+		$bytes                             = $this->snapshots[ self::OTHER ];
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = array( 'stored' => array( 'expiration' => 1900000000 ) );
+		$retained                          = $this->dispatch(
+			array(
+				'id'          => self::OTHER,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $unconsumable );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $unconsumable->get_error_code() );
+		self::assertArrayNotHasKey( self::TARGET, $this->snapshots );
+		self::assertSame( array( 'content_editor' ), $live->roles );
+		self::assertSame( array(), $live->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( $live_tokens, $token );
+
+		self::assertInstanceOf( \WP_Error::class, $retained );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $retained->get_error_code() );
+		self::assertSame( $bytes, $this->snapshots[ self::OTHER ] );
+		self::assertSame( array(), $stored->roles );
+		self::assertSame( array(), $stored->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( array( 'stored' => array( 'expiration' => 1900000000 ) ), SiteModerationSessions::$remaining );
+	}
+
 	/** A validated v1 snapshot restores its recorded role and capabilities. */
 	public function test_unban_accepts_a_validated_v1_snapshot(): void {
 		$this->add_user( self::TARGET, array( 'banned' ) );

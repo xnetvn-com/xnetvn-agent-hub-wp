@@ -108,6 +108,12 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 	/** Public key identity. */
 	private const KEY_ID = 'abcdefghijkl';
 
+	/** Fixture users removed after the test.
+	 *
+	 * @var array<int>
+	 */
+	private array $fixtures = array();
+
 	/** Site policy.
 	 *
 	 * @var WpSiteSettings
@@ -129,11 +135,15 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		SiteUserModerationCountingSessions::$destroys = 0;
 	}
 
-	/** Remove filters a test added and restore the accountless principal. */
+	/** Remove filters a test added, delete its fixtures and restore the accountless principal. */
 	public function tear_down(): void {
 		remove_all_filters( 'session_token_manager' );
 		remove_all_filters( 'xnetvn_agent_hub_wp_user_allowed' );
 		remove_all_filters( 'delete_user_metadata' );
+		foreach ( $this->fixtures as $fixture ) {
+			wp_delete_user( $fixture );
+		}
+		$this->fixtures = array();
 		wp_set_current_user( 0 );
 		parent::tear_down();
 	}
@@ -165,6 +175,45 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		self::assertSame( array( self::NAME ), $registry->names_for_site_scope( $this->scope( array( 'ban-users' ) ) ) );
 		// Discovery follows the key's declared ability allowlist; the directional grants narrow execution, never listing.
 		self::assertContains( self::NAME, $registry->names_for_site_scope( $this->scope( array() ) ) );
+	}
+
+	/** A roleless member is refused before the ban writes anything. */
+	public function test_ban_refuses_a_target_with_no_captured_roles_without_writing(): void {
+		$target = self::factory()->user->create();
+		$user   = get_userdata( $target );
+		self::assertInstanceOf( WP_User::class, $user );
+		$user->set_role( '' );
+		$user->add_cap( 'read', true );
+		$session = \WP_Session_Tokens::get_instance( $target )->create( time() + 3600 );
+		self::assertNotEmpty( $session );
+		$roles_before  = array_values( (array) get_userdata( $target )->roles );
+		$caps_before   = (array) get_userdata( $target )->caps;
+		$tokens_before = \WP_Session_Tokens::get_instance( $target )->get_all();
+		self::assertNotSame( array(), $tokens_before );
+		add_filter(
+			'session_token_manager',
+			static fn(): string => SiteUserModerationCountingSessions::class
+		);
+		[ , $dispatcher ] = $this->build();
+
+		$refused = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'          => $target,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $refused->get_error_code() );
+		self::assertNull( BanSnapshot::load( $target ) );
+		self::assertSame( $roles_before, array_values( (array) get_userdata( $target )->roles ) );
+		self::assertSame( $caps_before, (array) get_userdata( $target )->caps );
+		self::assertSame( $tokens_before, \WP_Session_Tokens::get_instance( $target )->get_all() );
+		self::assertSame( 0, SiteUserModerationCountingSessions::$destroys );
+		$this->fixtures[] = $target;
 	}
 
 	/** Ban and unban restore roles, caps, content and the single recovery point. */
