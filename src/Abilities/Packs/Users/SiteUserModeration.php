@@ -162,6 +162,36 @@ final class SiteUserModeration {
 	}
 
 	/**
+	 * Whether a validated snapshot is a recovery point the unban can consume.
+	 *
+	 * The predicate matches the unban preconditions: a non-empty role list,
+	 * every role assignable, and no privileged direct capability.
+	 *
+	 * @param array<string,mixed> $snapshot Validated snapshot.
+	 * @return bool
+	 */
+	private function reusable( array $snapshot ): bool {
+		$roles = array();
+		foreach ( (array) ( $snapshot['roles'] ?? array() ) as $slug ) {
+			$role = (string) $slug;
+			if ( 'banned' === $role || ! RoleGuard::assignable( $role ) ) {
+				return false;
+			}
+			$roles[] = $role;
+		}
+		if ( array() === $roles ) {
+			return false;
+		}
+		$privileged = RoleGuard::privileged_caps();
+		foreach ( array_keys( (array) ( $snapshot['caps'] ?? array() ) ) as $cap ) {
+			if ( in_array( (string) $cap, $privileged, true ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Suspend one eligible member on the current site only.
 	 *
 	 * @param int             $id Target.
@@ -177,6 +207,14 @@ final class SiteUserModeration {
 		}
 		$snapshot = BanSnapshot::build_for_site( $target, $context, $reason );
 		if ( ! BanSnapshot::validate( $snapshot ) ) {
+			return R::error( 'invalid_state' );
+		}
+		if ( array() === array_values( (array) ( $snapshot['roles'] ?? array() ) ) ) {
+			$stored = BanSnapshot::load( $id );
+			if ( null === $stored || ! $this->reusable( $stored ) ) {
+				return R::error( 'invalid_state' );
+			}
+		} elseif ( ! $this->reusable( $snapshot ) ) {
 			return R::error( 'invalid_state' );
 		}
 		$created = false;
