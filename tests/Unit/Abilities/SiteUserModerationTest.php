@@ -53,6 +53,16 @@ final class SiteModerationRoles {
 	public function __construct( array $roles ) {
 		$this->roles = $roles;
 	}
+
+	/**
+	 * Whether a name is a registered role slug.
+	 *
+	 * @param string $name Candidate name.
+	 * @return bool
+	 */
+	public function is_role( string $name ): bool {
+		return isset( $this->roles[ $name ] );
+	}
 }
 
 /** Minimal WordPress user double with core role and capability semantics. */
@@ -77,6 +87,13 @@ final class SiteModerationUser {
 	 * @var array<string,bool>
 	 */
 	public array $allcaps = array();
+	/** Post-write capability overrides for the exact-map guards.
+	 *
+	 * A null value withholds the key; a boolean forces that value.
+	 *
+	 * @var array<string,bool|null>
+	 */
+	public array $withheld_caps = array();
 
 	/**
 	 * Bind fixture state.
@@ -186,6 +203,16 @@ final class SiteModerationUser {
 	 * @return void
 	 */
 	public function add_cap( string $capability, bool $grant = true ): void {
+		if ( array_key_exists( $capability, $this->withheld_caps ) ) {
+			$forced = $this->withheld_caps[ $capability ];
+			if ( null === $forced ) {
+				unset( $this->caps[ $capability ] );
+			} else {
+				$this->caps[ $capability ] = (bool) $forced;
+			}
+			$this->refresh();
+			return;
+		}
 		$this->caps[ $capability ] = $grant;
 		$this->refresh();
 	}
@@ -653,6 +680,226 @@ final class SiteUserModerationTest extends TestCase {
 		self::assertFalse( $repeated['changed'] );
 		self::assertSame( array( 'author' ), $repeated['roles'] );
 		self::assertCount( 1, SiteModerationSessions::$destroyed );
+	}
+
+	/** A roleless target is refused before the ban writes anything. */
+	public function test_ban_refuses_a_target_with_no_captured_roles_without_writing(): void {
+		$target                            = $this->add_user( self::TARGET, array(), array( 'read' => true ) );
+		$tokens                            = array( 'session' => array( 'expiration' => 1900000000 ) );
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = $tokens;
+
+		$refused = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $refused->get_error_code() );
+		self::assertArrayNotHasKey( self::TARGET, $this->snapshots );
+		self::assertSame( array(), $target->roles );
+		self::assertSame( array( 'read' => true ), $target->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( $tokens, SiteModerationSessions::$remaining );
+	}
+
+	/** A recovery point the unban cannot consume is refused before every write. */
+	public function test_ban_refuses_a_recovery_point_the_unban_cannot_consume(): void {
+		$this->registry_roles->roles['content_editor'] = array(
+			'name'         => 'Content Editor',
+			'capabilities' => array(
+				'read'       => true,
+				'edit_posts' => true,
+			),
+		);
+		$live                              = $this->add_user( self::TARGET, array( 'content_editor' ) );
+		$token                             = array( 'live' => array( 'expiration' => 1900000000 ) );
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = $token;
+		$unconsumable                      = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+		$live_tokens                       = SiteModerationSessions::$remaining;
+
+		$stored  = $this->add_user( self::OTHER, array() );
+		$record  = BanSnapshot::build( array( 'reviewer' ), array( 'edit_posts' => true ), 7, 'spam' );
+		$created = false;
+		self::assertTrue( BanSnapshot::save( self::OTHER, $record, $created ) );
+		self::assertTrue( $created );
+		$bytes                             = $this->snapshots[ self::OTHER ];
+		SiteModerationSessions::$destroyed = array();
+		SiteModerationSessions::$remaining = array( 'stored' => array( 'expiration' => 1900000000 ) );
+		$retained                          = $this->dispatch(
+			array(
+				'id'          => self::OTHER,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $unconsumable );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $unconsumable->get_error_code() );
+		self::assertArrayNotHasKey( self::TARGET, $this->snapshots );
+		self::assertSame( array( 'content_editor' ), $live->roles );
+		self::assertSame( array(), $live->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( $live_tokens, $token );
+
+		self::assertInstanceOf( \WP_Error::class, $retained );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $retained->get_error_code() );
+		self::assertSame( $bytes, $this->snapshots[ self::OTHER ] );
+		self::assertSame( array(), $stored->roles );
+		self::assertSame( array(), $stored->caps );
+		self::assertSame( array(), SiteModerationSessions::$destroyed );
+		self::assertSame( array( 'stored' => array( 'expiration' => 1900000000 ) ), SiteModerationSessions::$remaining );
+	}
+
+	/** A repeated ban repairs the leftover capability from the stored snapshot. */
+	public function test_repeated_ban_repairs_from_the_stored_snapshot(): void {
+		$target  = $this->add_user( self::TARGET, array( 'banned' ), array( 'edit_posts' => true ) );
+		$record  = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'   => true,
+				'upload_files' => false,
+			),
+			7,
+			'policy'
+		);
+		$created = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET, $record, $created ) );
+		self::assertTrue( $created );
+		$bytes                             = $this->snapshots[ self::TARGET ];
+		SiteModerationSessions::$destroyed = array();
+
+		$repaired = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertIsArray( $repaired, $repaired instanceof \WP_Error ? $repaired->message : '' );
+		self::assertTrue( $repaired['changed'] );
+		self::assertSame( 'banned', $repaired['status'] );
+		self::assertSame( array( 'banned' ), $target->roles );
+		self::assertSame( array(), $target->caps );
+		self::assertSame( array( self::TARGET ), SiteModerationSessions::$destroyed );
+		self::assertSame( $bytes, $this->snapshots[ self::TARGET ] );
+
+		$again = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertIsArray( $again, $again instanceof \WP_Error ? $again->message : '' );
+		self::assertFalse( $again['changed'] );
+		self::assertSame( 'banned', $again['status'] );
+		self::assertSame( 'banned', $again['previous_status'] );
+		self::assertSame( array( 'banned' ), $again['roles'] );
+		self::assertCount( 1, SiteModerationSessions::$destroyed );
+		self::assertSame( $bytes, $this->snapshots[ self::TARGET ] );
+	}
+
+	/** A successful unban requires the exact direct capability map. */
+	public function test_unban_requires_the_exact_direct_capability_map(): void {
+		$extra = $this->add_user( self::TARGET, array( 'banned' ), array( 'edit_posts' => true ) );
+		$extra->add_cap( 'upload_files', true );
+		$extra_record = BanSnapshot::build( array( 'author' ), array( 'edit_posts' => true ), 7, 'spam' );
+		$created      = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET, $extra_record, $created ) );
+		$extra_bytes = $this->snapshots[ self::TARGET ];
+
+		$missing        = $this->add_user( self::OTHER, array( 'banned' ) );
+		$missing_record = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'   => true,
+				'upload_files' => true,
+			),
+			7,
+			'spam'
+		);
+		$created        = false;
+		self::assertTrue( BanSnapshot::save( self::OTHER, $missing_record, $created ) );
+		$missing_bytes          = $this->snapshots[ self::OTHER ];
+		$missing->withheld_caps = array( 'upload_files' => null );
+
+		$differing        = $this->add_user( self::TARGET + 2, array( 'banned' ) );
+		$differing_record = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'         => true,
+				'comment_moderation' => false,
+			),
+			7,
+			'spam'
+		);
+		$created          = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET + 2, $differing_record, $created ) );
+		$differing_bytes          = $this->snapshots[ self::TARGET + 2 ];
+		$differing->withheld_caps = array( 'comment_moderation' => true );
+
+		$extra_result     = $this->dispatch(
+			array(
+				'id'     => self::TARGET,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+		$missing_result   = $this->dispatch(
+			array(
+				'id'     => self::OTHER,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+		$differing_result = $this->dispatch(
+			array(
+				'id'     => self::TARGET + 2,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $missing_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $missing_result->get_error_code() );
+		self::assertSame( $missing_bytes, $this->snapshots[ self::OTHER ] );
+		self::assertIsArray( BanSnapshot::load( self::OTHER ) );
+
+		self::assertInstanceOf( \WP_Error::class, $differing_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $differing_result->get_error_code() );
+		self::assertSame( $differing_bytes, $this->snapshots[ self::TARGET + 2 ] );
+		self::assertIsArray( BanSnapshot::load( self::TARGET + 2 ) );
+
+		self::assertInstanceOf( \WP_Error::class, $extra_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $extra_result->get_error_code() );
+		self::assertSame( $extra_bytes, $this->snapshots[ self::TARGET ] );
+		self::assertIsArray( BanSnapshot::load( self::TARGET ) );
+		self::assertSame( array( 'author' ), $extra->roles );
+		self::assertSame(
+			array(
+				'edit_posts'   => true,
+				'upload_files' => true,
+			),
+			$extra->caps
+		);
 	}
 
 	/** A validated v1 snapshot restores its recorded role and capabilities. */

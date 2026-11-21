@@ -162,6 +162,36 @@ final class SiteUserModeration {
 	}
 
 	/**
+	 * Whether a validated snapshot is a recovery point the unban can consume.
+	 *
+	 * The predicate matches the unban preconditions: a non-empty role list,
+	 * every role assignable, and no privileged direct capability.
+	 *
+	 * @param array<string,mixed> $snapshot Validated snapshot.
+	 * @return bool
+	 */
+	private function reusable( array $snapshot ): bool {
+		$roles = array();
+		foreach ( (array) ( $snapshot['roles'] ?? array() ) as $slug ) {
+			$role = (string) $slug;
+			if ( 'banned' === $role || ! RoleGuard::assignable( $role ) ) {
+				return false;
+			}
+			$roles[] = $role;
+		}
+		if ( array() === $roles ) {
+			return false;
+		}
+		$privileged = RoleGuard::privileged_caps();
+		foreach ( array_keys( (array) ( $snapshot['caps'] ?? array() ) ) as $cap ) {
+			if ( in_array( (string) $cap, $privileged, true ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Suspend one eligible member on the current site only.
 	 *
 	 * @param int             $id Target.
@@ -175,13 +205,18 @@ final class SiteUserModeration {
 		if ( ! $target instanceof WP_User ) {
 			return R::error( 'not_found' );
 		}
-		$snapshot = BanSnapshot::build_for_site( $target, $context, $reason );
-		if ( ! BanSnapshot::validate( $snapshot ) ) {
+		$snapshot = BanSnapshot::load( $id );
+		$created  = false;
+		if ( null === $snapshot ) {
+			$snapshot = BanSnapshot::build_for_site( $target, $context, $reason );
+			if ( ! BanSnapshot::validate( $snapshot ) || ! $this->reusable( $snapshot ) ) {
+				return R::error( 'invalid_state' );
+			}
+			if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
+				return R::error( 'internal_error' );
+			}
+		} elseif ( ! $this->reusable( $snapshot ) ) {
 			return R::error( 'invalid_state' );
-		}
-		$created = false;
-		if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
-			return R::error( 'internal_error' );
 		}
 		$guarded = $this->guarded( $id );
 		if ( null !== $guarded ) {
@@ -327,8 +362,24 @@ final class SiteUserModeration {
 			return false;
 		}
 		$direct = is_array( $after->caps ) ? $after->caps : array();
+		$roles  = wp_roles();
+		$actual = array();
+		foreach ( $direct as $cap => $enabled ) {
+			$name = (string) $cap;
+			if ( 'banned' === $name || $roles->is_role( $name ) ) {
+				continue;
+			}
+			$actual[ $name ] = (bool) $enabled;
+		}
+		$wanted = array();
 		foreach ( $caps as $cap => $enabled ) {
-			if ( ! array_key_exists( $cap, $direct ) || (bool) $direct[ $cap ] !== $enabled ) {
+			$wanted[ (string) $cap ] = (bool) $enabled;
+		}
+		if ( count( $actual ) !== count( $wanted ) ) {
+			return false;
+		}
+		foreach ( $actual as $cap => $enabled ) {
+			if ( ! array_key_exists( $cap, $wanted ) || $wanted[ $cap ] !== $enabled ) {
 				return false;
 			}
 		}

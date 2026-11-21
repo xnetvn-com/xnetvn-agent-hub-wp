@@ -108,6 +108,12 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 	/** Public key identity. */
 	private const KEY_ID = 'abcdefghijkl';
 
+	/** Fixture users removed after the test.
+	 *
+	 * @var array<int>
+	 */
+	private array $fixtures = array();
+
 	/** Site policy.
 	 *
 	 * @var WpSiteSettings
@@ -129,11 +135,15 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		SiteUserModerationCountingSessions::$destroys = 0;
 	}
 
-	/** Remove filters a test added and restore the accountless principal. */
+	/** Remove filters a test added, delete its fixtures and restore the accountless principal. */
 	public function tear_down(): void {
 		remove_all_filters( 'session_token_manager' );
 		remove_all_filters( 'xnetvn_agent_hub_wp_user_allowed' );
 		remove_all_filters( 'delete_user_metadata' );
+		foreach ( $this->fixtures as $fixture ) {
+			wp_delete_user( $fixture );
+		}
+		$this->fixtures = array();
 		wp_set_current_user( 0 );
 		parent::tear_down();
 	}
@@ -165,6 +175,151 @@ final class SiteUserModerationTest extends WP_UnitTestCase {
 		self::assertSame( array( self::NAME ), $registry->names_for_site_scope( $this->scope( array( 'ban-users' ) ) ) );
 		// Discovery follows the key's declared ability allowlist; the directional grants narrow execution, never listing.
 		self::assertContains( self::NAME, $registry->names_for_site_scope( $this->scope( array() ) ) );
+	}
+
+	/** A roleless member is refused before the ban writes anything. */
+	public function test_ban_refuses_a_target_with_no_captured_roles_without_writing(): void {
+		$target = self::factory()->user->create();
+		$user   = get_userdata( $target );
+		self::assertInstanceOf( WP_User::class, $user );
+		$user->set_role( '' );
+		$user->add_cap( 'read', true );
+		$session = \WP_Session_Tokens::get_instance( $target )->create( time() + 3600 );
+		self::assertNotEmpty( $session );
+		$roles_before  = array_values( (array) get_userdata( $target )->roles );
+		$caps_before   = (array) get_userdata( $target )->caps;
+		$tokens_before = \WP_Session_Tokens::get_instance( $target )->get_all();
+		self::assertNotSame( array(), $tokens_before );
+		add_filter(
+			'session_token_manager',
+			static fn(): string => SiteUserModerationCountingSessions::class
+		);
+		[ , $dispatcher ] = $this->build();
+
+		$refused = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'          => $target,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_state', $refused->get_error_code() );
+		self::assertNull( BanSnapshot::load( $target ) );
+		self::assertSame( $roles_before, array_values( (array) get_userdata( $target )->roles ) );
+		self::assertSame( $caps_before, (array) get_userdata( $target )->caps );
+		self::assertSame( $tokens_before, \WP_Session_Tokens::get_instance( $target )->get_all() );
+		self::assertSame( 0, SiteUserModerationCountingSessions::$destroys );
+		$this->fixtures[] = $target;
+	}
+
+	/** A repeated ban repairs from the stored snapshot and stays idempotent. */
+	public function test_repeated_ban_repairs_from_the_stored_snapshot(): void {
+		$target = self::factory()->user->create( array( 'role' => 'author' ) );
+		$user   = get_userdata( $target );
+		self::assertInstanceOf( WP_User::class, $user );
+		$user->add_cap( 'edit_posts', true );
+		$snapshot = BanSnapshot::build_for_site( $user, $this->context( array( 'ban-users' ) ), 'policy' );
+		$created  = false;
+		self::assertTrue( BanSnapshot::save( $target, $snapshot, $created ) );
+		self::assertTrue( $created );
+		$user->set_role( 'banned' );
+		$user->add_cap( 'edit_posts', true );
+		$session = \WP_Session_Tokens::get_instance( $target )->create( time() + 3600 );
+		self::assertNotEmpty( $session );
+		$bytes = get_user_option( BanSnapshot::KEY, $target );
+		self::assertIsString( $bytes );
+		add_filter(
+			'session_token_manager',
+			static fn(): string => SiteUserModerationCountingSessions::class
+		);
+		[ , $dispatcher ] = $this->build();
+		$ban_only         = $this->context( array( 'ban-users' ) );
+
+		$repaired = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'          => $target,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$ban_only
+		);
+
+		self::assertIsArray( $repaired, $repaired instanceof \WP_Error ? $repaired->get_error_message() : '' );
+		self::assertTrue( $repaired['changed'] );
+		self::assertSame( array( 'banned' ), $repaired['roles'] );
+		self::assertSame( $bytes, get_user_option( BanSnapshot::KEY, $target ) );
+		self::assertArrayNotHasKey( 'edit_posts', (array) get_userdata( $target )->caps );
+		self::assertSame( array(), \WP_Session_Tokens::get_instance( $target )->get_all() );
+		self::assertSame( 1, SiteUserModerationCountingSessions::$destroys );
+
+		$again = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'          => $target,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$ban_only
+		);
+
+		self::assertIsArray( $again, $again instanceof \WP_Error ? $again->get_error_message() : '' );
+		self::assertFalse( $again['changed'] );
+		self::assertSame( 'banned', $again['previous_status'] );
+		self::assertSame( $bytes, get_user_option( BanSnapshot::KEY, $target ) );
+		self::assertSame( 1, SiteUserModerationCountingSessions::$destroys );
+
+		$restored = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'     => $target,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+
+		self::assertIsArray( $restored, $restored instanceof \WP_Error ? $restored->get_error_message() : '' );
+		self::assertSame( array( 'author' ), $restored['roles'] );
+		self::assertTrue( (bool) get_userdata( $target )->caps['edit_posts'] );
+		self::assertNull( BanSnapshot::load( $target ) );
+		$this->fixtures[] = $target;
+	}
+
+	/** A capability map that is not exact blocks the clean unban. */
+	public function test_unban_requires_the_exact_direct_capability_map(): void {
+		$target = self::factory()->user->create( array( 'role' => 'author' ) );
+		$user   = get_userdata( $target );
+		self::assertInstanceOf( WP_User::class, $user );
+		$user->add_cap( 'edit_posts', true );
+		$snapshot = BanSnapshot::build_for_site( $user, $this->context( array( 'ban-users' ) ), 'spam' );
+		$created  = false;
+		self::assertTrue( BanSnapshot::save( $target, $snapshot, $created ) );
+		self::assertTrue( $created );
+		$user->set_role( 'banned' );
+		$user->add_cap( 'upload_files', true );
+		$bytes = get_user_option( BanSnapshot::KEY, $target );
+		self::assertIsString( $bytes );
+		[ , $dispatcher ] = $this->build();
+
+		$retained = $dispatcher->execute(
+			self::NAME,
+			array(
+				'id'     => $target,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $retained );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $retained->get_error_code() );
+		self::assertSame( $bytes, get_user_option( BanSnapshot::KEY, $target ) );
+		self::assertIsArray( BanSnapshot::load( $target ) );
+		self::assertTrue( (bool) get_userdata( $target )->caps['upload_files'] );
+		$this->fixtures[] = $target;
 	}
 
 	/** Ban and unban restore roles, caps, content and the single recovery point. */

@@ -308,6 +308,18 @@ The only machine user mutation is `xnetvn/set-user-status`:
   and calls user-wide `WP_Session_Tokens::destroy_all()`.
 - A partial write keeps the snapshot and returns a partial-failure receipt; it
   is never blindly retried or reported as a clean rollback.
+- A ban is refused with `xnetvn_agent_hub_wp_invalid_state` before any
+  snapshot, role, capability or session write when the recovery point it would
+  leave behind is unusable: the roles are empty, a role is not assignable, or
+  a direct privileged capability is recorded.
+- A repeated ban reuses the stored snapshot, removes the leftover captured
+  capability and destroys every session irreversibly, while the stored
+  snapshot bytes stay identical.
+- A successful unban requires the exact role-key-stripped direct capability
+  map. A live direct capability the snapshot does not name returns
+  `xnetvn_agent_hub_wp_partial_failure` and keeps the snapshot, instead of a
+  success receipt that clears the only recovery point.
+- `xnetvn_agent_hub_wp_internal_error` remains an error.
 - Password login blocking, Application Password revocation and password-reset
   blocking are out of scope under `OD-04`.
 

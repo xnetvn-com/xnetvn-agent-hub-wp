@@ -296,6 +296,18 @@ Thao tác thay đổi người dùng bằng máy duy nhất là `xnetvn/set-user
   `WP_Session_Tokens::destroy_all()` toàn người dùng.
 - Ghi một phần giữ ảnh chụp và trả biên lai lỗi một phần; không tự thử lại mù
   và không báo hoàn tác sạch.
+- Lệnh cấm bị từ chối với `xnetvn_agent_hub_wp_invalid_state` trước mọi lần
+  ghi ảnh chụp, vai trò, năng lực hay phiên khi điểm khôi phục mà lệnh sẽ để
+  lại không dùng được: danh sách vai trò rỗng, có vai trò không thể gán, hoặc
+  có năng lực trực tiếp đặc quyền được ghi.
+- Lệnh cấm lặp lại dùng lại ảnh chụp đã lưu, xóa năng lực trực tiếp còn sót
+  và hủy toàn bộ phiên không thể hoàn tác, trong khi byte ảnh chụp đã lưu giữ
+  nguyên.
+- Lệnh bỏ cấm thành công đòi hỏi bản đồ năng lực trực tiếp chính xác sau khi
+  bỏ khóa vai trò. Một năng lực trực tiếp đang sống mà ảnh chụp không nêu tên
+  trả `xnetvn_agent_hub_wp_partial_failure` và giữ ảnh chụp, thay vì trả biên
+  lai thành công xóa điểm khôi phục duy nhất.
+- `xnetvn_agent_hub_wp_internal_error` vẫn là lỗi.
 - Chặn đăng nhập bằng mật khẩu, thu hồi Application Password và chặn đặt lại
   mật khẩu nằm ngoài phạm vi theo `OD-04`.
 
