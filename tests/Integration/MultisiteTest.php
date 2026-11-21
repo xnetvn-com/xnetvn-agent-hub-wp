@@ -101,7 +101,7 @@ final class MultisiteTest extends WP_UnitTestCase {
 		$site   = self::factory()->blog->create();
 		switch_to_blog( $site );
 		try {
-			self::assertFalse( get_option( Migrator::VERSION_OPTION ) );
+			self::assertSame( (string) Schema::VERSION, (string) get_option( Migrator::VERSION_OPTION ) );
 			( new MigrationProvider( XNETVN_AGENT_HUB_WP_FILE, new Migrator( $wpdb, $clock ) ) )->ensure_schema();
 			self::assertSame( (string) Schema::VERSION, (string) get_option( Migrator::VERSION_OPTION ) );
 			self::assertNull( $keys->find_by_key_id( $id ) );
@@ -112,5 +112,16 @@ final class MultisiteTest extends WP_UnitTestCase {
 			restore_current_blog();
 		}
 		self::assertSame( 'Root site fixture', $keys->find_by_id( $root->id )->name );
+	}
+
+	/** Initializing the current blog must leave the switched stack exactly as it found it. */
+	public function test_initialize_site_on_current_blog_restores_the_switch_stack(): void {
+		global $wpdb;
+		$depth_before = count( $GLOBALS['_wp_switched_stack'] );
+		$provider     = new MigrationProvider( XNETVN_AGENT_HUB_WP_FILE, new Migrator( $wpdb, new FrozenClock( time() ) ) );
+		$provider->register();
+		do_action( 'wp_initialize_site', get_site( get_current_blog_id() ), array() ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Dispatch the core site-initialization action the provider registers.
+		self::assertFalse( ms_is_switched() );
+		self::assertSame( $depth_before, count( $GLOBALS['_wp_switched_stack'] ) );
 	}
 }

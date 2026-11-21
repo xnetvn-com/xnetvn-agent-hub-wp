@@ -515,10 +515,12 @@
 			const outcomeFilter = root.querySelector('[data-filter="outcome"]');
 			const afterFilter = root.querySelector('[data-filter="after"]');
 			const beforeFilter = root.querySelector('[data-filter="before"]');
+			const principalFilter = root.querySelector('[data-filter="principal_type"]');
+			const credentialFilter = root.querySelector('[data-filter="credential_ref"]');
 			const applyButton = root.querySelector('[data-apply]');
 			const clearButton = root.querySelector('[data-clear]');
 			const timezoneEl = root.querySelector('[data-timezone]');
-			let filters = { owner: '', key_id: '', ability: '', outcome: 'all', after: '', before: '' };
+			let filters = { owner: '', key_id: '', ability: '', outcome: 'all', after: '', before: '', principal_type: 'all', credential_ref: '' };
 			/**
 			 * Format an audit timestamp in the browser locale with its zone.
 			 *
@@ -572,15 +574,49 @@
 				const outcome = outcomeFilter && ['all', 'success', 'denied', 'error', 'invalid_input', 'rate_limited', 'auth_failed'].includes(outcomeFilter.value) ? outcomeFilter.value : 'all';
 				const after = afterFilter ? toUtcIso(afterFilter.value) : '';
 				const before = beforeFilter ? toUtcIso(beforeFilter.value) : '';
-				filters = { owner, key_id: keyId, ability, outcome, after, before };
+				const principal = principalFilter && ['all', 'user', 'site'].includes(principalFilter.value) ? principalFilter.value : 'all';
+				const credential = credentialFilter ? credentialFilter.value.trim() : '';
+				return { owner, key_id: keyId, ability, outcome, after, before, principal_type: principal, credential_ref: credential };
 			};
 			/** Apply the current filters and return to the first result page. */
 			const applyFilters = () => {
-				readFilters();
-				if (filters.after && filters.before && new Date(filters.after) > new Date(filters.before)) {
+				const candidate = readFilters();
+				const site = 'site' === candidate.principal_type || candidate.credential_ref.startsWith('xns:');
+				if (candidate.credential_ref !== '' && !/^(?:xnv|xns):[a-z2-7]{12}$/.test(candidate.credential_ref)) {
+					if (credentialFilter) { credentialFilter.setAttribute('aria-invalid', 'true'); }
+					say(__('Enter a credential reference such as xnv:abcdefghijkl or xns:abcdefghijkl.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if ('user' === candidate.principal_type && candidate.credential_ref.startsWith('xns:')) {
+					if (credentialFilter) { credentialFilter.setAttribute('aria-invalid', 'true'); }
+					say(__('A website reference needs the Website MCP key (xns:) source. Clear the reference or choose it.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if ('site' === candidate.principal_type && candidate.credential_ref.startsWith('xnv:')) {
+					if (credentialFilter) { credentialFilter.setAttribute('aria-invalid', 'true'); }
+					say(__('A personal reference does not belong to the Website MCP key (xns:) source. Clear it or change the source.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if (site && candidate.owner !== '') {
+					say(__('Owner ID does not apply to website activity. Clear the owner or the website reference.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if (site && candidate.key_id !== '') {
+					say(__('Key ID does not apply to website activity. Clear the key or the website reference.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if (candidate.key_id !== '' && candidate.credential_ref !== '' && candidate.credential_ref !== 'xnv:' + candidate.key_id) {
+					if (credentialFilter) { credentialFilter.setAttribute('aria-invalid', 'true'); }
+					say(__('Key ID and credential reference must name the same personal key.', 'xnetvn-agent-hub-wp'));
+					return;
+				}
+				if (candidate.after && candidate.before && new Date(candidate.after) > new Date(candidate.before)) {
 					say(__('The From time must be before the To time. Adjust the range and try again.', 'xnetvn-agent-hub-wp'));
 					return;
 				}
+				filters = candidate;
+				if (credentialFilter) { credentialFilter.removeAttribute('aria-invalid'); }
+				say('');
 				page = 1;
 				failedPage = null;
 				load().catch(() => {});
@@ -611,6 +647,12 @@
 					if (beforeFilter) {
 						beforeFilter.value = '';
 					}
+					if (principalFilter) {
+						principalFilter.value = 'all';
+					}
+					if (credentialFilter) {
+						credentialFilter.value = '';
+					}
 					applyFilters();
 				});
 			}
@@ -628,11 +670,18 @@
 				};
 				let query;
 				try {
+					const site = 'site' === filters.principal_type || filters.credential_ref.startsWith('xns:');
 					query = new URLSearchParams({ page: String(wanted), per_page: '20' });
-					if (filters.owner) {
+					if (filters.owner && !site) {
 						query.set('user_id', filters.owner);
 					} else {
 						query.set('all', 'true');
+					}
+					if (filters.principal_type !== 'all') {
+						query.set('principal_type', filters.principal_type);
+					}
+					if (filters.credential_ref) {
+						query.set('credential_ref', filters.credential_ref);
 					}
 					if (filters.key_id) {
 						query.set('key_id', filters.key_id);
@@ -682,7 +731,18 @@
 				result.items.forEach(item => {
 					const row = node('tr');
 					row.appendChild(node('td', activityDate(item.occurred_at)));
-					row.appendChild(node('td', item.user_id || __('Anonymous', 'xnetvn-agent-hub-wp')));
+					if ('site' === item.principal_type) {
+						const principalCell = node('td');
+						principalCell.appendChild(node('strong', __('Website MCP key', 'xnetvn-agent-hub-wp')));
+						principalCell.appendChild(document.createTextNode(' · '));
+						principalCell.appendChild(document.createTextNode(__('Not applicable', 'xnetvn-agent-hub-wp')));
+						principalCell.appendChild(document.createTextNode(' · '));
+						const reference = typeof item.credential_ref === 'string' && /^xns:[a-z2-7]{12}$/.test(item.credential_ref) ? item.credential_ref : '';
+						principalCell.appendChild(reference ? node('code', reference) : node('span', __('Unavailable', 'xnetvn-agent-hub-wp')));
+						row.appendChild(principalCell);
+					} else {
+						row.appendChild(node('td', item.user_id || __('Anonymous', 'xnetvn-agent-hub-wp')));
+					}
 					row.appendChild(node('td', item.ability || __('Unavailable', 'xnetvn-agent-hub-wp')));
 					const outcomeCell = node('td');
 					const badge = node('span', item.outcome, { class: 'xnetvn-outcome xnetvn-outcome-' + String(item.outcome).replace(/[^a-z_]/g, '') });

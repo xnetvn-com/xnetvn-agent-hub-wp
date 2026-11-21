@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { loginAs, loginFresh, hubFor, installSecretCleanup, assertSafeArtifacts } = require('./ui-helpers');
+const { loginAs, loginFresh, LOGINS, hubFor, installSecretCleanup, assertSafeArtifacts } = require('./ui-helpers');
 
 const EXPECTED_ROWS = Number(process.env.UI_FIXTURE_ROWS || '21');
 const ARTIFACTS_DIR = process.env.RTL_ARTIFACTS_DIR;
@@ -37,10 +37,43 @@ async function keyTotals(page, query) {
 	}, query);
 }
 
+/** Numeric id of one exact fixture login. Numbers only, never credentials. */
+async function userIdByLogin(page, login) {
+	return page.evaluate(async wanted => {
+		const response = await fetch(`/wp-json/wp/v2/users?search=${encodeURIComponent(wanted)}&per_page=100&context=edit&_fields=id,username`, {
+			headers: { 'X-WP-Nonce': window.xnetvnAgentHubConfig.nonce },
+		});
+		if (!response.ok) {
+			return -1;
+		}
+		const body = await response.json();
+		if (!Array.isArray(body)) {
+			return -1;
+		}
+		const ids = body
+			.filter(entry => entry && entry.username === wanted)
+			.map(entry => Number(entry.id));
+		return ids.length === 1 && Number.isInteger(ids[0]) && ids[0] > 0 ? ids[0] : -1;
+	}, login);
+}
+
 test('UI-FX-01 fixture actors log in with separate ownership and quota', async ({ page }) => {
 	await loginAs(page, 'administrator');
 	const hub = await hubFor(page, 'keys');
-	await expect(hub.locator('[data-create]')).toBeVisible();
+	await expect(hub.locator('[data-create]')).toHaveCount(0);
+	await expect(hub.locator('[data-protected-personal-notice]')).toBeVisible();
+	await page.locator('#xnetvn-tab-site').click();
+	const sitePanel = page.locator('#xnetvn-panel-site');
+	await expect(sitePanel).toBeVisible();
+	await expect(sitePanel.locator('[data-site-keys]')).toHaveCount(1);
+	await expect(sitePanel.locator('[data-site-copy]')).toHaveCount(1);
+	await expect(sitePanel.locator('[data-site-unknown]')).toHaveCount(1);
+	await expect(sitePanel.locator('[data-site-unknown]')).toBeHidden();
+	const siteCreate = sitePanel.locator('[data-site-create]');
+	await expect(siteCreate).toBeVisible();
+	await expect(siteCreate).toBeDisabled();
+	await sitePanel.locator('[data-site-field="name"]').fill('UI-FX site mode probe');
+	await expect(siteCreate).toBeEnabled();
 	const totals = await keyTotals(page, 'all=true&per_page=100&state=all');
 	expect(totals.status).toBe(200);
 	expect(totals.total).toBe(EXPECTED_ROWS);
@@ -53,6 +86,7 @@ test('UI-FX-01 fixture actors log in with separate ownership and quota', async (
 	await expect(page.locator('#user_login')).toHaveValue('xnetvn_ui_editor');
 	const profile = await hubFor(page, 'profile');
 	await expect(profile).toBeVisible();
+	await expect(profile.locator('[data-create]')).toBeVisible();
 	await page.goto('/wp-admin/admin.php?page=xnetvn-agent-hub-wp');
 	await expect(page.locator('body')).toContainText('Sorry, you are not allowed to access this page.');
 
@@ -104,8 +138,20 @@ test.describe('UI-FX-03 hub views load on this lab site without console errors',
 		test(`view ${view}`, async ({ page }) => {
 			const errors = [];
 			page.on('pageerror', error => errors.push(error.message));
-			await loginAs(page, 'administrator');
-			await hubFor(page, view);
+			if (view === 'profile') {
+				await loginAs(page, 'editor');
+				await hubFor(page, 'profile');
+			} else if (view === 'user-edit') {
+				await loginAs(page, 'administrator');
+				await page.goto('/wp-admin/profile.php');
+				const editorId = await userIdByLogin(page, LOGINS.editor);
+				expect(editorId).toBeGreaterThan(0);
+				await page.goto(`/wp-admin/user-edit.php?user_id=${editorId}`);
+				await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]')).toBeVisible();
+			} else {
+				await loginAs(page, 'administrator');
+				await hubFor(page, view);
+			}
 			expect(errors).toEqual([]);
 		});
 	}

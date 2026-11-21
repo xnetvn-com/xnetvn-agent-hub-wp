@@ -265,7 +265,7 @@ final class SiteDispatcherTest extends TestCase {
 			new DateTimeImmutable( '@' . ( time() + 3600 ) )
 		);
 		$credential       = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Fixture', $scope, new DateTimeImmutable( '@' . time() ) );
-		$this->context    = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		$this->context    = new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 		$this->definition = new SiteDispatcherFixture();
 		$this->catalog    = new SiteDispatcherCatalog( $this->definition );
 	}
@@ -339,7 +339,7 @@ final class SiteDispatcherTest extends TestCase {
 			new DateTimeImmutable( '@' . ( time() + 3600 ) )
 		);
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Fixture', $narrow, new DateTimeImmutable( '@' . time() ) );
-		$denied     = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		$denied     = new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $dispatcher->execute( 'xnetvn/get-site-info', array(), $denied )->get_error_code() );
 		self::assertSame( 0, $called );
 		Functions\when( 'rest_validate_value_from_schema' )->justReturn( false );
@@ -384,7 +384,7 @@ final class SiteDispatcherTest extends TestCase {
 		self::assertTrue( $registry->allowed( $this->definition ) );
 		self::assertSame( array( 'machine' => true ), $registry->execute( 'xnetvn/get-site-info', array() ) );
 		$api              = new ApiKey( 1, new KeyId( 'hijklmnopqrs' ), 7, 'Human', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . time() ) );
-		$request->context = new AuthContext( $api, '0123456789abcdef' );
+		$request->context = new AuthContext( $api, '0fa0fa0fa0fa0fa0' );
 		self::assertFalse( $registry->allowed( $this->definition ) );
 		self::assertSame( array(), $registry->visible() );
 		$denied = $registry->execute( 'xnetvn/get-site-info', array() );
@@ -461,7 +461,7 @@ final class SiteDispatcherTest extends TestCase {
 		);
 		$narrow     = new SiteScope( RiskTier::Write, array( 'system' ), array( 'xnetvn/get-session-info' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Narrow', $narrow, new DateTimeImmutable( '@' . time() ) );
-		$denied     = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		$denied     = new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 		self::assertFalse( $this->policy->evaluate( $this->definition->descriptor(), $denied, 'http' )->allowed );
 	}
 
@@ -472,7 +472,7 @@ final class SiteDispatcherTest extends TestCase {
 		$dispatcher->register( 'xnetvn/get-site-info', static fn( array $arguments, SiteAuthContext $context ): array => array( 'machine' => true ) );
 		$scope      = new SiteScope( RiskTier::Write, array( 'system' ), array( 'xnetvn/get-site-info' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), 2, 'Other blog', $scope, new DateTimeImmutable( '@' . time() ) );
-		$other      = new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		$other      = new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 		$result     = $dispatcher->execute( 'xnetvn/get-site-info', array(), $other );
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'xnetvn_agent_hub_wp_tool_unavailable', $result->get_error_code() );
@@ -539,7 +539,7 @@ final class SiteDispatcherTest extends TestCase {
 	 */
 	private function context_for( SiteScope $scope ): SiteAuthContext {
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), self::BLOG, 'Fixture', $scope, new DateTimeImmutable( '@' . time() ) );
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 
 	/**

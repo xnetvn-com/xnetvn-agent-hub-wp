@@ -22,10 +22,34 @@ final class MigrationProvider implements ServiceProvider {
 	public function __construct( private string $plugin_file, private Migrator $migrator ) {
 	}
 
-	/** Register activation and cheap per-request version checks. */
+	/** Register activation, new-blog and cheap per-request version checks. */
 	public function register(): void {
 		register_activation_hook( $this->plugin_file, array( $this, 'ensure_schema' ) );
 		add_action( 'plugins_loaded', array( $this, 'ensure_schema' ), 1 );
+		add_action( 'wp_initialize_site', array( $this, 'on_initialize_site' ), 20, 1 );
+	}
+
+	/**
+	 * Migrate a newly created blog without ever aborting its creation.
+	 *
+	 * @param \WP_Site $site New site object.
+	 */
+	public function on_initialize_site( \WP_Site $site ): void {
+		$blog_id = (int) $site->blog_id;
+		if ( $blog_id < 1 ) {
+			return;
+		}
+		$entry = get_current_blog_id();
+		if ( $blog_id === $entry ) {
+			$this->ensure_schema();
+			return;
+		}
+		try {
+			switch_to_blog( $blog_id );
+			$this->ensure_schema();
+		} finally {
+			restore_current_blog();
+		}
 	}
 
 	/** Migrate or display a deferred safe storage diagnostic. */

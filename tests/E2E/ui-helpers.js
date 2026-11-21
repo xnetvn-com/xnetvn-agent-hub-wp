@@ -145,9 +145,10 @@ async function assertSafeArtifacts(directory) {
 			continue;
 		}
 		const content = fs.readFileSync(file, 'utf8');
+		const password = process.env.XNETVN_TEST_PASSWORD;
 		if (/xnv_[a-z2-7]{12}_[A-Za-z0-9_-]{43}/.test(content)
 			|| /wordpress_logged_in_[a-f0-9]+/i.test(content)
-			|| content.includes('XNETVN_TEST_PASSWORD')) {
+			|| (typeof password === 'string' && password !== '' && content.includes(password))) {
 			offenders.add(path.relative(resolved, file));
 		}
 	}

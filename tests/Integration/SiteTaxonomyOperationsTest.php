@@ -785,6 +785,518 @@ final class SiteTaxonomyOperationsTest extends WP_UnitTestCase {
 		self::assertSame( array( 'site:' . self::BLOG . ':abcdefghijkl' ), $budget->identities );
 	}
 
+	/** A custom hierarchical categories family authorizes every mapped write. */
+	public function test_categories_capability_family_authorizes_the_mapped_writes(): void {
+		$suffix   = (string) wp_rand( 10000000, 99999999 );
+		$taxonomy = 'site_fr15_matrix_cat_' . $suffix;
+		$this->register_reviewed_taxonomy(
+			$taxonomy,
+			true,
+			array( 'post' ),
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		try {
+			$name    = 'Matrix category ' . $suffix;
+			$created = $this->operations->execute(
+				'xnetvn/create-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'name'     => $name,
+				),
+				$this->context
+			);
+			self::assertIsArray( $created, is_wp_error( $created ) ? $created->get_error_message() : '' );
+			$term_id = (int) $created['id'];
+			self::assertInstanceOf( \WP_Term::class, get_term( $term_id, $taxonomy ) );
+
+			$renamed = $this->operations->execute(
+				'xnetvn/update-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'id'       => $term_id,
+					'name'     => $name . ' updated',
+				),
+				$this->context
+			);
+			self::assertIsArray( $renamed, is_wp_error( $renamed ) ? $renamed->get_error_message() : '' );
+			$updated = get_term( $term_id, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $updated );
+			self::assertSame( $name . ' updated', $updated->name );
+
+			$dry = $this->operations->execute(
+				'xnetvn/delete-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'id'       => $term_id,
+					'dry_run'  => true,
+				),
+				$this->context
+			);
+			self::assertIsArray( $dry, is_wp_error( $dry ) ? $dry->get_error_message() : '' );
+			self::assertTrue( $dry['dry_run'] );
+			self::assertFalse( $dry['deleted'] );
+			self::assertInstanceOf( \WP_Term::class, get_term( $term_id, $taxonomy ) );
+
+			$post     = (int) self::factory()->post->create( array( 'post_status' => 'publish' ) );
+			$assigned = $this->operations->execute(
+				'xnetvn/assign-post-terms',
+				array(
+					'taxonomy' => $taxonomy,
+					'post_id'  => $post,
+					'term_ids' => array( $term_id ),
+					'mode'     => 'append',
+				),
+				$this->context
+			);
+			self::assertInstanceOf( MutationResult::class, $assigned, is_wp_error( $assigned ) ? $assigned->get_error_message() : '' );
+			self::assertSame( array( $term_id ), array_map( 'intval', wp_get_object_terms( $post, $taxonomy, array( 'fields' => 'ids' ) ) ) );
+		} finally {
+			unregister_taxonomy( $taxonomy );
+		}
+	}
+
+	/** A custom non-hierarchical post_tags family authorizes every mapped write. */
+	public function test_post_tags_capability_family_authorizes_the_mapped_writes(): void {
+		$suffix   = (string) wp_rand( 10000000, 99999999 );
+		$taxonomy = 'site_fr15_matrix_tag_' . $suffix;
+		$this->register_reviewed_taxonomy(
+			$taxonomy,
+			false,
+			array( 'post' ),
+			array(
+				'manage_terms' => 'manage_post_tags',
+				'edit_terms'   => 'edit_post_tags',
+				'delete_terms' => 'delete_post_tags',
+				'assign_terms' => 'assign_post_tags',
+			)
+		);
+		try {
+			// A non-hierarchical taxonomy maps create to assign_terms.
+			$name    = 'Matrix tag ' . $suffix;
+			$created = $this->operations->execute(
+				'xnetvn/create-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'name'     => $name,
+				),
+				$this->context
+			);
+			self::assertIsArray( $created, is_wp_error( $created ) ? $created->get_error_message() : '' );
+			$term_id = (int) $created['id'];
+			self::assertInstanceOf( \WP_Term::class, get_term( $term_id, $taxonomy ) );
+
+			$renamed = $this->operations->execute(
+				'xnetvn/update-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'id'       => $term_id,
+					'name'     => $name . ' updated',
+				),
+				$this->context
+			);
+			self::assertIsArray( $renamed, is_wp_error( $renamed ) ? $renamed->get_error_message() : '' );
+			$updated = get_term( $term_id, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $updated );
+			self::assertSame( $name . ' updated', $updated->name );
+
+			$dry = $this->operations->execute(
+				'xnetvn/delete-term',
+				array(
+					'taxonomy' => $taxonomy,
+					'id'       => $term_id,
+					'dry_run'  => true,
+				),
+				$this->context
+			);
+			self::assertIsArray( $dry, is_wp_error( $dry ) ? $dry->get_error_message() : '' );
+			self::assertTrue( $dry['dry_run'] );
+			self::assertFalse( $dry['deleted'] );
+			self::assertInstanceOf( \WP_Term::class, get_term( $term_id, $taxonomy ) );
+
+			$post     = (int) self::factory()->post->create( array( 'post_status' => 'publish' ) );
+			$assigned = $this->operations->execute(
+				'xnetvn/assign-post-terms',
+				array(
+					'taxonomy' => $taxonomy,
+					'post_id'  => $post,
+					'term_ids' => array( $term_id ),
+					'mode'     => 'append',
+				),
+				$this->context
+			);
+			self::assertInstanceOf( MutationResult::class, $assigned, is_wp_error( $assigned ) ? $assigned->get_error_message() : '' );
+			self::assertSame( array( $term_id ), array_map( 'intval', wp_get_object_terms( $post, $taxonomy, array( 'fields' => 'ids' ) ) ) );
+		} finally {
+			unregister_taxonomy( $taxonomy );
+		}
+	}
+
+	/** One wrong capability key alone refuses its named operation with no state change. */
+	public function test_single_key_refusals_leave_term_and_relationship_snapshots_unchanged(): void {
+		$suffix   = (string) wp_rand( 10000000, 99999999 );
+		$cases    = array(
+			'manage_terms' => array( 'site_fr15_neg_mt_' . $suffix, 'xnetvn/update-term' ),
+			'edit_terms'   => array( 'site_fr15_neg_et_' . $suffix, 'xnetvn/update-term' ),
+			'delete_terms' => array( 'site_fr15_neg_dt_' . $suffix, 'xnetvn/delete-term' ),
+			'assign_terms' => array( 'site_fr15_neg_at_' . $suffix, 'xnetvn/assign-post-terms' ),
+		);
+		$reviewed = array(
+			'manage_terms' => 'manage_categories',
+			'edit_terms'   => 'edit_categories',
+			'delete_terms' => 'delete_categories',
+			'assign_terms' => 'assign_categories',
+		);
+		$post     = (int) self::factory()->post->create( array( 'post_status' => 'publish' ) );
+		foreach ( $cases as $key => $case ) {
+			list( $taxonomy, $operation ) = $case;
+			$capabilities                 = $reviewed;
+			$capabilities[ $key ]         = 'manage_options';
+			$this->register_reviewed_taxonomy( $taxonomy, true, array( 'post' ), $capabilities );
+			try {
+				$term        = (int) self::factory()->term->create(
+					array(
+						'taxonomy' => $taxonomy,
+						'name'     => 'Negative ' . $key . ' ' . $suffix,
+					)
+				);
+				$before_term = get_term( $term, $taxonomy );
+				self::assertInstanceOf( \WP_Term::class, $before_term, $key );
+				$before_count = (int) get_terms(
+					array(
+						'taxonomy'   => $taxonomy,
+						'hide_empty' => false,
+						'fields'     => 'count',
+					)
+				);
+				$before_links = array_map( 'intval', wp_get_object_terms( $post, $taxonomy, array( 'fields' => 'ids' ) ) );
+				$args         = match ( $operation ) {
+					'xnetvn/update-term' => array(
+						'taxonomy' => $taxonomy,
+						'id'       => $term,
+						'name'     => 'Changed ' . $suffix,
+					),
+					'xnetvn/delete-term' => array(
+						'taxonomy' => $taxonomy,
+						'id'       => $term,
+						'dry_run'  => true,
+					),
+					default              => array(
+						'taxonomy' => $taxonomy,
+						'post_id'  => $post,
+						'term_ids' => array( $term ),
+						'mode'     => 'append',
+					),
+				};
+				$result = $this->operations->execute( $operation, $args, $this->context );
+				self::assertInstanceOf( \WP_Error::class, $result, $operation . ' must be refused for ' . $key );
+				self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), $key );
+				$after_term = get_term( $term, $taxonomy );
+				self::assertInstanceOf( \WP_Term::class, $after_term, $key );
+				self::assertSame( $before_term->name, $after_term->name, $key );
+				self::assertSame(
+					$before_count,
+					(int) get_terms(
+						array(
+							'taxonomy'   => $taxonomy,
+							'hide_empty' => false,
+							'fields'     => 'count',
+						)
+					),
+					$key
+				);
+				self::assertSame( $before_links, array_map( 'intval', wp_get_object_terms( $post, $taxonomy, array( 'fields' => 'ids' ) ) ), $key );
+			} finally {
+				unregister_taxonomy( $taxonomy );
+			}
+		}
+	}
+
+	/** A registered term-meta callback never widens or narrows the machine meta path. */
+	public function test_term_meta_callback_boundary_follows_show_in_rest_only(): void {
+		$suffix       = (string) wp_rand( 10000000, 99999999 );
+		$key          = 'site_fr15_meta_' . $suffix;
+		$hidden_value = 'Hidden meta ' . $suffix;
+		$hidden_term  = (int) self::factory()->term->create(
+			array(
+				'taxonomy' => 'post_tag',
+				'name'     => 'Meta hidden ' . $suffix,
+			)
+		);
+		self::assertTrue(
+			register_term_meta(
+				'post_tag',
+				$key,
+				array(
+					'type'          => 'string',
+					'single'        => true,
+					'show_in_rest'  => false,
+					'auth_callback' => '__return_true',
+				)
+			),
+			'the hidden term meta key must register'
+		);
+		try {
+			update_term_meta( $hidden_term, $key, $hidden_value );
+			self::assertSame( $hidden_value, get_term_meta( $hidden_term, $key, true ) );
+			$refused_name = 'Hidden write ' . $suffix;
+			$refused      = $this->operations->execute(
+				'xnetvn/create-term',
+				array(
+					'taxonomy' => 'post_tag',
+					'name'     => $refused_name,
+					'meta'     => array( $key => 'Submitted value' ),
+				),
+				$this->context
+			);
+			self::assertInstanceOf( \WP_Error::class, $refused, 'show_in_rest=false must refuse the meta write' );
+			self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $refused->get_error_code() );
+			self::assertNull( term_exists( $refused_name, 'post_tag' ) );
+
+			$projected = $this->operations->execute(
+				'xnetvn/get-term',
+				array(
+					'taxonomy' => 'post_tag',
+					'id'       => $hidden_term,
+					'fields'   => array( 'meta' ),
+				),
+				$this->context
+			);
+			self::assertIsArray( $projected, is_wp_error( $projected ) ? $projected->get_error_message() : '' );
+			$projected_meta = is_array( $projected['meta'] ?? null ) ? $projected['meta'] : array();
+			self::assertArrayNotHasKey( $key, $projected_meta );
+			self::assertSame( $hidden_value, get_term_meta( $hidden_term, $key, true ) );
+
+			unregister_term_meta( 'post_tag', $key );
+
+			foreach ( array( true, false ) as $allowed ) {
+				$label    = $allowed ? 'true' : 'false';
+				$calls    = 0;
+				$callback = static function () use ( &$calls, $allowed ): bool {
+					++$calls;
+					return $allowed;
+				};
+				self::assertTrue(
+					register_term_meta(
+						'post_tag',
+						$key,
+						array(
+							'type'          => 'string',
+							'single'        => true,
+							'show_in_rest'  => true,
+							'auth_callback' => $callback,
+						)
+					),
+					'the open term meta key must register'
+				);
+				$accepted = $this->operations->execute(
+					'xnetvn/create-term',
+					array(
+						'taxonomy' => 'post_tag',
+						'name'     => 'Open write ' . $label . ' ' . $suffix,
+						'meta'     => array( $key => 'Stored ' . $label ),
+					),
+					$this->context
+				);
+				self::assertIsArray( $accepted, is_wp_error( $accepted ) ? $accepted->get_error_message() : '' );
+				$term_id = (int) $accepted['id'];
+				self::assertSame( 'Stored ' . $label, get_term_meta( $term_id, $key, true ) );
+				self::assertSame( 0, $calls, 'auth_callback must not run for the accepted write' );
+
+				$invalid_name = 'Invalid write ' . $label . ' ' . $suffix;
+				$invalid      = $this->operations->execute(
+					'xnetvn/create-term',
+					array(
+						'taxonomy' => 'post_tag',
+						'name'     => $invalid_name,
+						'meta'     => array( $key => array( 'not-a-string' ) ),
+					),
+					$this->context
+				);
+				self::assertInstanceOf( \WP_Error::class, $invalid, 'a non-string value must fail the registered string schema' );
+				self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $invalid->get_error_code() );
+				self::assertNull( term_exists( $invalid_name, 'post_tag' ) );
+				self::assertSame( 'Stored ' . $label, get_term_meta( $term_id, $key, true ) );
+				self::assertSame( 0, $calls, 'auth_callback must not run for the refused write' );
+				unregister_term_meta( 'post_tag', $key );
+			}
+		} finally {
+			unregister_term_meta( 'post_tag', $key );
+		}
+	}
+
+	/** A post and attachment taxonomy reports post only and refuses the attachment. */
+	public function test_mixed_object_types_report_post_only_and_refuse_attachment(): void {
+		$suffix   = (string) wp_rand( 10000000, 99999999 );
+		$taxonomy = 'site_fr15_mixed_' . $suffix;
+		$this->register_reviewed_taxonomy(
+			$taxonomy,
+			true,
+			array( 'post', 'attachment' ),
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		try {
+			$listed = $this->operations->execute( 'xnetvn/list-taxonomies', array(), $this->context );
+			self::assertIsArray( $listed, is_wp_error( $listed ) ? $listed->get_error_message() : '' );
+			$item = $this->listed_taxonomy( $listed, $taxonomy );
+			self::assertIsArray( $item, $taxonomy . ' must be listed' );
+			self::assertSame( array( 'post' ), $item['types'] );
+
+			$term        = (int) self::factory()->term->create(
+				array(
+					'taxonomy' => $taxonomy,
+					'name'     => 'Mixed ' . $suffix,
+				)
+			);
+			$before_term = get_term( $term, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $before_term, 'attachment refusal' );
+			$before_count = (int) get_terms(
+				array(
+					'taxonomy'   => $taxonomy,
+					'hide_empty' => false,
+					'fields'     => 'count',
+				)
+			);
+			$attachment   = (int) self::factory()->post->create(
+				array(
+					'post_type'   => 'attachment',
+					'post_status' => 'inherit',
+				)
+			);
+			$result       = $this->operations->execute(
+				'xnetvn/assign-post-terms',
+				array(
+					'taxonomy' => $taxonomy,
+					'post_id'  => $attachment,
+					'term_ids' => array( $term ),
+					'mode'     => 'append',
+				),
+				$this->context
+			);
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'xnetvn_agent_hub_wp_post_type_unavailable', $result->get_error_code() );
+			self::assertSame( array(), wp_get_object_terms( $attachment, $taxonomy, array( 'fields' => 'ids' ) ) );
+			$after_term = get_term( $term, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $after_term, 'attachment refusal' );
+			self::assertSame( $before_term->name, $after_term->name, 'attachment refusal' );
+			self::assertSame( $before_term->slug, $after_term->slug, 'attachment refusal' );
+			self::assertSame(
+				$before_count,
+				(int) get_terms(
+					array(
+						'taxonomy'   => $taxonomy,
+						'hide_empty' => false,
+						'fields'     => 'count',
+					)
+				),
+				'attachment refusal'
+			);
+		} finally {
+			unregister_taxonomy( $taxonomy );
+		}
+	}
+
+	/** An attachment-only taxonomy is unavailable for every named operation. */
+	public function test_attachment_only_taxonomy_is_unavailable_for_every_operation(): void {
+		$suffix   = (string) wp_rand( 10000000, 99999999 );
+		$taxonomy = 'site_fr15_attach_only_' . $suffix;
+		$this->register_reviewed_taxonomy(
+			$taxonomy,
+			true,
+			array( 'attachment' ),
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		try {
+			$cases = array(
+				'xnetvn/get-term'          => array(
+					'taxonomy' => $taxonomy,
+					'id'       => 1,
+				),
+				'xnetvn/create-term'       => array(
+					'taxonomy' => $taxonomy,
+					'name'     => 'Attachment only ' . $suffix,
+				),
+				'xnetvn/assign-post-terms' => array(
+					'taxonomy' => $taxonomy,
+					'post_id'  => 1,
+					'term_ids' => array( 1 ),
+					'mode'     => 'append',
+				),
+			);
+			foreach ( $cases as $operation => $args ) {
+				$result = $this->operations->execute( $operation, $args, $this->context );
+				self::assertInstanceOf( \WP_Error::class, $result, $operation );
+				self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), $operation );
+			}
+			self::assertSame(
+				0,
+				(int) get_terms(
+					array(
+						'taxonomy'   => $taxonomy,
+						'hide_empty' => false,
+						'fields'     => 'count',
+					)
+				)
+			);
+		} finally {
+			unregister_taxonomy( $taxonomy );
+		}
+	}
+
+	/**
+	 * Register one synthetic taxonomy with a reviewed capability map.
+	 *
+	 * @param string               $taxonomy     Taxonomy key.
+	 * @param bool                 $hierarchical Whether the taxonomy is hierarchical.
+	 * @param array<string>        $object_types Object types.
+	 * @param array<string,string> $capabilities Reviewed capability map.
+	 * @return void
+	 */
+	private function register_reviewed_taxonomy( string $taxonomy, bool $hierarchical, array $object_types, array $capabilities ): void {
+		register_taxonomy(
+			$taxonomy,
+			$object_types,
+			array(
+				'public'       => false,
+				'show_in_rest' => true,
+				'hierarchical' => $hierarchical,
+				'rest_base'    => $taxonomy,
+				'capabilities' => $capabilities,
+			)
+		);
+	}
+
+	/**
+	 * Return one listed taxonomy by slug.
+	 *
+	 * @param array<string,mixed> $listed Listed response.
+	 * @param string              $slug   Taxonomy key.
+	 * @return array<string,mixed>|null
+	 */
+	private function listed_taxonomy( array $listed, string $slug ): ?array {
+		$items = is_array( $listed['items'] ?? null ) ? $listed['items'] : array();
+		foreach ( $items as $item ) {
+			if ( is_array( $item ) && (string) ( $item['slug'] ?? '' ) === $slug ) {
+				return $item;
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Build the machine identity.
 	 *
@@ -808,6 +1320,6 @@ final class SiteTaxonomyOperationsTest extends WP_UnitTestCase {
 			$scope,
 			new DateTimeImmutable( '@' . time() )
 		);
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 }

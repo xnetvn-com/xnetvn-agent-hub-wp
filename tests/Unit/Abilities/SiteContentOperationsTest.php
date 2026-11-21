@@ -1875,7 +1875,7 @@ final class SiteContentOperationsTest extends TestCase {
 	 */
 	private function context_for( SiteScope $scope, int $blog_id = self::BLOG ): SiteAuthContext {
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), $blog_id, 'Fixture', $scope, new DateTimeImmutable( '@' . time() ) );
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 
 	/**

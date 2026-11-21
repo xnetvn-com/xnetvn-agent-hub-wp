@@ -990,7 +990,7 @@ final class SiteContentOperationsTest extends WP_UnitTestCase {
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), $blog_id, 'Integration', $scope, new DateTimeImmutable( '@' . time() ) );
 		return array(
 			'dispatcher' => $dispatcher,
-			'context'    => new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' ),
+			'context'    => new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' ),
 			'budget'     => $budget,
 		);
 	}

@@ -959,7 +959,7 @@ final class EditorialAuthorsTest extends TestCase {
 			new DateTimeImmutable( '@' . time() ),
 			$revoked ? new DateTimeImmutable( '@' . time() ) : null
 		);
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 
 	/**

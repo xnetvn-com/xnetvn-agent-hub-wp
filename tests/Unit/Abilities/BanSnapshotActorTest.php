@@ -289,6 +289,6 @@ final class BanSnapshotActorTest extends TestCase {
 			new DateTimeImmutable( '2026-11-17T00:00:00Z' )
 		);
 
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.9' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.9' );
 	}
 }

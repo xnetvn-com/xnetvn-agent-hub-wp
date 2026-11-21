@@ -2123,6 +2123,671 @@ final class SiteTaxonomyOperationsTest extends TestCase {
 		}
 	}
 
+	/** The reviewed map accepts manage_terms = manage_categories for an update. */
+	public function test_capability_map_accepts_manage_terms_manage_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_mt_mc',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_mt_mc', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_mt_mc',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'manage_terms=manage_categories must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts manage_terms = manage_post_tags for an update. */
+	public function test_capability_map_accepts_manage_terms_manage_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_mt_mpt',
+			true,
+			array(
+				'manage_terms' => 'manage_post_tags',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_mt_mpt', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_mt_mpt',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'manage_terms=manage_post_tags must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts edit_terms = manage_categories for an update. */
+	public function test_capability_map_accepts_edit_terms_manage_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_et_mc',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'manage_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_et_mc', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_et_mc',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'edit_terms=manage_categories must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts edit_terms = manage_post_tags for an update. */
+	public function test_capability_map_accepts_edit_terms_manage_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_et_mpt',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'manage_post_tags',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_et_mpt', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_et_mpt',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'edit_terms=manage_post_tags must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts edit_terms = edit_categories for an update. */
+	public function test_capability_map_accepts_edit_terms_edit_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_et_ec',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_et_ec', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_et_ec',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'edit_terms=edit_categories must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts edit_terms = edit_post_tags for an update. */
+	public function test_capability_map_accepts_edit_terms_edit_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_et_ept',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_post_tags',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_et_ept', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_et_ept',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'edit_terms=edit_post_tags must be accepted' );
+		self::assertSame( 'Renamed', $result['name'] );
+		self::assertCount( 1, $this->world->updated );
+	}
+
+	/** The reviewed map accepts delete_terms = manage_categories for a dry run. */
+	public function test_capability_map_accepts_delete_terms_manage_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_dt_mc',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'manage_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_dt_mc', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/delete-term',
+			array(
+				'taxonomy' => 'fr15_dt_mc',
+				'id'       => 51,
+				'dry_run'  => true,
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'delete_terms=manage_categories must be accepted' );
+		self::assertTrue( $result['dry_run'] );
+		self::assertFalse( $result['deleted'] );
+		self::assertSame( array(), $this->world->deleted );
+	}
+
+	/** The reviewed map accepts delete_terms = manage_post_tags for a dry run. */
+	public function test_capability_map_accepts_delete_terms_manage_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_dt_mpt',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'manage_post_tags',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_dt_mpt', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/delete-term',
+			array(
+				'taxonomy' => 'fr15_dt_mpt',
+				'id'       => 51,
+				'dry_run'  => true,
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'delete_terms=manage_post_tags must be accepted' );
+		self::assertTrue( $result['dry_run'] );
+		self::assertFalse( $result['deleted'] );
+		self::assertSame( array(), $this->world->deleted );
+	}
+
+	/** The reviewed map accepts delete_terms = delete_categories for a dry run. */
+	public function test_capability_map_accepts_delete_terms_delete_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_dt_dc',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_dt_dc', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/delete-term',
+			array(
+				'taxonomy' => 'fr15_dt_dc',
+				'id'       => 51,
+				'dry_run'  => true,
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'delete_terms=delete_categories must be accepted' );
+		self::assertTrue( $result['dry_run'] );
+		self::assertFalse( $result['deleted'] );
+		self::assertSame( array(), $this->world->deleted );
+	}
+
+	/** The reviewed map accepts delete_terms = delete_post_tags for a dry run. */
+	public function test_capability_map_accepts_delete_terms_delete_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_dt_dpt',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_post_tags',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_dt_dpt', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/delete-term',
+			array(
+				'taxonomy' => 'fr15_dt_dpt',
+				'id'       => 51,
+				'dry_run'  => true,
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'delete_terms=delete_post_tags must be accepted' );
+		self::assertTrue( $result['dry_run'] );
+		self::assertFalse( $result['deleted'] );
+		self::assertSame( array(), $this->world->deleted );
+	}
+
+	/** The reviewed map accepts assign_terms = edit_posts for an appended term. */
+	public function test_capability_map_accepts_assign_terms_edit_posts(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_at_ep',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'edit_posts',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_at_ep', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/assign-post-terms',
+			array(
+				'taxonomy' => 'fr15_at_ep',
+				'post_id'  => 11,
+				'term_ids' => array( 51 ),
+				'mode'     => 'append',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( MutationResult::class, $result, 'assign_terms=edit_posts must be accepted' );
+		self::assertSame( array( 51 ), $result->data['term_ids'] );
+		self::assertCount( 1, $this->world->assigned );
+	}
+
+	/** The reviewed map accepts assign_terms = assign_categories for an appended term. */
+	public function test_capability_map_accepts_assign_terms_assign_categories(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_at_ac',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_at_ac', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/assign-post-terms',
+			array(
+				'taxonomy' => 'fr15_at_ac',
+				'post_id'  => 11,
+				'term_ids' => array( 51 ),
+				'mode'     => 'append',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( MutationResult::class, $result, 'assign_terms=assign_categories must be accepted' );
+		self::assertSame( array( 51 ), $result->data['term_ids'] );
+		self::assertCount( 1, $this->world->assigned );
+	}
+
+	/** The reviewed map accepts assign_terms = assign_post_tags for an appended term. */
+	public function test_capability_map_accepts_assign_terms_assign_post_tags(): void {
+		$this->register_matrix_taxonomy(
+			'fr15_at_apt',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_post_tags',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_at_apt', 'Matrix term', 'matrix-term' );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/assign-post-terms',
+			array(
+				'taxonomy' => 'fr15_at_apt',
+				'post_id'  => 11,
+				'term_ids' => array( 51 ),
+				'mode'     => 'append',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( MutationResult::class, $result, 'assign_terms=assign_post_tags must be accepted' );
+		self::assertSame( array( 51 ), $result->data['term_ids'] );
+		self::assertCount( 1, $this->world->assigned );
+	}
+
+	/** One wrong manage_terms value alone refuses the update and writes nothing. */
+	public function test_capability_map_refuses_manage_terms_manage_options(): void {
+		Functions\expect( 'wp_update_term' )->never();
+		$this->register_matrix_taxonomy(
+			'fr15_neg_mt',
+			true,
+			array(
+				'manage_terms' => 'manage_options',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_neg_mt', 'Matrix term', 'matrix-term' );
+		$terms_before         = $this->world->terms;
+		$relationships_before = $this->world->relationships;
+		$result               = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_neg_mt',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $result, 'manage_terms=manage_options must be refused' );
+		self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), 'manage_terms=manage_options must be refused' );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->updated );
+		self::assertSame( array(), $this->world->deleted );
+		self::assertSame( array(), $this->world->assigned );
+		self::assertSame( $terms_before, $this->world->terms );
+		self::assertSame( $relationships_before, $this->world->relationships );
+	}
+
+	/** One wrong edit_terms value alone refuses the update and writes nothing. */
+	public function test_capability_map_refuses_edit_terms_manage_options(): void {
+		Functions\expect( 'wp_update_term' )->never();
+		$this->register_matrix_taxonomy(
+			'fr15_neg_et',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'manage_options',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_neg_et', 'Matrix term', 'matrix-term' );
+		$terms_before         = $this->world->terms;
+		$relationships_before = $this->world->relationships;
+		$result               = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/update-term',
+			array(
+				'taxonomy' => 'fr15_neg_et',
+				'id'       => 51,
+				'name'     => 'Renamed',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $result, 'edit_terms=manage_options must be refused' );
+		self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), 'edit_terms=manage_options must be refused' );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->updated );
+		self::assertSame( array(), $this->world->deleted );
+		self::assertSame( array(), $this->world->assigned );
+		self::assertSame( $terms_before, $this->world->terms );
+		self::assertSame( $relationships_before, $this->world->relationships );
+	}
+
+	/** One wrong delete_terms value alone refuses the dry run and writes nothing. */
+	public function test_capability_map_refuses_delete_terms_manage_options(): void {
+		Functions\expect( 'wp_delete_term' )->never();
+		$this->register_matrix_taxonomy(
+			'fr15_neg_dt',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'manage_options',
+				'assign_terms' => 'assign_categories',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_neg_dt', 'Matrix term', 'matrix-term' );
+		$terms_before         = $this->world->terms;
+		$relationships_before = $this->world->relationships;
+		$result               = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/delete-term',
+			array(
+				'taxonomy' => 'fr15_neg_dt',
+				'id'       => 51,
+				'dry_run'  => true,
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $result, 'delete_terms=manage_options must be refused' );
+		self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), 'delete_terms=manage_options must be refused' );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->updated );
+		self::assertSame( array(), $this->world->deleted );
+		self::assertSame( array(), $this->world->assigned );
+		self::assertSame( $terms_before, $this->world->terms );
+		self::assertSame( $relationships_before, $this->world->relationships );
+	}
+
+	/** One wrong assign_terms value alone refuses the assignment and writes nothing. */
+	public function test_capability_map_refuses_assign_terms_manage_options(): void {
+		Functions\expect( 'wp_set_object_terms' )->never();
+		Functions\expect( 'wp_remove_object_terms' )->never();
+		$this->register_matrix_taxonomy(
+			'fr15_neg_at',
+			true,
+			array(
+				'manage_terms' => 'manage_categories',
+				'edit_terms'   => 'edit_categories',
+				'delete_terms' => 'delete_categories',
+				'assign_terms' => 'manage_options',
+			)
+		);
+		$this->world->add_term( 51, 'fr15_neg_at', 'Matrix term', 'matrix-term' );
+		$terms_before         = $this->world->terms;
+		$relationships_before = $this->world->relationships;
+		$result               = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/assign-post-terms',
+			array(
+				'taxonomy' => 'fr15_neg_at',
+				'post_id'  => 11,
+				'term_ids' => array( 51 ),
+				'mode'     => 'append',
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $result, 'assign_terms=manage_options must be refused' );
+		self::assertSame( 'xnetvn_agent_hub_wp_taxonomy_unavailable', $result->get_error_code(), 'assign_terms=manage_options must be refused' );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->updated );
+		self::assertSame( array(), $this->world->deleted );
+		self::assertSame( array(), $this->world->assigned );
+		self::assertSame( $terms_before, $this->world->terms );
+		self::assertSame( $relationships_before, $this->world->relationships );
+	}
+
+	/** A show_in_rest false meta key with a permissive callback stays refused and hidden. */
+	public function test_term_meta_hidden_key_is_refused_and_projected_out(): void {
+		$key = 'site_fr15_meta_hidden_' . bin2hex( random_bytes( 4 ) );
+		$this->world->registered_meta['post_tag'][ $key ] = array(
+			'show_in_rest'  => false,
+			'single'        => true,
+			'type'          => 'string',
+			'default'       => '',
+			'auth_callback' => '__return_true',
+		);
+
+		$this->world->meta[6][ $key ] = 'Seeded hidden value';
+
+		$this->world->rest_data = array(
+			'id'          => 6,
+			'taxonomy'    => 'post_tag',
+			'name'        => 'Tag A',
+			'slug'        => 'tag-a',
+			'description' => '',
+			'parent'      => 0,
+			'count'       => 0,
+			'meta'        => array(
+				'site_note' => 'Existing',
+				$key        => 'Seeded hidden value',
+			),
+		);
+
+		$operations = new SiteTaxonomyOperations();
+		$refused    = $operations->execute(
+			'xnetvn/create-term',
+			array(
+				'taxonomy' => 'post_tag',
+				'name'     => 'Hidden meta term',
+				'meta'     => array( $key => 'Submitted value' ),
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $refused, 'show_in_rest=false must refuse the meta write' );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $refused->get_error_code() );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->meta_writes );
+
+		$projected = $operations->execute(
+			'xnetvn/get-term',
+			array(
+				'taxonomy' => 'post_tag',
+				'id'       => 6,
+				'fields'   => array( 'meta' ),
+			),
+			$this->context()
+		);
+		self::assertIsArray( $projected );
+		$meta = is_array( $projected['meta'] ?? null ) ? $projected['meta'] : array();
+		self::assertSame( 'Existing', $meta['site_note'] ?? null );
+		self::assertArrayNotHasKey( $key, $meta );
+	}
+
+	/** A show_in_rest true meta key ignores a permissive counting callback. */
+	public function test_term_meta_open_key_ignores_a_permissive_counting_callback(): void {
+		$key      = 'site_fr15_meta_open_' . bin2hex( random_bytes( 4 ) );
+		$calls    = 0;
+		$callback = static function () use ( &$calls ): bool {
+			++$calls;
+			return true;
+		};
+		$this->register_open_meta( $key, $callback );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/create-term',
+			array(
+				'taxonomy' => 'post_tag',
+				'name'     => 'Open meta term',
+				'meta'     => array( $key => 'Accepted value' ),
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'show_in_rest=true must accept a valid meta write' );
+		$meta = is_array( $result['meta'] ?? null ) ? $result['meta'] : array();
+		self::assertSame( 'Accepted value', $meta[ $key ] ?? null );
+		self::assertCount( 1, $this->world->meta_writes );
+		self::assertSame( 'Accepted value', get_term_meta( (int) $result['id'], $key, true ) );
+		self::assertSame( 0, $calls, 'the machine path must never evaluate a registered auth_callback' );
+	}
+
+	/** A show_in_rest true meta key ignores a denying counting callback identically. */
+	public function test_term_meta_open_key_ignores_a_denying_counting_callback(): void {
+		$key      = 'site_fr15_meta_open_' . bin2hex( random_bytes( 4 ) );
+		$calls    = 0;
+		$callback = static function () use ( &$calls ): bool {
+			++$calls;
+			return false;
+		};
+		$this->register_open_meta( $key, $callback );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/create-term',
+			array(
+				'taxonomy' => 'post_tag',
+				'name'     => 'Open meta term',
+				'meta'     => array( $key => 'Accepted value' ),
+			),
+			$this->context()
+		);
+		self::assertIsArray( $result, 'show_in_rest=true must accept a valid meta write under a denying callback' );
+		$meta = is_array( $result['meta'] ?? null ) ? $result['meta'] : array();
+		self::assertSame( 'Accepted value', $meta[ $key ] ?? null );
+		self::assertCount( 1, $this->world->meta_writes );
+		self::assertSame( 'Accepted value', get_term_meta( (int) $result['id'], $key, true ) );
+		self::assertSame( 0, $calls, 'the machine path must never evaluate a registered auth_callback' );
+	}
+
+	/** An unregistered meta key is refused beside the open key and never calls back. */
+	public function test_term_meta_unregistered_key_is_refused_beside_the_open_key(): void {
+		$key      = 'site_fr15_meta_open_' . bin2hex( random_bytes( 4 ) );
+		$missing  = 'site_fr15_meta_missing_' . bin2hex( random_bytes( 4 ) );
+		$calls    = 0;
+		$callback = static function () use ( &$calls ): bool {
+			++$calls;
+			return false;
+		};
+		$this->register_open_meta( $key, $callback );
+		$result = ( new SiteTaxonomyOperations() )->execute(
+			'xnetvn/create-term',
+			array(
+				'taxonomy' => 'post_tag',
+				'name'     => 'Unregistered meta term',
+				'meta'     => array( $missing => 'value' ),
+			),
+			$this->context()
+		);
+		self::assertInstanceOf( \WP_Error::class, $result, 'an unregistered meta key must be refused' );
+		self::assertSame( 'xnetvn_agent_hub_wp_invalid_params', $result->get_error_code() );
+		self::assertSame( array(), $this->world->inserted );
+		self::assertSame( array(), $this->world->meta_writes );
+		self::assertSame( 0, $calls, 'the refused path must not evaluate the callback either' );
+	}
+
+	/**
+	 * Register one synthetic taxonomy carrying an exact reviewed capability map.
+	 *
+	 * @param string               $name         Taxonomy key.
+	 * @param bool                 $hierarchical Whether the taxonomy is hierarchical.
+	 * @param array<string,string> $capabilities Exact reviewed capability map.
+	 * @return void
+	 */
+	private function register_matrix_taxonomy( string $name, bool $hierarchical, array $capabilities ): void {
+		$this->world->add_taxonomy( new SiteTaxonomyTax( $name, $hierarchical, array( 'post' ), $name, $capabilities ) );
+		$this->world->add_post_type( new SiteTaxonomyPostType( 'post' ), array( 'category', 'post_tag', $name ) );
+	}
+
+	/**
+	 * Register one show_in_rest term meta key with a counting callback.
+	 *
+	 * @param string   $key      Synthetic meta key.
+	 * @param callable $callback Counting auth callback.
+	 * @return void
+	 */
+	private function register_open_meta( string $key, callable $callback ): void {
+		$this->world->registered_meta['post_tag'][ $key ] = array(
+			'show_in_rest'  => true,
+			'single'        => true,
+			'type'          => 'string',
+			'default'       => '',
+			'auth_callback' => $callback,
+		);
+	}
+
 	/** Register the isolated core-class doubles. */
 	private function alias_core_classes(): void {
 		if ( ! class_exists( 'WP_Taxonomy', false ) ) {
@@ -2312,7 +2977,7 @@ final class SiteTaxonomyOperationsTest extends TestCase {
 			new DateTimeImmutable( '@' . time() ),
 			$revoked ? new DateTimeImmutable( '@' . time() ) : null
 		);
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 
 	/**
