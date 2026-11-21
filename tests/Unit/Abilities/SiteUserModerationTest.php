@@ -53,6 +53,16 @@ final class SiteModerationRoles {
 	public function __construct( array $roles ) {
 		$this->roles = $roles;
 	}
+
+	/**
+	 * Whether a name is a registered role slug.
+	 *
+	 * @param string $name Candidate name.
+	 * @return bool
+	 */
+	public function is_role( string $name ): bool {
+		return isset( $this->roles[ $name ] );
+	}
 }
 
 /** Minimal WordPress user double with core role and capability semantics. */

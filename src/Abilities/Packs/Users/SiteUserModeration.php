@@ -362,8 +362,24 @@ final class SiteUserModeration {
 			return false;
 		}
 		$direct = is_array( $after->caps ) ? $after->caps : array();
+		$roles  = wp_roles();
+		$actual = array();
+		foreach ( $direct as $cap => $enabled ) {
+			$name = (string) $cap;
+			if ( 'banned' === $name || $roles->is_role( $name ) ) {
+				continue;
+			}
+			$actual[ $name ] = (bool) $enabled;
+		}
+		$wanted = array();
 		foreach ( $caps as $cap => $enabled ) {
-			if ( ! array_key_exists( $cap, $direct ) || (bool) $direct[ $cap ] !== $enabled ) {
+			$wanted[ (string) $cap ] = (bool) $enabled;
+		}
+		if ( count( $actual ) !== count( $wanted ) ) {
+			return false;
+		}
+		foreach ( $actual as $cap => $enabled ) {
+			if ( ! array_key_exists( $cap, $wanted ) || $wanted[ $cap ] !== $enabled ) {
 				return false;
 			}
 		}
