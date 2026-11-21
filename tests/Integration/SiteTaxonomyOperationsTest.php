@@ -1151,19 +1151,28 @@ final class SiteTaxonomyOperationsTest extends WP_UnitTestCase {
 			self::assertIsArray( $item, $taxonomy . ' must be listed' );
 			self::assertSame( array( 'post' ), $item['types'] );
 
-			$term       = (int) self::factory()->term->create(
+			$term        = (int) self::factory()->term->create(
 				array(
 					'taxonomy' => $taxonomy,
 					'name'     => 'Mixed ' . $suffix,
 				)
 			);
-			$attachment = (int) self::factory()->post->create(
+			$before_term = get_term( $term, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $before_term, 'attachment refusal' );
+			$before_count = (int) get_terms(
+				array(
+					'taxonomy'   => $taxonomy,
+					'hide_empty' => false,
+					'fields'     => 'count',
+				)
+			);
+			$attachment   = (int) self::factory()->post->create(
 				array(
 					'post_type'   => 'attachment',
 					'post_status' => 'inherit',
 				)
 			);
-			$result     = $this->operations->execute(
+			$result       = $this->operations->execute(
 				'xnetvn/assign-post-terms',
 				array(
 					'taxonomy' => $taxonomy,
@@ -1176,6 +1185,21 @@ final class SiteTaxonomyOperationsTest extends WP_UnitTestCase {
 			self::assertInstanceOf( \WP_Error::class, $result );
 			self::assertSame( 'xnetvn_agent_hub_wp_post_type_unavailable', $result->get_error_code() );
 			self::assertSame( array(), wp_get_object_terms( $attachment, $taxonomy, array( 'fields' => 'ids' ) ) );
+			$after_term = get_term( $term, $taxonomy );
+			self::assertInstanceOf( \WP_Term::class, $after_term, 'attachment refusal' );
+			self::assertSame( $before_term->name, $after_term->name, 'attachment refusal' );
+			self::assertSame( $before_term->slug, $after_term->slug, 'attachment refusal' );
+			self::assertSame(
+				$before_count,
+				(int) get_terms(
+					array(
+						'taxonomy'   => $taxonomy,
+						'hide_empty' => false,
+						'fields'     => 'count',
+					)
+				),
+				'attachment refusal'
+			);
 		} finally {
 			unregister_taxonomy( $taxonomy );
 		}
