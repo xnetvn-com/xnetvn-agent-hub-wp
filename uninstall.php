@@ -27,7 +27,7 @@ if ( ! function_exists( 'xnetvn_agent_hub_wp_uninstall_site' ) ) {
 		if ( 1 !== preg_match( '/\A[a-zA-Z0-9_]+\z/', $wpdb->prefix ) ) {
 			wp_die( esc_html__( 'Agent Hub storage configuration is unavailable.', 'xnetvn-agent-hub-wp' ) );
 		}
-		foreach ( array( 'keys', 'audit' ) as $xnetvn_agent_hub_wp_suffix ) {
+		foreach ( array( 'keys', 'audit', 'site_keys' ) as $xnetvn_agent_hub_wp_suffix ) {
 			if ( false === $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . 'xnetvn_agent_hub_wp_' . $xnetvn_agent_hub_wp_suffix ) ) ) {
 				wp_die( esc_html__( 'Agent Hub data removal could not complete.', 'xnetvn-agent-hub-wp' ) );
 			}
