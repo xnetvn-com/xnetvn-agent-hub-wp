@@ -77,6 +77,13 @@ final class SiteModerationUser {
 	 * @var array<string,bool>
 	 */
 	public array $allcaps = array();
+	/** Post-write capability overrides for the exact-map guards.
+	 *
+	 * A null value withholds the key; a boolean forces that value.
+	 *
+	 * @var array<string,bool|null>
+	 */
+	public array $withheld_caps = array();
 
 	/**
 	 * Bind fixture state.
@@ -186,6 +193,16 @@ final class SiteModerationUser {
 	 * @return void
 	 */
 	public function add_cap( string $capability, bool $grant = true ): void {
+		if ( array_key_exists( $capability, $this->withheld_caps ) ) {
+			$forced = $this->withheld_caps[ $capability ];
+			if ( null === $forced ) {
+				unset( $this->caps[ $capability ] );
+			} else {
+				$this->caps[ $capability ] = (bool) $forced;
+			}
+			$this->refresh();
+			return;
+		}
 		$this->caps[ $capability ] = $grant;
 		$this->refresh();
 	}
@@ -735,6 +752,144 @@ final class SiteUserModerationTest extends TestCase {
 		self::assertSame( array(), $stored->caps );
 		self::assertSame( array(), SiteModerationSessions::$destroyed );
 		self::assertSame( array( 'stored' => array( 'expiration' => 1900000000 ) ), SiteModerationSessions::$remaining );
+	}
+
+	/** A repeated ban repairs the leftover capability from the stored snapshot. */
+	public function test_repeated_ban_repairs_from_the_stored_snapshot(): void {
+		$target  = $this->add_user( self::TARGET, array( 'banned' ), array( 'edit_posts' => true ) );
+		$record  = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'   => true,
+				'upload_files' => false,
+			),
+			7,
+			'policy'
+		);
+		$created = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET, $record, $created ) );
+		self::assertTrue( $created );
+		$bytes                             = $this->snapshots[ self::TARGET ];
+		SiteModerationSessions::$destroyed = array();
+
+		$repaired = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertIsArray( $repaired, $repaired instanceof \WP_Error ? $repaired->message : '' );
+		self::assertTrue( $repaired['changed'] );
+		self::assertSame( 'banned', $repaired['status'] );
+		self::assertSame( array( 'banned' ), $target->roles );
+		self::assertSame( array(), $target->caps );
+		self::assertSame( array( self::TARGET ), SiteModerationSessions::$destroyed );
+		self::assertSame( $bytes, $this->snapshots[ self::TARGET ] );
+
+		$again = $this->dispatch(
+			array(
+				'id'          => self::TARGET,
+				'status'      => 'banned',
+				'reason_code' => 'policy',
+			),
+			$this->context( array( 'ban-users' ) )
+		);
+
+		self::assertIsArray( $again, $again instanceof \WP_Error ? $again->message : '' );
+		self::assertFalse( $again['changed'] );
+		self::assertSame( 'banned', $again['status'] );
+		self::assertSame( 'banned', $again['previous_status'] );
+		self::assertSame( array( 'banned' ), $again['roles'] );
+		self::assertCount( 1, SiteModerationSessions::$destroyed );
+		self::assertSame( $bytes, $this->snapshots[ self::TARGET ] );
+	}
+
+	/** A successful unban requires the exact direct capability map. */
+	public function test_unban_requires_the_exact_direct_capability_map(): void {
+		$extra = $this->add_user( self::TARGET, array( 'banned' ), array( 'edit_posts' => true ) );
+		$extra->add_cap( 'upload_files', true );
+		$extra_record = BanSnapshot::build( array( 'author' ), array( 'edit_posts' => true ), 7, 'spam' );
+		$created      = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET, $extra_record, $created ) );
+		$extra_bytes = $this->snapshots[ self::TARGET ];
+
+		$missing        = $this->add_user( self::OTHER, array( 'banned' ) );
+		$missing_record = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'   => true,
+				'upload_files' => true,
+			),
+			7,
+			'spam'
+		);
+		$created        = false;
+		self::assertTrue( BanSnapshot::save( self::OTHER, $missing_record, $created ) );
+		$missing_bytes          = $this->snapshots[ self::OTHER ];
+		$missing->withheld_caps = array( 'upload_files' => null );
+
+		$differing        = $this->add_user( self::TARGET + 2, array( 'banned' ) );
+		$differing_record = BanSnapshot::build(
+			array( 'author' ),
+			array(
+				'edit_posts'         => true,
+				'comment_moderation' => false,
+			),
+			7,
+			'spam'
+		);
+		$created          = false;
+		self::assertTrue( BanSnapshot::save( self::TARGET + 2, $differing_record, $created ) );
+		$differing_bytes          = $this->snapshots[ self::TARGET + 2 ];
+		$differing->withheld_caps = array( 'comment_moderation' => true );
+
+		$extra_result     = $this->dispatch(
+			array(
+				'id'     => self::TARGET,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+		$missing_result   = $this->dispatch(
+			array(
+				'id'     => self::OTHER,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+		$differing_result = $this->dispatch(
+			array(
+				'id'     => self::TARGET + 2,
+				'status' => 'active',
+			),
+			$this->context( array( 'unban-users' ) )
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $missing_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $missing_result->get_error_code() );
+		self::assertSame( $missing_bytes, $this->snapshots[ self::OTHER ] );
+		self::assertIsArray( BanSnapshot::load( self::OTHER ) );
+
+		self::assertInstanceOf( \WP_Error::class, $differing_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $differing_result->get_error_code() );
+		self::assertSame( $differing_bytes, $this->snapshots[ self::TARGET + 2 ] );
+		self::assertIsArray( BanSnapshot::load( self::TARGET + 2 ) );
+
+		self::assertInstanceOf( \WP_Error::class, $extra_result );
+		self::assertSame( 'xnetvn_agent_hub_wp_partial_failure', $extra_result->get_error_code() );
+		self::assertSame( $extra_bytes, $this->snapshots[ self::TARGET ] );
+		self::assertIsArray( BanSnapshot::load( self::TARGET ) );
+		self::assertSame( array( 'author' ), $extra->roles );
+		self::assertSame(
+			array(
+				'edit_posts'   => true,
+				'upload_files' => true,
+			),
+			$extra->caps
+		);
 	}
 
 	/** A validated v1 snapshot restores its recorded role and capabilities. */
