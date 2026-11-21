@@ -361,7 +361,7 @@ final class SiteGatewayTest extends TestCase {
 	private function site_context( int $blog_id ): SiteAuthContext {
 		$scope      = new SiteScope( RiskTier::Read, array( 'system' ), array( 'xnetvn/get-site-info' ), array(), array(), array(), new DateTimeImmutable( '@' . ( time() + 3600 ) ) );
 		$credential = new SiteCredential( 1, new KeyId( 'abcdefghijkl' ), $blog_id, 'Fixture', $scope, new DateTimeImmutable( '@' . time() ) );
-		return new SiteAuthContext( $credential, '0123456789abcdef', '203.0.113.7' );
+		return new SiteAuthContext( $credential, '0fa0fa0fa0fa0fa0', '203.0.113.7' );
 	}
 
 	/**

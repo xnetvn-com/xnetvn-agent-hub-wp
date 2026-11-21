@@ -256,7 +256,7 @@ final class SiteAuthenticatorTest extends TestCase {
 		self::assertSame( 0, $auth->determine_user( 7 ) );
 		self::assertInstanceOf( \WP_Error::class, $auth->rest_result( true ) );
 		$api = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Pre-existing fixture', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . self::NOW ) );
-		$this->request->bind_human( new AuthContext( $api, '0123456789abcdef' ) );
+		$this->request->bind_human( new AuthContext( $api, '0fa0fa0fa0fa0fa0' ) );
 		self::assertInstanceOf( \WP_Error::class, $auth->rest_result( true ) );
 		self::assertNull( $this->request->context );
 		self::assertNull( $this->request->site_current() );
@@ -275,8 +275,8 @@ final class SiteAuthenticatorTest extends TestCase {
 		$site->expects( self::never() )->method( 'find_by_key_id' );
 		$auth                        = $this->authenticator( $site, $human );
 		$api                         = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Fresh conflict fixture', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . self::NOW ) );
-		$this->request->context      = new AuthContext( $api, '0123456789abcdef' );
-		$this->request->site_context = new SiteAuthContext( $this->stored->key, '0123456789abcdef', self::PEER );
+		$this->request->context      = new AuthContext( $api, '0fa0fa0fa0fa0fa0' );
+		$this->request->site_context = new SiteAuthContext( $this->stored->key, '0fa0fa0fa0fa0fa0', self::PEER );
 		self::assertSame( 0, $auth->determine_user( 7 ) );
 		self::assertNull( $this->request->site_current() );
 		self::assertNull( $this->request->current() );
@@ -309,7 +309,7 @@ final class SiteAuthenticatorTest extends TestCase {
 		$site = $this->request->site_current();
 		self::assertNotNull( $site );
 		$api                         = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), 7, 'Conflict fixture', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . self::NOW ) );
-		$this->request->context      = new AuthContext( $api, '0123456789abcdef' );
+		$this->request->context      = new AuthContext( $api, '0fa0fa0fa0fa0fa0' );
 		$this->request->site_context = $site;
 		self::assertSame( 0, $auth->determine_user( 7 ) );
 		$result = $auth->rest_result( true );
