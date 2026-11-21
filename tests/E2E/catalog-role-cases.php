@@ -1663,9 +1663,14 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 			'actor'    => 'editor',
 			'key'      => 'editor',
 			'expected' => $visible ? 'allowed' : 'denied',
-			// OutputPipeline sanitizes the handler's tool_unavailable WP_Error;
-			// ReasonMapper maps the unknown code to internal_error, matching the
-			// existing hidden-info row.
+			// 2026-11-21: current product behaviour, not a settled contract.
+			// OutputPipeline sanitizes the handler's tool_unavailable WP_Error,
+			// and ReasonMapper has no `tool_unavailable` message key, so a hidden
+			// declaration degrades to `internal_error`. This is a known
+			// misclassification tracked by the open ReasonMapper classification
+			// ticket; when that fix lands these rows must change to
+			// `tool_unavailable` while keeping the client text
+			// `The tool is unavailable.`. No other assertion changes with it.
 			'reason'   => $visible ? 'unavailable' : 'internal_error',
 			'layer'    => $visible ? 'tool' : 'policy',
 			'target'   => 'none',
