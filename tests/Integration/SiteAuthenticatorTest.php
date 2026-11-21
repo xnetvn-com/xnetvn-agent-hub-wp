@@ -242,7 +242,7 @@ final class SiteAuthenticatorTest extends WP_UnitTestCase {
 		$site = $this->request->site_current();
 		self::assertNotNull( $site );
 		$api                         = new ApiKey( 1, new KeyId( 'abcdefghijkl' ), $this->admin, 'Conflict fixture', new Scope( RiskTier::Read ), new DateTimeImmutable( '@' . self::NOW ) );
-		$this->request->context      = new AuthContext( $api, '0123456789abcdef' );
+		$this->request->context      = new AuthContext( $api, '0fa0fa0fa0fa0fa0' );
 		$this->request->site_context = $site;
 		$result                      = $auth->rest_result( true );
 		self::assertInstanceOf( \WP_Error::class, $result );
