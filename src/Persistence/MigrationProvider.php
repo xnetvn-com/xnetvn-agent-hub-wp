@@ -40,15 +40,15 @@ final class MigrationProvider implements ServiceProvider {
 			return;
 		}
 		$entry = get_current_blog_id();
+		if ( $blog_id === $entry ) {
+			$this->ensure_schema();
+			return;
+		}
 		try {
 			switch_to_blog( $blog_id );
-			if ( get_current_blog_id() === $blog_id ) {
-				$this->ensure_schema();
-			}
+			$this->ensure_schema();
 		} finally {
-			if ( get_current_blog_id() !== $entry ) {
-				restore_current_blog();
-			}
+			restore_current_blog();
 		}
 	}
 
