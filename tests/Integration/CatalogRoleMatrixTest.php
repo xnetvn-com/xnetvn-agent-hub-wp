@@ -358,8 +358,9 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 				continue;
 			}
 			if ( 'denied' === $case['expected'] && 'policy' === $case['layer'] ) {
+				$evaluated     = ( 'catalog.info' === ( $case['payload'] ?? '' ) && isset( $case['extra'] ) ) ? (string) $case['extra'] : (string) $case['name'];
 				$scope         = self::$declarations['keys'][ $case['key'] ];
-				$tool          = self::$declarations['tools'][ $case['name'] ];
+				$tool          = self::$declarations['tools'][ $evaluated ];
 				$order         = array(
 					'read'        => 0,
 					'write'       => 1,
@@ -368,14 +369,15 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 				);
 				$policy_denies = $order[ $tool['tier'] ] > $order[ $scope['tier'] ]
 					|| ! in_array( $tool['pack'], $scope['toolsets'], true )
-					|| ( isset( $scope['allow'] ) && ! in_array( $case['name'], $scope['allow'], true ) )
-					|| ( isset( $scope['deny'] ) && in_array( $case['name'], $scope['deny'], true ) )
+					|| ( isset( $scope['allow'] ) && ! in_array( $evaluated, $scope['allow'], true ) )
+					|| ( isset( $scope['deny'] ) && in_array( $evaluated, $scope['deny'], true ) )
 					|| false === (bool) user_can( $id, $tool['visibility'] );
 				self::assertTrue( $policy_denies, $case['id'] );
 				continue;
 			}
 			if ( 'allowed' === $case['expected'] || 'tool' === $case['layer'] ) {
-				self::assertTrue( (bool) user_can( $id, self::$declarations['tools'][ $case['name'] ]['visibility'] ), $case['id'] );
+				$evaluated = ( 'catalog.info' === ( $case['payload'] ?? '' ) && isset( $case['extra'] ) ) ? (string) $case['extra'] : (string) $case['name'];
+				self::assertTrue( (bool) user_can( $id, self::$declarations['tools'][ $evaluated ]['visibility'] ), $case['id'] );
 			}
 		}
 	}

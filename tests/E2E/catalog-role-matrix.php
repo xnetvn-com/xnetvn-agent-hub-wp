@@ -1524,7 +1524,7 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_case( array $case, array $state
 			if ( $result['ok'] && 'catalog.discover' === $case['payload'] ) {
 				$expected = array();
 				foreach ( $data['tools'] as $name => $tool ) {
-					if ( $tool['pack'] === (string) $case['extra'] ) {
+					if ( $tool['pack'] === (string) $case['extra'] && xnetvn_agent_hub_wp_catalog_role_visible( $data, (string) $name, (string) $case['actor'] ) ) {
 						$expected[] = $name;
 					}
 				}

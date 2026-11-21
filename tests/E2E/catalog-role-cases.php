@@ -319,6 +319,13 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 		'users'              => array(
 			'admin'                 => array( 'role' => 'administrator' ),
 			'editor'                => array( 'role' => 'editor' ),
+			// Dedicated non-administrator probe owner. The extra capability is
+			// applied after wp_insert_user() so the users read-back can see
+			// xnetvn-list-users while the owner stays delegation-eligible.
+			'probe_owner'           => array(
+				'role' => 'editor',
+				'caps' => array( 'list_users' ),
+			),
 			'author'                => array( 'role' => 'author' ),
 			'contributor'           => array( 'role' => 'contributor' ),
 			'subscriber'            => array( 'role' => 'subscriber' ),
@@ -349,22 +356,22 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 				'toolsets' => $toolsets,
 			),
 			'probe1'       => array(
-				'actor'    => 'admin',
+				'actor'    => 'probe_owner',
 				'tier'     => 'read',
 				'toolsets' => $toolsets,
 			),
 			'probe2'       => array(
-				'actor'    => 'admin',
+				'actor'    => 'probe_owner',
 				'tier'     => 'read',
 				'toolsets' => $toolsets,
 			),
 			'probe3'       => array(
-				'actor'    => 'admin',
+				'actor'    => 'probe_owner',
 				'tier'     => 'read',
 				'toolsets' => $toolsets,
 			),
 			'probe4'       => array(
-				'actor'    => 'admin',
+				'actor'    => 'probe_owner',
 				'tier'     => 'read',
 				'toolsets' => $toolsets,
 			),
@@ -441,8 +448,8 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 				'seeded'          => false,
 			),
 			// Read-only accountless row the E2E fixture seeds. Its allow list
-			// stays at the full 51 reviewed names; only the handler-backed ten
-			// wire names are visible to this principal.
+			// stays at the full 51 reviewed names; the visible set is the
+			// 41-name handler intersection after the site-scope filter.
 			'site_editorial_plain' => array(
 				'tier'            => 'destructive',
 				'toolsets'        => $toolsets,
@@ -455,12 +462,17 @@ function xnetvn_agent_hub_wp_catalog_role_data(): array {
 				'seeded'          => true,
 			),
 		),
-		// Ten canonical names with a fixed machine handler, identical to
-		// SiteDispatcher::handler_for(). Registry::names_for_site_scope()
-		// narrows them at runtime; the 52-name envelope is asserted elsewhere.
+		// 42 canonical names with a fixed machine handler, matching the four
+		// NAMES constants, the editorial-author lookup and the moderation
+		// handler. Registry::names_for_site_scope() narrows them at runtime;
+		// the 52-name envelope is asserted elsewhere.
 		'machine_handlers'   => array_merge(
+			\XNetVN\AgentHubWP\Abilities\Packs\Content\SiteContentOperations::NAMES,
 			array( 'xnetvn/list-content-authors' ),
-			\XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\SiteTaxonomyOperations::NAMES
+			\XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\SiteTaxonomyOperations::NAMES,
+			\XNetVN\AgentHubWP\Abilities\Packs\Media\SiteMediaOperations::NAMES,
+			\XNetVN\AgentHubWP\Abilities\Packs\System\SystemPack::NAMES,
+			array( 'xnetvn/set-user-status' )
 		),
 		'revisions'          => array(
 			'admin'       => 5701,
@@ -1388,9 +1400,36 @@ function xnetvn_agent_hub_wp_catalog_role_visible( array $data, string $tool, st
 function xnetvn_agent_hub_wp_catalog_role_visible_tools( array $data, string $actor ): array {
 	$names = array();
 	if ( isset( $data['site_keys'][ $actor ] ) ) {
-		// A site principal has no WordPress user and sees only the fixed
-		// machine-handler list; the surrounding envelope is not the catalog.
+		// A site principal has no WordPress user and sees only the
+		// machine-handler names its own scope admits: allow list, toolsets,
+		// tier ceiling, and the ban-users grant for the moderation handler.
+		$scope = $data['site_keys'][ $actor ];
+		$order = array(
+			'read'        => 0,
+			'write'       => 1,
+			'destructive' => 2,
+			'admin'       => 3,
+		);
 		foreach ( (array) $data['machine_handlers'] as $name ) {
+			$tool = $data['tools'][ $name ] ?? null;
+			if ( ! is_array( $tool ) ) {
+				continue;
+			}
+			if ( $order[ $tool['tier'] ] > $order[ $scope['tier'] ] ) {
+				continue;
+			}
+			if ( ! in_array( $tool['pack'], (array) $scope['toolsets'], true ) ) {
+				continue;
+			}
+			if ( isset( $scope['allow'] ) && ! in_array( $name, (array) $scope['allow'], true ) ) {
+				continue;
+			}
+			if ( isset( $scope['deny'] ) && in_array( $name, (array) $scope['deny'], true ) ) {
+				continue;
+			}
+			if ( 'xnetvn/set-user-status' === $name && ! in_array( 'ban-users', (array) ( $scope['permissions'] ?? array() ), true ) ) {
+				continue;
+			}
 			$names[] = str_replace( '/', '-', (string) $name );
 		}
 		sort( $names, SORT_STRING );
@@ -1595,7 +1634,7 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 	);
 	foreach ( $data['packs'] as $pack ) {
 		$extras[] = array(
-			'id'       => 'CAT-catalog-discover-' . $pack . '-admin-allowed',
+			'id'       => 'CAT-catalog-discover-' . $pack . '-editor-allowed',
 			'tool'     => 'xnetvn-discover-abilities',
 			'name'     => 'xnetvn/discover-abilities',
 			'pack'     => $pack,
@@ -1613,20 +1652,25 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 	}
 	foreach ( array_keys( $data['tools'] ) as $name ) {
 		$slug     = (string) substr( $name, strlen( 'xnetvn/' ) );
+		$visible  = xnetvn_agent_hub_wp_catalog_role_visible( $data, (string) $name, 'editor' );
 		$extras[] = array(
-			'id'       => 'CAT-catalog-info-' . $slug . '-admin-allowed',
+			'id'       => 'CAT-catalog-info-' . $slug . ( $visible ? '-editor-allowed' : '-editor-denied' ),
 			'tool'     => 'xnetvn-get-ability-info',
 			'name'     => 'xnetvn/get-ability-info',
 			'pack'     => 'system',
-			// Protected Administrator substitution: same information proof, editor key.
+			// The transport tool is always visible to the editor; the queried
+			// declaration is the one the runtime filter admits or hides.
 			'actor'    => 'editor',
 			'key'      => 'editor',
-			'expected' => 'allowed',
-			'reason'   => 'unavailable',
-			'layer'    => 'tool',
+			'expected' => $visible ? 'allowed' : 'denied',
+			// OutputPipeline sanitizes the handler's tool_unavailable WP_Error;
+			// ReasonMapper maps the unknown code to internal_error, matching the
+			// existing hidden-info row.
+			'reason'   => $visible ? 'unavailable' : 'internal_error',
+			'layer'    => $visible ? 'tool' : 'policy',
 			'target'   => 'none',
 			'payload'  => 'catalog.info',
-			'variant'  => 'allowed',
+			'variant'  => $visible ? 'allowed' : 'denied',
 			'extra'    => $name,
 		);
 	}
@@ -1836,22 +1880,6 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 				'variant'  => 'denied',
 			),
 			array(
-				'id'       => 'CAT-owner-users-set-user-status-admin-denied',
-				'tool'     => 'xnetvn-set-user-status',
-				'name'     => 'xnetvn/set-user-status',
-				'pack'     => 'users',
-				// Protected Administrator substitution: the editorial principal
-				// still hits the protected target and is denied.
-				'actor'    => 'editor',
-				'key'      => 'editor',
-				'expected' => 'denied',
-				'reason'   => 'protected_account',
-				'layer'    => 'tool',
-				'target'   => 'user:protected_admin',
-				'payload'  => 'users.set_status',
-				'variant'  => 'denied-protected',
-			),
-			array(
 				'id'       => 'CAT-status-content-trash-post-author-denied',
 				'tool'     => 'xnetvn-trash-post',
 				'name'     => 'xnetvn/trash-post',
@@ -2041,9 +2069,9 @@ function xnetvn_agent_hub_wp_catalog_role_cases( array $data ): array {
 		)
 	);
 	// Accountless site-principal rows. A site key has no WordPress user and the
-	// dispatcher exposes only the fixed machine-handler set, so the machine
-	// catalog is the ten-name subset and every other reviewed ability is
-	// refused as unavailable before any handler can run.
+	// dispatcher exposes only the machine-handler names its scope admits, so
+	// the plain key's machine catalog is the 41-name subset and every other
+	// reviewed ability is refused as unavailable before any handler can run.
 	$cases['CAT-site-catalog-tools-list-site-editorial-plain-allowed']   = array(
 		'id'       => 'CAT-site-catalog-tools-list-site-editorial-plain-allowed',
 		'tool'     => 'xnetvn-discover-abilities',

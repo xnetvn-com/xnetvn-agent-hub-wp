@@ -451,6 +451,10 @@ function xnetvn_agent_hub_wp_catalog_role_user( array &$state, string $alias, ar
 	if ( is_wp_error( $id ) ) {
 		throw new RuntimeException( 'Catalog role fixture user unavailable.' );
 	}
+	$probe_user = get_user_by( 'id', (int) $id );
+	foreach ( (array) ( $spec['caps'] ?? array() ) as $cap ) {
+		$probe_user->add_cap( (string) $cap );
+	}
 	$state['users'][ $alias ] = (int) $id;
 	$state['ledger'][]        = array(
 		'type' => 'user',
