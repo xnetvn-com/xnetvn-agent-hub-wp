@@ -368,7 +368,10 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		$custom = static fn( string $value ): string => $value;
 		add_filter( 'content_save_pre', $custom, 10 );
 		$before = has_filter( 'content_save_pre', 'wp_filter_post_kses' );
-		$html   = new SafeEditorialHtml();
+		// Core denies unfiltered_html to a non-Super-Admin on Multisite (wp-includes/capabilities.php:595-602).
+		$cap_before = current_user_can( 'unfiltered_html' );
+		self::assertSame( ! is_multisite(), $cap_before );
+		$html = new SafeEditorialHtml();
 		try {
 			try {
 				$html->run(
@@ -381,7 +384,7 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 				self::assertSame( 'Fixture failure.', $error->getMessage() );
 			}
 			self::assertSame( $before, has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
-			self::assertTrue( current_user_can( 'unfiltered_html' ) );
+			self::assertSame( $cap_before, current_user_can( 'unfiltered_html' ) );
 			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 		} finally {
 			remove_filter( 'content_save_pre', $custom, 10 );
@@ -395,10 +398,12 @@ final class McpHtmlBoundaryTest extends WP_UnitTestCase {
 		add_filter( 'content_save_pre', $custom, 10 );
 		try {
 			$html = new SafeEditorialHtml();
-			self::assertTrue( current_user_can( 'unfiltered_html' ) );
+			// Core denies unfiltered_html to a non-Super-Admin on Multisite (wp-includes/capabilities.php:595-602).
+			$cap_before = current_user_can( 'unfiltered_html' );
+			self::assertSame( ! is_multisite(), $cap_before );
 			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 			self::assertFalse( $html->run( static fn(): bool => current_user_can( 'unfiltered_html' ) ) );
-			self::assertTrue( current_user_can( 'unfiltered_html' ) );
+			self::assertSame( $cap_before, current_user_can( 'unfiltered_html' ) );
 			self::assertNotFalse( has_filter( 'content_save_pre', $custom ) );
 			self::assertFalse( has_filter( 'content_save_pre', 'wp_filter_post_kses' ) );
 		} finally {

@@ -302,7 +302,9 @@ final class MediaAuthorContractTest extends WP_UnitTestCase {
 	/** An unfiltered_html editor persists safe metadata and keeps the core state intact. */
 	public function test_unfiltered_html_editor_persists_safe_media_metadata(): void {
 		$hook_before = $this->content_save_pre_snapshot();
-		self::assertTrue( current_user_can( 'unfiltered_html' ) );
+		// Core denies unfiltered_html to a non-Super-Admin on Multisite (wp-includes/capabilities.php:595-602).
+		$cap_before = current_user_can( 'unfiltered_html' );
+		self::assertSame( ! is_multisite(), $cap_before );
 		$created = $this->operations->execute(
 			'upload-media-from-data',
 			array_merge(
@@ -326,7 +328,7 @@ final class MediaAuthorContractTest extends WP_UnitTestCase {
 		$this->assert_safe_html( (string) $stored->post_excerpt, '<p>Safe caption</p>' );
 		$this->assert_safe_html( (string) $stored->post_content, '<p>Safe description</p>' );
 		self::assertSame( $this->editor, (int) $stored->post_author );
-		self::assertTrue( current_user_can( 'unfiltered_html' ) );
+		self::assertSame( $cap_before, current_user_can( 'unfiltered_html' ) );
 		self::assertSame( $hook_before, $this->content_save_pre_snapshot() );
 
 		$updated = $this->operations->execute(
@@ -349,7 +351,7 @@ final class MediaAuthorContractTest extends WP_UnitTestCase {
 		$this->assert_safe_html( (string) $stored->post_excerpt, '<p>Edited caption</p>' );
 		$this->assert_safe_html( (string) $stored->post_content, '<p>Edited description</p>' );
 		self::assertSame( $this->editor, (int) $stored->post_author );
-		self::assertTrue( current_user_can( 'unfiltered_html' ) );
+		self::assertSame( $cap_before, current_user_can( 'unfiltered_html' ) );
 		self::assertSame( $hook_before, $this->content_save_pre_snapshot() );
 	}
 }
