@@ -14,11 +14,11 @@ regexTarget = "secret"
 regexes = ['''^0123456789abcdef$''']
 
 [[rules.allowlists]]
-description = "Repeated-hex correlator fixtures in the test suite: 0fa0... and 0fb0... are not secrets"
+description = "Sequential-hex correlator fixtures used across the test suite; public test values, not secrets"
 condition = "AND"
 paths = ['''(?:^|/)tests/''']
 regexTarget = "secret"
-regexes = ['''^0f[ab]0f[ab]0f[ab]0f[ab]0f[ab]0f[ab]0f[ab]0f[ab]$''']
+regexes = ['''^0123456789abcdef$''', '''^fedcba9876543210$''']
 
 [[rules]]
 id = "xnetvn-agent-hub-token"
