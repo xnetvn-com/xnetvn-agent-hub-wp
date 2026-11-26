@@ -26,6 +26,7 @@ final class AbilityLookupRegressionTest extends WP_UnitTestCase {
 			'xnetvn/get-ability-info'      => array( 'system', 'read' ),
 			'xnetvn/execute-ability'       => array( 'system', 'read' ),
 			'xnetvn/list-posts'            => array( 'content', 'read' ),
+			'xnetvn/list-content-authors'  => array( 'content', 'read' ),
 			'xnetvn/get-post'              => array( 'content', 'read' ),
 			'xnetvn/delete-post'           => array( 'content', 'destructive' ),
 			'xnetvn/list-media'            => array( 'media', 'read' ),
@@ -101,6 +102,6 @@ final class AbilityLookupRegressionTest extends WP_UnitTestCase {
 				++$ours;
 			}
 		}
-		self::assertSame( 62, $ours );
+		self::assertSame( 63, $ours );
 	}
 }

@@ -483,8 +483,8 @@ final class TaxonomyPackTest extends WP_UnitTestCase {
 		self::assertWPError( $again );
 		self::assertSame( 'xnetvn_agent_hub_wp_not_found', $again->get_error_code() );
 	}
-	/** The registry carries fifty tools after the taxonomy pack. */
-	public function test_tool_inventory_is_fifty(): void {
+	/** The registry carries fifty-one tools after the taxonomy pack. */
+	public function test_tool_inventory_is_fifty_one(): void {
 		$factory = new DefinitionFactory();
 		$count   = 0;
 		$bytes   = 0;
@@ -504,9 +504,9 @@ final class TaxonomyPackTest extends WP_UnitTestCase {
 			++$count;
 			$bytes += strlen( $tool->description() );
 		}
-		self::assertSame( 45, $count );
+		self::assertSame( 46, $count );
 		self::assertGreaterThan( 0, $bytes );
-		// Five system tools bring the managed total to fifty.
-		self::assertSame( 50, $count + 5 );
+		// Five system tools bring the managed total to fifty-one.
+		self::assertSame( 51, $count + 5 );
 	}
 }
