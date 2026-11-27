@@ -34,12 +34,26 @@ final class CoverageGate {
 	private const RESULT_KEYS    = array( 'tests', 'errors', 'failures', 'warnings', 'risky', 'incomplete', 'skipped' );
 
 	/**
-	 * Expected skipped counts: 4 network-only cases that only run outside
-	 * multisite, 11 lab-only RoleSeoStabilityTest cases skipped inside wp-env,
-	 * plus 2 single-only or 1 multisite-only conditional case.
+	 * Expected skipped counts, measured rather than estimated.
+	 *
+	 * On a single-Blog suite the skip set is 31 cases in three groups: 19
+	 * multisite-only cases (five from `MultisiteTest` plus fourteen guarded by
+	 * `skipWithoutMultisite()` or `! is_multisite()`), 11 lab-only
+	 * `RoleSeoStabilityTest` cases skipped inside wp-env, and 1 case
+	 * (`UsersPackTest::test_canary_absent_from_audit`) that skips when the audit
+	 * table is unavailable.
+	 *
+	 * On a multisite suite the 19 multisite-only cases now run, so the same
+	 * three groups collapse to 11 lab-only plus the 1 audit-table case = 12.
+	 *
+	 * Evidence: the 31 figure is read directly from the `Native coverage -
+	 * WordPress 6.9 single` junit artifact (`Tests: 530, Skipped: 31`) and its
+	 * per-class breakdown; the 12 figure is that same breakdown minus the 19
+	 * cases whose guard is `! is_multisite()`. Update this comment together with
+	 * the constants whenever a guard is added or removed.
 	 */
 	private const UNIT_EXPECTED_SKIPS      = 0;
-	private const SINGLE_EXPECTED_SKIPS    = 17;
+	private const SINGLE_EXPECTED_SKIPS    = 31;
 	private const MULTISITE_EXPECTED_SKIPS = 12;
 
 	/**

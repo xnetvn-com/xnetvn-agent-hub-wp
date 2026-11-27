@@ -602,7 +602,7 @@ final class CoverageGateTest extends TestCase {
 				$reports[0]['test_result']['skipped'] = 1;
 				break;
 			case 'unexpected single skip':
-				$reports[1]['test_result']['skipped'] = 18;
+				$reports[1]['test_result']['skipped'] = 32;
 				break;
 			case 'unexpected multisite skip':
 				$reports[2]['test_result']['skipped'] = 4;
@@ -1204,7 +1204,7 @@ final class CoverageGateTest extends TestCase {
 		foreach ( self::SUITES as $suite ) {
 			$counts = self::COUNTS;
 			if ( str_ends_with( $suite, '-single' ) ) {
-				$counts['skipped'] = 17;
+				$counts['skipped'] = 31;
 			} elseif ( str_ends_with( $suite, '-multisite' ) ) {
 				$counts['skipped'] = 12;
 			} else {
