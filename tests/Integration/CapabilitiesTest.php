@@ -105,7 +105,7 @@ final class CapabilitiesTest extends WP_UnitTestCase {
 		$provider->register();
 		$before = wp_roles()->roles;
 		try {
-			$id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+			$id   = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 			$user = get_user_by( 'id', $id );
 			self::assertNotFalse( $user );
 			$user->set_role( 'banned' );
