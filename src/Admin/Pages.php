@@ -11,6 +11,7 @@ namespace XNetVN\AgentHubWP\Admin;
 
 use WP_User;
 use XNetVN\AgentHubWP\Auth\Capabilities;
+use XNetVN\AgentHubWP\Auth\DelegationEligibility;
 use XNetVN\AgentHubWP\Contracts\AbilityCatalog;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
 use XNetVN\AgentHubWP\Domain\RiskTier;
@@ -22,13 +23,21 @@ final class Pages implements ServiceProvider {
 	/** Settings API group. */
 	private const SETTINGS_GROUP = 'xnetvn_agent_hub_wp';
 	/**
+	 * Protected-account eligibility for personal credentials.
+	 *
+	 * @var DelegationEligibility
+	 */
+	private DelegationEligibility $eligibility;
+	/**
 	 * Bind page data and asset identity.
 	 *
-	 * @param string         $plugin_file Main file.
-	 * @param WpSiteSettings $settings Validated settings service.
-	 * @param AbilityCatalog $catalog Reviewed tool metadata.
+	 * @param string                     $plugin_file Main file.
+	 * @param WpSiteSettings             $settings Validated settings service.
+	 * @param AbilityCatalog             $catalog Reviewed tool metadata.
+	 * @param DelegationEligibility|null $eligibility Optional protected-account boundary.
 	 */
-	public function __construct( private string $plugin_file, private WpSiteSettings $settings, private AbilityCatalog $catalog ) {
+	public function __construct( private string $plugin_file, private WpSiteSettings $settings, private AbilityCatalog $catalog, ?DelegationEligibility $eligibility = null ) {
+		$this->eligibility = $eligibility ?? new DelegationEligibility();
 	}
 
 	/** Register only WordPress administration and profile hooks. */
@@ -64,6 +73,10 @@ final class Pages implements ServiceProvider {
 			return;
 		}
 		echo '<h2>' . esc_html__( 'Agent Hub API Keys', 'xnetvn-agent-hub-wp' ) . '</h2>';
+		if ( ! $this->eligibility->check( $user->ID )->allowed ) {
+			$this->protected_personal_notice();
+			return;
+		}
 		$this->keys( $user->ID, false );
 		if ( get_current_user_id() === $user->ID ) {
 			wp_nonce_field( 'xnetvn_agent_hub_wp_notifications', 'xnetvn_agent_hub_wp_notifications_nonce' );
@@ -92,9 +105,12 @@ final class Pages implements ServiceProvider {
 		if ( ! in_array( $hook, array( 'profile.php', 'user-edit.php' ), true ) && ! str_contains( $hook, '_page_xnetvn-agent-hub-wp' ) ) {
 			return;
 		}
-		wp_enqueue_script( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/admin.js', $this->plugin_file ), array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ), XNETVN_AGENT_HUB_WP_VERSION, true );
+		$assets = plugin_dir_path( $this->plugin_file ) . 'assets/';
+		$script = is_readable( $assets . 'admin.min.js' ) ? 'admin.min.js' : 'admin.js';
+		$style  = is_readable( $assets . 'admin.min.css' ) ? 'admin.min.css' : 'admin.css';
+		wp_enqueue_script( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/' . $script, $this->plugin_file ), array( 'wp-api-fetch', 'wp-i18n', 'wp-a11y' ), XNETVN_AGENT_HUB_WP_VERSION, true );
 		wp_set_script_translations( 'xnetvn-agent-hub-wp-admin', 'xnetvn-agent-hub-wp', dirname( $this->plugin_file ) . '/languages' );
-		wp_enqueue_style( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/admin.css', $this->plugin_file ), array(), XNETVN_AGENT_HUB_WP_VERSION );
+		wp_enqueue_style( 'xnetvn-agent-hub-wp-admin', plugins_url( 'assets/' . $style, $this->plugin_file ), array(), XNETVN_AGENT_HUB_WP_VERSION );
 		wp_localize_script(
 			'xnetvn-agent-hub-wp-admin',
 			'xnetvnAgentHubConfig',
@@ -102,6 +118,15 @@ final class Pages implements ServiceProvider {
 				'namespace' => '/' . ManagementGate::REST_NAMESPACE,
 				'nonce'     => wp_create_nonce( 'wp_rest' ),
 				'userId'    => get_current_user_id(),
+				'site'      => array(
+					'endpoint'          => esc_url_raw( rest_url( ManagementGate::REST_NAMESPACE . '/site-keys' ) ),
+					'maxDays'           => (int) $this->settings->get( 'max_key_lifetime_days' ),
+					'defaultDays'       => (int) min( 90, (int) $this->settings->get( 'max_key_lifetime_days' ) ),
+					'moderationAllowed' => true === $this->settings->get( 'allow_admin_tier' ) && 'admin' === (string) $this->settings->get( 'tier_ceiling' ),
+					'ceiling'           => (string) $this->settings->get( 'tier_ceiling' ),
+					'personalProtected' => ! $this->eligibility->check( get_current_user_id() )->allowed,
+					'personalEligible'  => user_can( get_current_user_id(), Capabilities::USE ),
+				),
 			)
 		);
 	}
@@ -177,7 +202,7 @@ final class Pages implements ServiceProvider {
 		echo '<div class="wrap"><h1>' . esc_html( $this->titles()[ $view ] ) . '</h1>';
 		$this->navigation( $view );
 		if ( 'keys' === $view ) {
-			$this->keys( get_current_user_id(), true );
+			$this->keys_modes();
 		} elseif ( 'settings' === $view ) {
 			$this->settings_form();
 		} elseif ( 'help' === $view ) {
@@ -272,6 +297,75 @@ final class Pages implements ServiceProvider {
 	}
 
 	/**
+	 * Render the two key modes and switch between them without a request.
+	 */
+	private function keys_modes(): void {
+		echo '<div class="xnetvn-tabs" role="tablist" aria-label="' . esc_attr__( 'MCP key types', 'xnetvn-agent-hub-wp' ) . '">';
+		echo '<button type="button" role="tab" id="xnetvn-tab-personal" aria-controls="xnetvn-panel-personal" aria-selected="true" tabindex="0">' . esc_html__( 'Personal MCP keys', 'xnetvn-agent-hub-wp' ) . '</button>';
+		echo '<button type="button" role="tab" id="xnetvn-tab-site" aria-controls="xnetvn-panel-site" aria-selected="false" tabindex="-1">' . esc_html__( 'WordPress MCP API Keys', 'xnetvn-agent-hub-wp' ) . '</button>';
+		echo '</div><div id="xnetvn-panel-personal" role="tabpanel" aria-labelledby="xnetvn-tab-personal">';
+		$this->keys( get_current_user_id(), true );
+		echo '</div><div id="xnetvn-panel-site" role="tabpanel" aria-labelledby="xnetvn-tab-site" hidden>';
+		$this->site_keys();
+		echo '</div>';
+	}
+
+	/**
+	 * Render the manager-only accountless site key mode.
+	 *
+	 * Every request behind this panel uses the cookie session and the REST
+	 * nonce. The panel never selects a WordPress account because a site key
+	 * belongs to the website, not to a person.
+	 */
+	private function site_keys(): void {
+		$max_days     = (int) $this->settings->get( 'max_key_lifetime_days' );
+		$default_days = (int) min( 90, $max_days );
+		$moderation   = true === $this->settings->get( 'allow_admin_tier' ) && 'admin' === (string) $this->settings->get( 'tier_ceiling' );
+		echo '<section class="xnetvn-agent-hub-site" data-view="site-keys" aria-busy="false"><h2 id="xnetvn-site-heading" tabindex="-1">' . esc_html__( 'WordPress MCP API Keys', 'xnetvn-agent-hub-wp' ) . '</h2>';
+		echo '<p>' . esc_html__( 'WordPress MCP API Keys belong to this website, not to a WordPress account. External clients use them without inheriting a person\'s account or permissions.', 'xnetvn-agent-hub-wp' ) . '</p>';
+		echo '<ul class="xnetvn-site-help">';
+		echo '<li data-site-help="scope">' . esc_html__( 'Editorial scope: a site key can use the reviewed editorial and system operations only. It never gains console, code or plugin access.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '<li data-site-help="html">' . esc_html__( 'HTML filtering: post, page and media content is written through the safe HTML envelope, so stored markup cannot add scripts or administration links.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '<li data-site-help="risk">' . esc_html__( 'Site risk settings: the maximum risk tier caps every site key. Ban users and Unban users are offered only when Allow Admin tier is on and the maximum risk tier is Admin.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '<li data-site-help="expiry">' . esc_html__( 'Expiry: every site key stops working after the number of days you choose, within the maximum key lifetime.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '<li data-site-help="authors">' . esc_html__( 'Author selection: choose an author at each ability call. A site key never impersonates an account.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '<li data-site-help="logout">' . esc_html__( 'Network-wide logout: banning a user ends their sessions across the network, including this site. Unban does not restore those sessions.', 'xnetvn-agent-hub-wp' ) . '</li>';
+		echo '</ul><p class="xnetvn-status" role="status" aria-live="polite"></p>';
+		$this->read_state( __( 'No WordPress MCP API Keys found.', 'xnetvn-agent-hub-wp' ) );
+		echo '<p class="xnetvn-unknown" data-site-unknown role="status" aria-live="polite" hidden></p>';
+		echo '<div class="xnetvn-table-wrap" tabindex="0" role="region" aria-label="' . esc_attr__( 'WordPress MCP API Keys', 'xnetvn-agent-hub-wp' ) . '"><table class="widefat striped"><caption>' . esc_html__( 'WordPress MCP API Keys', 'xnetvn-agent-hub-wp' ) . '</caption><thead><tr>';
+		foreach ( array( __( 'Name', 'xnetvn-agent-hub-wp' ), __( 'Credential ref', 'xnetvn-agent-hub-wp' ), __( 'Scope', 'xnetvn-agent-hub-wp' ), __( 'Permissions', 'xnetvn-agent-hub-wp' ), __( 'Tier ceiling', 'xnetvn-agent-hub-wp' ), __( 'Created', 'xnetvn-agent-hub-wp' ), __( 'Last used', 'xnetvn-agent-hub-wp' ), __( 'Expires', 'xnetvn-agent-hub-wp' ), __( 'Status', 'xnetvn-agent-hub-wp' ), __( 'Actions', 'xnetvn-agent-hub-wp' ) ) as $label ) {
+			echo '<th scope="col">' . esc_html( $label ) . '</th>';
+		}
+		echo '</tr></thead><tbody data-site-keys></tbody></table></div>';
+		$this->pagination();
+		echo '<div data-site-create-group role="group" aria-labelledby="xnetvn-site-create-title"><h3 id="xnetvn-site-create-title">' . esc_html__( 'Create a WordPress MCP API Key', 'xnetvn-agent-hub-wp' ) . '</h3>';
+		echo '<p><label for="xnetvn-site-name">' . esc_html__( 'Key name', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-site-name" data-site-field="name" type="text" maxlength="100" required></p>';
+		echo '<p><label for="xnetvn-site-days">' . esc_html__( 'Expires in days', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-site-days" data-site-field="expires_in_days" type="number" min="1" max="' . esc_attr( (string) $max_days ) . '" value="' . esc_attr( (string) $default_days ) . '" required></p>';
+		$disabled = $moderation ? '' : ' disabled aria-describedby="xnetvn-site-risk-help"';
+		echo '<fieldset><legend>' . esc_html__( 'Moderation permissions', 'xnetvn-agent-hub-wp' ) . '</legend>';
+		echo '<label class="xnetvn-choice"><input id="xnetvn-site-permission-ban" data-site-field="permissions" type="checkbox" value="ban-users"' . $disabled . '> ' . esc_html__( 'Ban users', 'xnetvn-agent-hub-wp' ) . '</label>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Reviewed static attribute list built above.
+		echo '<label class="xnetvn-choice"><input id="xnetvn-site-permission-unban" data-site-field="permissions" type="checkbox" value="unban-users"' . $disabled . '> ' . esc_html__( 'Unban users', 'xnetvn-agent-hub-wp' ) . '</label>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Reviewed static attribute list built above.
+		echo '</fieldset>';
+		echo '<p id="xnetvn-site-risk-help">' . ( $moderation
+			? esc_html__( 'Ban users and Unban users are available because Allow Admin tier is on and the maximum risk tier is Admin. A ban logs the user out across the network.', 'xnetvn-agent-hub-wp' )
+			: esc_html__( 'Ban users and Unban users are unavailable because Allow Admin tier is off or the maximum risk tier is not Admin. Change Allow Admin tier and the maximum risk tier on the Settings page to enable them.', 'xnetvn-agent-hub-wp' ) ) . '</p>';
+		echo '<p><label for="xnetvn-site-password">' . esc_html__( 'Current password', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-site-password" data-site-field="current_password" type="password" autocomplete="current-password" required></p>';
+		echo '<p>' . esc_html__( 'The current password is required once to issue this key. It is never stored.', 'xnetvn-agent-hub-wp' ) . '</p>';
+		echo '<button type="button" class="button button-primary" data-site-create disabled>' . esc_html__( 'Create WordPress MCP API Key', 'xnetvn-agent-hub-wp' ) . '</button></div>';
+		echo '<dialog data-site-secret-dialog aria-labelledby="xnetvn-site-secret-title" aria-describedby="xnetvn-site-secret-help"><h3 id="xnetvn-site-secret-title">' . esc_html__( 'Save your new WordPress MCP API Key now', 'xnetvn-agent-hub-wp' ) . '</h3><p id="xnetvn-site-secret-help">' . esc_html__( 'This key is shown once. Closing this window clears it. Copy it now and store it securely.', 'xnetvn-agent-hub-wp' ) . '</p><label for="xnetvn-site-secret">' . esc_html__( 'WordPress MCP API Key', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-site-secret" data-secret readonly autocomplete="off" spellcheck="false"><p><button type="button" class="button" data-site-copy>' . esc_html__( 'Copy key', 'xnetvn-agent-hub-wp' ) . '</button> <button type="button" class="button button-primary" data-site-saved>' . esc_html__( 'I have saved the key', 'xnetvn-agent-hub-wp' ) . '</button></p></dialog>';
+		echo '<dialog data-site-action-dialog aria-labelledby="xnetvn-site-action-title"><h3 id="xnetvn-site-action-title">' . esc_html__( 'Confirm WordPress MCP API Key operation', 'xnetvn-agent-hub-wp' ) . '</h3><p data-site-action-message></p><p data-site-action-password-group hidden><label for="xnetvn-site-action-password">' . esc_html__( 'Current password', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-site-action-password" type="password" autocomplete="current-password"></p><p><button type="button" class="button button-primary" data-site-confirm>' . esc_html__( 'Confirm', 'xnetvn-agent-hub-wp' ) . '</button> <button type="button" class="button" data-site-cancel>' . esc_html__( 'Cancel', 'xnetvn-agent-hub-wp' ) . '</button></p></dialog>';
+		echo '<noscript><p>' . esc_html__( 'Enable JavaScript to create, rotate or revoke WordPress MCP API Keys.', 'xnetvn-agent-hub-wp' ) . '</p></noscript></section>';
+	}
+
+	/**
+	 * State the fail-closed personal-key boundary without leaking role state.
+	 */
+	private function protected_personal_notice(): void {
+		echo '<div class="notice notice-info inline" data-protected-personal-notice><p>' . esc_html__( 'Personal MCP keys are not available for this account. A site manager can issue WordPress MCP API Keys from the Keys page.', 'xnetvn-agent-hub-wp' ) . '</p></div>';
+	}
+
+	/**
 	 * Render a profile-safe key group, without nesting a form in WordPress's profile form.
 	 *
 	 * @param int  $user_id Viewed owner.
@@ -290,7 +384,11 @@ final class Pages implements ServiceProvider {
 		echo '</tr></thead><tbody data-keys></tbody></table></div>';
 		$this->pagination();
 		if ( get_current_user_id() === $user_id && current_user_can( Capabilities::USE ) ) {
-			$this->create_fields( $user_id );
+			if ( $this->eligibility->check( $user_id )->allowed ) {
+				$this->create_fields( $user_id );
+			} else {
+				$this->protected_personal_notice();
+			}
 		}
 		$this->dialogs();
 		echo '<noscript><p>' . esc_html__( 'Enable JavaScript to create, rotate or revoke keys.', 'xnetvn-agent-hub-wp' ) . '</p></noscript></section>';
@@ -324,8 +422,20 @@ final class Pages implements ServiceProvider {
 	 */
 	private function activity_filters(): void {
 		echo '<div class="xnetvn-filters" role="group" aria-label="' . esc_attr__( 'Agent Hub activity filters', 'xnetvn-agent-hub-wp' ) . '">';
+		echo '<p><label for="xnetvn-activity-principal">' . esc_html__( 'Activity source', 'xnetvn-agent-hub-wp' ) . '</label><select id="xnetvn-activity-principal" data-filter="principal_type">';
+		$principals = array(
+			'all'  => __( 'All activity', 'xnetvn-agent-hub-wp' ),
+			'user' => __( 'Human activity', 'xnetvn-agent-hub-wp' ),
+			'site' => __( 'Website MCP key (xns:)', 'xnetvn-agent-hub-wp' ),
+		);
+		foreach ( $principals as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '"' . selected( 'all', $value, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select></p>';
 		echo '<p><label for="xnetvn-activity-owner">' . esc_html__( 'Owner ID (optional)', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-owner" data-filter="owner" type="number" min="1" step="1" inputmode="numeric" autocomplete="off" placeholder="' . esc_attr__( 'All owners', 'xnetvn-agent-hub-wp' ) . '"></p>';
 		echo '<p><label for="xnetvn-activity-key">' . esc_html__( 'Key ID', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-key" data-filter="key_id" type="text" pattern="[a-z2-7]{12}" maxlength="12" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'All keys', 'xnetvn-agent-hub-wp' ) . '"></p>';
+		echo '<p><label for="xnetvn-activity-credential">' . esc_html__( 'Credential ref (optional)', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-credential" data-filter="credential_ref" type="text" pattern="^(?:xnv|xns):[a-z2-7]{12}$" maxlength="16" autocomplete="off" spellcheck="false" aria-describedby="xnetvn-activity-credential-help" placeholder="' . esc_attr__( 'xnv:abcdefghijkl or xns:abcdefghijkl', 'xnetvn-agent-hub-wp' ) . '"></p>';
+		echo '<p class="xnetvn-help" id="xnetvn-activity-credential-help">' . esc_html__( 'Use xnv: for a personal key or xns: for a website key, followed by the 12-character key ID.', 'xnetvn-agent-hub-wp' ) . '</p>';
 		echo '<p><label for="xnetvn-activity-ability">' . esc_html__( 'Ability', 'xnetvn-agent-hub-wp' ) . '</label><input id="xnetvn-activity-ability" data-filter="ability" type="text" maxlength="128" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'All abilities', 'xnetvn-agent-hub-wp' ) . '"></p>';
 		echo '<p><label for="xnetvn-activity-outcome">' . esc_html__( 'Outcome', 'xnetvn-agent-hub-wp' ) . '</label><select id="xnetvn-activity-outcome" data-filter="outcome">';
 		$outcomes = array(

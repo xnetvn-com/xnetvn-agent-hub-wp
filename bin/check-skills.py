@@ -34,10 +34,10 @@ SKILL_MAX_LINES = 500
 REFERENCE_MIN_LINES = 80
 REFERENCE_MAX_LINES = 400
 
-IMPLEMENTED_TOTAL = 62
+IMPLEMENTED_TOTAL = 63
 GROUP_COUNTS = (
     ("system", 5),
-    ("content", 19),
+    ("content", 20),
     ("taxonomy", 9),
     ("media", 7),
     ("comments", 10),
@@ -65,7 +65,7 @@ TOP_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
 CHILD_KEY = re.compile(r"^ {2}([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
 
 SENSITIVE_PATTERNS = (
-    (re.compile(r"xnv_[a-z2-7]{12}_[A-Za-z0-9_-]{43}"), "concrete token rejected (value REDACTED)"),
+    (re.compile(r"xn[vs]_[a-z2-7]{12}_[A-Za-z0-9_-]{43}"), "concrete token rejected (value REDACTED)"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "private key rejected (value REDACTED)"),
     (
         re.compile(r"Authorization:\s*Bearer\s+(?!\$|<|REDACTED)[A-Za-z0-9._~+/=-]{20,}"),
@@ -88,7 +88,7 @@ REQUIRED_FACTS = (
     ("request metadata", "io.modelcontextprotocol/protocolVersion"),
     ("ability catalog", "docs/en/architecture/ability-catalog.md"),
     ("system group", "system (5)"),
-    ("content group", "content (19)"),
+    ("content group", "content (20)"),
     ("taxonomy group", "taxonomy (9)"),
     ("media group", "media (7)"),
     ("comments group", "comments (10)"),
@@ -827,7 +827,7 @@ def run(root):
 
 
 def fixture_catalog_text():
-    """Build the synthetic catalog: 62 implemented rows and one planned row."""
+    """Build the synthetic catalog: 63 implemented rows and one planned row."""
     lines = [
         "# Ability catalog",
         "",
@@ -880,7 +880,7 @@ def fixture_skill_lines():
         "- Request metadata: `io.modelcontextprotocol/protocolVersion` in `params._meta`.",
         "- Ability catalog: `docs/en/architecture/ability-catalog.md`.",
         "",
-        "Groups: system (5), content (19), taxonomy (9), media (7), comments (10) and users (12).",
+        "Groups: system (5), content (20), taxonomy (9), media (7), comments (10) and users (12).",
         "",
         "## Naming",
         "",
@@ -1171,6 +1171,11 @@ def self_test_cases():
         append(skill(root), "A key must never look like " + token + " here.\n")
         return {"token": token}
 
+    def concrete_site_token(root):
+        token = "xns_" + "a" * 12 + "_" + "A" * 43
+        append(skill(root), "A website key must never look like " + token + " here.\n")
+        return {"token": token}
+
     def machine_path(root):
         append(
             skill(root),
@@ -1250,6 +1255,7 @@ def self_test_cases():
             "legacy notification outside legacy sequence",
         ),
         ("concrete token rejected", concrete_token, "concrete token rejected"),
+        ("concrete site token rejected", concrete_site_token, "concrete token rejected"),
         ("machine path rejected", machine_path, "machine path"),
         ("plain HTTP rejected", plain_http, "plain HTTP"),
         ("catalog table copy rejected", catalog_copy, "catalog table copy"),
@@ -1276,7 +1282,10 @@ def self_test():
                 context = mutation(root) or {}
                 problems, _stats = run(root)
             except Exception as error:  # noqa: BLE001 - a broken fixture is a failed case.
-                print("FAIL: {}: fixture error: {}".format(name, error))
+                if name in ("concrete token rejected", "concrete site token rejected"):
+                    print("FAIL: {}: fixture error (value REDACTED)".format(name))
+                else:
+                    print("FAIL: {}: fixture error: {}".format(name, error))
                 failures += 1
                 continue
             if expected is None:
@@ -1287,22 +1296,35 @@ def self_test():
                 print("PASS: " + name)
                 passed += 1
                 continue
-            if not any(expected in item for item in problems):
-                print("FAIL: {}: expected reason {!r}, got {!r}".format(name, expected, problems))
-                failures += 1
-                continue
-            if name == "concrete token rejected":
+            if name in ("concrete token rejected", "concrete site token rejected"):
                 token = context.get("token", "")
-                if not any("REDACTED" in item for item in problems):
-                    print("FAIL: {}: diagnostics did not contain REDACTED".format(name))
+                if not token:
+                    print("FAIL: {}: fixture did not provide a token (value REDACTED)".format(name))
                     failures += 1
                     continue
                 if any(token in item for item in problems):
-                    print("FAIL: {}: diagnostics echoed the generated value".format(name))
+                    print(
+                        "FAIL: {}: diagnostics echoed the generated value (value REDACTED)".format(
+                            name
+                        )
+                    )
                     failures += 1
                     continue
-                print("PASS: concrete token rejected (value REDACTED)")
+                if not any(
+                    expected in item and "REDACTED" in item for item in problems
+                ):
+                    print(
+                        "FAIL: {}: expected reason {!r} with REDACTED in one diagnostic "
+                        "(value REDACTED)".format(name, expected)
+                    )
+                    failures += 1
+                    continue
+                print("PASS: {} (value REDACTED)".format(name))
                 passed += 1
+                continue
+            if not any(expected in item for item in problems):
+                print("FAIL: {}: expected reason {!r}, got {!r}".format(name, expected, problems))
+                failures += 1
                 continue
             print("PASS: " + name)
             passed += 1

@@ -12,13 +12,18 @@ namespace XNetVN\AgentHubWP;
 use XNetVN\AgentHubWP\Contracts\ServiceProvider;
 use XNetVN\AgentHubWP\Auth\Capabilities;
 use XNetVN\AgentHubWP\Auth\Authenticator;
+use XNetVN\AgentHubWP\Auth\SiteAuthenticator;
 use XNetVN\AgentHubWP\Auth\HeaderExtractor;
 use XNetVN\AgentHubWP\Auth\PepperStore;
+use XNetVN\AgentHubWP\Auth\SiteKeyService;
+use XNetVN\AgentHubWP\Auth\SiteTokenCodec;
 use XNetVN\AgentHubWP\Persistence\MigrationProvider;
 use XNetVN\AgentHubWP\Persistence\DeactivationProvider;
 use XNetVN\AgentHubWP\Persistence\Migrator;
+use XNetVN\AgentHubWP\Persistence\SiteKeyLock;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Persistence\WpdbKeyRepository;
+use XNetVN\AgentHubWP\Persistence\WpdbSiteKeyRepository;
 use XNetVN\AgentHubWP\Support\SystemClock;
 use XNetVN\AgentHubWP\Http\RouteGate;
 use XNetVN\AgentHubWP\Http\TransportGuard;
@@ -26,11 +31,16 @@ use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\RateLimit\SlidingWindowLimiter;
 use XNetVN\AgentHubWP\RateLimit\WpBucketStore;
 use XNetVN\AgentHubWP\Abilities\Registry;
+use XNetVN\AgentHubWP\Domain\AbilityDescriptor;
+use XNetVN\AgentHubWP\Domain\SiteAuthContext;
 use XNetVN\AgentHubWP\Abilities\DefinitionFactory;
 use XNetVN\AgentHubWP\Abilities\SchemaBuilder;
 use XNetVN\AgentHubWP\Abilities\OutputPipeline;
+use XNetVN\AgentHubWP\Abilities\SiteDispatcher;
+use XNetVN\AgentHubWP\Abilities\Packs\Media\SiteMediaOperations;
 use XNetVN\AgentHubWP\Abilities\Packs\System\SystemPack;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SitePolicy;
 use XNetVN\AgentHubWP\Mcp\ServerGateway;
 use XNetVN\AgentHubWP\Audit\AuditLogger;
 use XNetVN\AgentHubWP\Audit\Retention;
@@ -44,6 +54,7 @@ use XNetVN\AgentHubWP\Auth\Notifications;
 use XNetVN\AgentHubWP\Persistence\WpOwnerLock;
 use XNetVN\AgentHubWP\Rest\ManagementGate;
 use XNetVN\AgentHubWP\Rest\KeysController;
+use XNetVN\AgentHubWP\Rest\SiteKeysController;
 use XNetVN\AgentHubWP\Rest\AuditController;
 use XNetVN\AgentHubWP\Rest\SettingsController;
 use XNetVN\AgentHubWP\Admin\Pages;
@@ -113,25 +124,68 @@ final class Plugin {
 	 */
 	private static function providers( string $plugin_file ): array {
 		global $wpdb;
-		$clock     = new SystemClock();
-		$settings  = new WpSiteSettings();
-		$request   = new RequestScope();
-		$transport = new TransportGuard( $settings );
-		$audit     = new WpdbAuditRepository( $wpdb );
-		$privacy   = new WpPrivacyStore( $wpdb );
-		$limits    = new SlidingWindowLimiter( new WpBucketStore( $wpdb ), $clock );
-		$registry  = new Registry( new Policy( $settings ), $request, new OutputPipeline( $settings ), new \XNetVN\AgentHubWP\RateLimit\WpExpensiveBudget( $wpdb ) );
+		$clock           = new SystemClock();
+		$settings        = new WpSiteSettings();
+		$request         = new RequestScope();
+		$transport       = new TransportGuard( $settings );
+		$audit           = new WpdbAuditRepository( $wpdb );
+		$privacy         = new WpPrivacyStore( $wpdb );
+		$limits          = new SlidingWindowLimiter( new WpBucketStore( $wpdb ), $clock );
+		$output          = new OutputPipeline( $settings );
+		$expensive       = new \XNetVN\AgentHubWP\RateLimit\WpExpensiveBudget( $wpdb );
+		$site_policy     = new SitePolicy( $settings );
+		$site_dispatcher = new SiteDispatcher( $site_policy, $output, $expensive );
+		$registry        = new Registry( new Policy( $settings ), $request, $output, $expensive, null, $site_policy, $site_dispatcher );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Content\ContentPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Media\MediaPack( new DefinitionFactory(), $settings ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Comments\CommentsPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Taxonomy\TaxonomyPack( new DefinitionFactory() ) );
 		$registry->add_pack( new \XNetVN\AgentHubWP\Abilities\Packs\Users\UsersPack( new DefinitionFactory(), $limits ) );
-		$registry->add_pack( new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() ) );
-		$keys    = new WpdbKeyRepository( $wpdb, $clock );
-		$peppers = new PepperStore();
-		$service = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
-		$gate    = new ManagementGate();
-		$gateway = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ) );
+		$system_pack = new SystemPack( new DefinitionFactory(), $registry, $request, new SchemaBuilder() );
+		$registry->add_pack( $system_pack );
+		$site_dispatcher->bind_catalog( $registry, static fn( string $name ): ?AbilityDescriptor => $registry->resolved_descriptor( $name ) );
+		// Packs load on init 0; register their machine handlers before the dispatcher freezes.
+		add_action(
+			'init',
+			static function () use ( $registry, $system_pack, $site_dispatcher ): void {
+				$system_pack->register_machine_handlers( $site_dispatcher );
+				if ( null === $registry->get( 'xnetvn/set-user-status' ) || $site_dispatcher->has_handler( 'xnetvn/set-user-status' ) ) {
+					return;
+				}
+				$site_dispatcher->register( 'xnetvn/set-user-status', \XNetVN\AgentHubWP\Abilities\Packs\Users\SiteUserModeration::handler() );
+			},
+			1
+		);
+		add_action(
+			'wp_abilities_api_init',
+			static function () use ( $registry, $site_dispatcher, $settings ): void {
+				$registry->load_packs();
+				$operations = new SiteMediaOperations( $settings );
+				$site_dispatcher->register( 'xnetvn/list-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/list-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/get-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/get-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/update-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/update-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/upload-media-from-url', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/upload-media-from-url', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/upload-media-from-data', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/upload-media-from-data', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/delete-media', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/delete-media', $args, $context ) );
+				$site_dispatcher->register( 'xnetvn/get-media-upload-limits', static fn( array $args, SiteAuthContext $context ): mixed => $operations->execute( 'xnetvn/get-media-upload-limits', $args, $context ) );
+			},
+			9
+		);
+		add_action(
+			'mcp_adapter_init',
+			static function (): void {
+				wp_get_abilities();
+			},
+			9
+		);
+		$keys             = new WpdbKeyRepository( $wpdb, $clock );
+		$peppers          = new PepperStore();
+		$service          = new KeyService( $keys, $peppers, new KeyGenerator(), $settings, $registry, $limits, new WpOwnerLock( $wpdb ), $clock );
+		$site_keys        = new WpdbSiteKeyRepository( $wpdb, $clock, max( 1, (int) get_current_blog_id() ) );
+		$site_auth        = new SiteAuthenticator( $site_keys, $peppers, $settings, $limits, $transport, $clock );
+		$site_key_service = new SiteKeyService( $site_keys, new SiteKeyLock( $wpdb ), new SiteTokenCodec(), $peppers, $settings, $registry, $limits, $clock );
+		$gate             = new ManagementGate();
+		$gateway          = new ServerGateway( $registry, $request, $settings, null, $keys, new HeaderExtractor( $settings ), $site_keys );
 		return array(
 			new MigrationProvider( $plugin_file, new Migrator( $wpdb, $clock ) ),
 			new DeactivationProvider( $plugin_file ),
@@ -141,12 +195,13 @@ final class Plugin {
 			new Retention( $audit, $settings, $clock, new WpBucketStore( $wpdb ) ),
 			new PrivacyExporter( $privacy ),
 			new PrivacyEraser( $privacy ),
-			new Notifications( $keys, $settings, $clock ),
-			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock ),
+			new Notifications( $keys, $settings, $clock, $site_keys ),
+			new Authenticator( $keys, $peppers, $settings, new HeaderExtractor( $settings ), $limits, $transport, $request, $clock, null, $site_auth ),
 			$registry,
 			$gateway,
 			$gate,
 			new KeysController( $gate, $service, $keys ),
+			new SiteKeysController( $gate, $site_key_service, max( 1, (int) get_current_blog_id() ) ),
 			new AuditController( $gate, $audit ),
 			new SettingsController( $gate, $settings, $registry, $keys, $gateway, $transport ),
 			new Pages( $plugin_file, $settings, $registry ),

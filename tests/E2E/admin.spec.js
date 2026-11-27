@@ -1,13 +1,16 @@
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
 
-test.beforeEach(async ({ page }) => {
+const ADMIN_LOGIN = process.env.XNETVN_TEST_LOGIN || 'admin';
+const EDITOR_LOGIN = process.env.XNETVN_TEST_EDITOR_LOGIN || 'xnetvn_ui_editor';
+
+async function signIn(page, login) {
 	await page.goto('/wp-login.php');
-	await page.locator('#user_login').fill(process.env.XNETVN_TEST_LOGIN || 'admin');
+	await page.locator('#user_login').fill(login);
 	await page.locator('#user_pass').fill(process.env.XNETVN_TEST_PASSWORD || 'password');
 	await page.locator('#wp-submit').click();
 	await expect(page).toHaveURL(/wp-admin/);
-});
+}
 
 test.afterEach(async ({ page }) => {
 	// Playwright writes an accessibility snapshot on failures even with traces disabled.
@@ -19,6 +22,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('create, dismiss, reload, rotate and revoke with keyboard-safe secret clearing', async ({ page }) => {
+	await signIn(page, EDITOR_LOGIN);
 	const errors = [];
 	page.on('pageerror', error => errors.push(error.message));
 	await page.goto('/wp-admin/profile.php');
@@ -66,13 +70,22 @@ test('create, dismiss, reload, rotate and revoke with keyboard-safe secret clear
 });
 
 test('plugin profile controls have no automated WCAG A/AA violations', async ({ page }) => {
+	await signIn(page, EDITOR_LOGIN);
 	await page.goto('/wp-admin/profile.php');
 	await expect(page.locator('[data-create]')).toBeEnabled();
 	const results = await new AxeBuilder({ page }).include('.xnetvn-agent-hub').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
 	expect(results.violations.map(violation => ({ id: violation.id, impact: violation.impact }))).toEqual([]);
 });
 
+test('administrator profile shows the protected notice without a personal hub', async ({ page }) => {
+	await signIn(page, ADMIN_LOGIN);
+	await page.goto('/wp-admin/profile.php');
+	await expect(page.locator('[data-protected-personal-notice]')).toBeVisible();
+	await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]')).toHaveCount(0);
+});
+
 test('overview, tools, activity, settings and help load without console exceptions', async ({ page }) => {
+	await signIn(page, ADMIN_LOGIN);
 	const errors = [];
 	page.on('pageerror', error => errors.push(error.message));
 	for (const view of ['', '-tools', '-activity', '-settings', '-help']) {
@@ -86,6 +99,7 @@ test('overview, tools, activity, settings and help load without console exceptio
 });
 
 test('media settings expose bounded inputs and accessible labels', async ({ page }) => {
+	await signIn(page, ADMIN_LOGIN);
 	await page.goto('/wp-admin/admin.php?page=xnetvn-agent-hub-wp-settings');
 	await expect(page.getByLabel('Enable public HTTPS media downloads')).toBeVisible();
 	for (const [name, min, max] of [

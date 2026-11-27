@@ -25,19 +25,26 @@ use XNetVN\AgentHubWP\Support\RequestMetadata;
 
 /** Rechecks ownership, current permissions and quota for every mutation. */
 final class KeyService {
+	/** Protected-account eligibility.
+	 *
+	 * @var DelegationEligibility
+	 */
+	private DelegationEligibility $eligibility;
 	/**
 	 * Bind lifecycle dependencies.
 	 *
-	 * @param KeyRepository  $keys Persistence.
-	 * @param PepperStore    $peppers Opaque pepper.
-	 * @param KeyGenerator   $generator Random credentials.
-	 * @param SiteSettings   $settings Site policy.
-	 * @param AbilityCatalog $catalog Reviewed definitions.
-	 * @param RateLimiter    $limits Reauthentication budget.
-	 * @param OwnerLock      $lock Shared mutation lock.
-	 * @param Clock          $clock UTC clock.
+	 * @param KeyRepository              $keys Persistence.
+	 * @param PepperStore                $peppers Opaque pepper.
+	 * @param KeyGenerator               $generator Random credentials.
+	 * @param SiteSettings               $settings Site policy.
+	 * @param AbilityCatalog             $catalog Reviewed definitions.
+	 * @param RateLimiter                $limits Reauthentication budget.
+	 * @param OwnerLock                  $lock Shared mutation lock.
+	 * @param Clock                      $clock UTC clock.
+	 * @param DelegationEligibility|null $eligibility Protected-account eligibility.
 	 */
-	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private KeyGenerator $generator, private SiteSettings $settings, private AbilityCatalog $catalog, private RateLimiter $limits, private OwnerLock $lock, private Clock $clock ) {
+	public function __construct( private KeyRepository $keys, private PepperStore $peppers, private KeyGenerator $generator, private SiteSettings $settings, private AbilityCatalog $catalog, private RateLimiter $limits, private OwnerLock $lock, private Clock $clock, ?DelegationEligibility $eligibility = null ) {
+		$this->eligibility = $eligibility ?? new DelegationEligibility();
 	}
 
 	/**
@@ -50,6 +57,9 @@ final class KeyService {
 	public function create( int $user_id, #[\SensitiveParameter] array $input ): IssuedKey|WP_Error {
 		try {
 			if ( get_current_user_id() !== $user_id || ! user_can( $user_id, Capabilities::USE ) ) {
+				return $this->error( 'forbidden', 403 );
+			}
+			if ( ! $this->eligibility->check( $user_id )->allowed ) {
 				return $this->error( 'forbidden', 403 );
 			}
 			return $this->lock->run(
@@ -133,6 +143,11 @@ final class KeyService {
 					if ( array_key_exists( 'current_password', $input ) ) {
 						return $this->error( 'invalid_key', 400 );
 					}
+					$eligibility = $this->eligibility->check( $fresh->user_id );
+					$extending   = array_key_exists( 'expires_in_days', $input ) || array() !== array_intersect( array_keys( $input ), array( 'tier_max', 'toolsets', 'ability_allow', 'ability_deny', 'ip_allowlist' ) );
+					if ( ! $eligibility->allowed && $extending ) {
+						return $this->error( 'forbidden', 403 );
+					}
 					$validated = $this->validate( $fresh->user_id, $input, $fresh );
 					if ( is_wp_error( $validated ) ) {
 						return $validated;
@@ -199,6 +214,9 @@ final class KeyService {
 					$check = $this->validate( $fresh->user_id, array(), $fresh );
 					if ( is_wp_error( $check ) ) {
 						return $check;
+					}
+					if ( ! $this->eligibility->check( $fresh->user_id )->allowed ) {
+						return $this->error( 'forbidden', 403 );
 					}
 					$password = $this->reauthenticate( $fresh->user_id, $fresh->scope->tier_max, $input['current_password'] ?? null );
 					if ( is_wp_error( $password ) ) {
@@ -320,6 +338,9 @@ final class KeyService {
 	 * @return IssuedKey|WP_Error
 	 */
 	private function issue( int $user_id, string $name, Scope $scope ): IssuedKey|WP_Error {
+		if ( ! $this->eligibility->check( $user_id )->allowed ) {
+			return $this->error( 'forbidden', 403 );
+		}
 		if ( ! user_can( $user_id, Capabilities::USE ) || $this->keys->count_active_for_user( $user_id ) >= (int) $this->settings->get( 'max_keys_per_user' ) ) {
 			return $this->error( 'key_limit', 409 );
 		}

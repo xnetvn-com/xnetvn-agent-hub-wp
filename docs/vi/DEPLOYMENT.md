@@ -10,6 +10,10 @@
 
 ### 1.1 Kiểm Tra Chất Lượng Mã Nguồn
 ```bash
+# Kiểm tra metadata phụ thuộc và cảnh báo đã biết trước.
+composer validate --strict
+# Dùng Composer >=2.4 đã rà soát (PHAR cục bộ là tùy chọn):
+# php /path/to/composer.phar audit --locked --no-dev
 # Đảm bảo 100% kiểm tra thành công
 composer check
 ```

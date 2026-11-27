@@ -292,7 +292,7 @@ One `rtl.py exec` call is limited to 600 s, so a longer phase (for example the `
 
 ## 5. Target Versus Observed (Acceptance Record)
 
-`git diff --check` proves whitespace only; it never proves runtime, hosted CI, real-client, host or production readiness. P13 comprehensive acceptance ran on 2026-11-04: 198/198 on `wp69` and `wp71`, 6/6 on network main and child, Chromium/Firefox/WebKit, zero skips. Evidence: `.local/remote-test/20261104T102449Z` (`wp69`), `.local/remote-test/20261104T103736Z` (`wp71`), `.local/remote-test/20261104T105310Z` (network main), `.local/remote-test/20261104T105421Z` (network child).
+`git diff --check` proves whitespace only; it never proves runtime, hosted CI, real-client, host or production readiness. P13 comprehensive acceptance ran on 2026-11-04: 198/198 on `wp69` and `wp71`, 6/6 on network main and child, Chromium/Firefox/WebKit, zero skips. Evidence: `.local/remote-test/20261104T102449Z` (`wp69`), `.local/remote-test/20261104T103736Z` (`wp71`), `.local/remote-test/20261104T105310Z` (network main), `.local/remote-test/20261104T105421Z` (network child). This evidence was recorded on the 2026-11-04 frozen artifact before the post-audit commits; the current revision requires a fresh P13 run.
 
 | Claim | Target | Observed in this revision |
 |---|---|---|
@@ -304,7 +304,7 @@ One `rtl.py exec` call is limited to 600 s, so a longer phase (for example the `
 | Trusted TLS, real MCP clients (Claude, ChatGPT and others), hosted CI, host and production | Separately evidenced | Unverified in this revision; the lab exception of the self-signed certificate covers the lab clients only. |
 | Axe automated checks | 0 axe violations on changed UI | Signal only; never read as WCAG conformance. |
 | WCAG 2.2 AA conformance | Conform per [UI/UX Standards](standards/ui-ux-standards.md) | Not established; manual WCAG, keyboard and screen-reader verification remain separately owned. |
-| P13 acceptance | Three browsers, two sites, multisite green | PASS — 198/198 on `wp69` and `wp71`; 6/6 on network main and child; Chromium, Firefox and WebKit; 0 failed, 0 skipped (2026-11-04 evidence paths above). |
+| P13 acceptance | Three browsers, two sites, multisite green | Last evidenced 2026-11-04 on the pre-audit artifact; current revision pending. |
 | Manual, screen-reader, real-client, hosted CI, host, production | Separately evidenced | Unverified in this revision. |
 
 Record each run with time, revision, site (`wp69`/`wp71`), browser, role, command and the `UI_BASE_URL` source (`rtl.py handoff`); keep credentials, hashes and argument values out of logs and artifacts.

@@ -15,12 +15,12 @@ final class WpdbAuditRepository implements AuditRepository {
 	use RunsQueries;
 
 	/** Fixed optional-filter template, prepared once with all values. */
-	private const WHERE_SQL = "(%s = '' OR key_id = %s) AND (%d = 0 OR user_id = %d) AND (%s = '' OR ability = %s) AND (%s = '' OR outcome = %s) AND (%s = '' OR request_id = %s) AND (%s = '' OR occurred_at >= %s) AND (%s = '' OR occurred_at <= %s)";
+	private const WHERE_SQL = "(%s = '' OR key_id = %s) AND (%d = 0 OR user_id = %d) AND (%s = '' OR ability = %s) AND (%s = '' OR outcome = %s) AND (%s = '' OR request_id = %s) AND (%s = '' OR occurred_at >= %s) AND (%s = '' OR occurred_at <= %s) AND blog_id = %d AND (%s = '' OR principal_type = %s) AND (%s = '' OR credential_ref = %s)";
 
 	/** Fixed audit column order. */
-	private const COLUMNS = array( 'occurred_at', 'request_id', 'key_id', 'user_id', 'transport', 'protocol_version', 'mcp_method', 'ability', 'outcome', 'error_code', 'duration_ms', 'ip', 'ua_short', 'arg_keys' );
-	/** Fixed listing whitelist: only the five columns the activity UI renders. */
-	private const LIST_COLUMNS = array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport' );
+	private const COLUMNS = array( 'occurred_at', 'request_id', 'key_id', 'user_id', 'transport', 'protocol_version', 'mcp_method', 'ability', 'outcome', 'error_code', 'duration_ms', 'ip', 'ua_short', 'arg_keys', 'principal_type', 'credential_ref', 'blog_id' );
+	/** Fixed listing whitelist: only the eight columns the activity listing exposes. */
+	private const LIST_COLUMNS = array( 'occurred_at', 'user_id', 'ability', 'outcome', 'transport', 'principal_type', 'blog_id', 'credential_ref' );
 	/**
 	 * Bind the database.
 	 *
@@ -57,8 +57,25 @@ final class WpdbAuditRepository implements AuditRepository {
 					throw new \InvalidArgumentException( 'Invalid audit argument names.' );
 				}
 			}
-			$event['arg_keys'] = Json::encode( array_values( $event['arg_keys'] ) );
-			$values            = array();
+			$principal = $event['principal_type'] ?? 'user';
+			$reference = $event['credential_ref'] ?? null;
+			$key_id    = $event['key_id'] ?? null;
+			$actor     = $event['user_id'] ?? null;
+			if (
+				! in_array( $principal, array( 'user', 'site' ), true )
+				|| ( null !== $reference && ( ! is_string( $reference ) || 1 !== preg_match( '/\Axn[vs]:[a-z2-7]{12}\z/', $reference ) ) )
+				|| ( 'site' === $principal && ( null !== $key_id || null !== $actor || ! is_string( $reference ) || ! str_starts_with( $reference, 'xns:' ) ) )
+				|| ( 'user' === $principal && null !== $reference && ( ! is_string( $key_id ) || 'xnv:' . $key_id !== $reference ) )
+			) {
+				throw new \InvalidArgumentException( 'Invalid audit principal.' );
+			}
+			if ( 'site' === $principal && isset( $event['blog_id'] ) && max( 1, (int) get_current_blog_id() ) !== $event['blog_id'] ) {
+				throw new \InvalidArgumentException( 'Invalid audit blog.' );
+			}
+			$event['principal_type'] ??= 'user';
+			$event['blog_id']        ??= max( 1, (int) get_current_blog_id() );
+			$event['arg_keys']         = Json::encode( array_values( $event['arg_keys'] ) );
+			$values                    = array();
 			foreach ( self::COLUMNS as $column ) {
 				$value = $event[ $column ] ?? null;
 				if ( null === $value ) {
@@ -84,6 +101,8 @@ final class WpdbAuditRepository implements AuditRepository {
 	/**
 	 * Query a bounded page; items carry only the fixed listing whitelist.
 	 *
+	 * The current site is always bound, so a caller-supplied blog_id filter cannot widen the site scope.
+	 *
 	 * @param array<string,mixed> $filter Filters.
 	 * @param int                 $page Page.
 	 * @return array{items:array<array<string,mixed>>,total:int,page:int,per_page:int}
@@ -93,6 +112,12 @@ final class WpdbAuditRepository implements AuditRepository {
 		$values = array( $this->table() );
 		foreach ( array( 'key_id', 'user_id', 'ability', 'outcome', 'request_id', 'after', 'before' ) as $field ) {
 			$value    = 'user_id' === $field ? (int) ( $filter[ $field ] ?? 0 ) : ( is_scalar( $filter[ $field ] ?? null ) ? (string) $filter[ $field ] : '' );
+			$values[] = $value;
+			$values[] = $value;
+		}
+		$values[] = max( 1, (int) get_current_blog_id() );
+		foreach ( array( 'principal_type', 'credential_ref' ) as $field ) {
+			$value    = is_scalar( $filter[ $field ] ?? null ) ? (string) $filter[ $field ] : '';
 			$values[] = $value;
 			$values[] = $value;
 		}

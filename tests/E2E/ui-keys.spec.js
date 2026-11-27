@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { loginAs, installSecretCleanup } = require('./ui-helpers');
+const { loginAs, loginFresh, LOGINS, installSecretCleanup } = require('./ui-helpers');
 
 const KEYS_URL = '/wp-admin/admin.php?page=xnetvn-agent-hub-wp-keys';
 
@@ -71,6 +71,26 @@ async function myId(page) {
 	});
 }
 
+/** Numeric id of one exact fixture login. Numbers only, never credentials. */
+async function userIdByLogin(page, login) {
+	return page.evaluate(async wanted => {
+		const response = await fetch(`/wp-json/wp/v2/users?search=${encodeURIComponent(wanted)}&per_page=100&context=edit&_fields=id,username`, {
+			headers: { 'X-WP-Nonce': window.xnetvnAgentHubConfig.nonce },
+		});
+		if (!response.ok) {
+			return -1;
+		}
+		const body = await response.json();
+		if (!Array.isArray(body)) {
+			return -1;
+		}
+		const ids = body
+			.filter(entry => entry && entry.username === wanted)
+			.map(entry => Number(entry.id));
+		return ids.length === 1 && Number.isInteger(ids[0]) && ids[0] > 0 ? ids[0] : -1;
+	}, login);
+}
+
 test('UI-KY-01 management filters scope the listing and profiles lock the owner', async ({ page }) => {
 	const seen = [];
 	await page.route('**/xnetvn-agent-hub-wp/v1/keys**', async route => {
@@ -119,14 +139,16 @@ test('UI-KY-01 management filters scope the listing and profiles lock the owner'
 	expect(clean).toBe(true);
 
 	await page.goto('/wp-admin/profile.php');
-	const profile = page.locator('.xnetvn-agent-hub[data-view="keys"]');
-	await expect(profile).toBeVisible();
-	await expect(profile.locator('[data-filter]')).toHaveCount(0);
-	expect(await profile.getAttribute('data-all')).toBe('0');
-	await page.goto(`/wp-admin/user-edit.php?user_id=${me}`);
+	await expect(page.locator('[data-protected-personal-notice]')).toBeVisible();
+	await expect(page.locator('.xnetvn-agent-hub[data-view="keys"]')).toHaveCount(0);
+	const editorId = await userIdByLogin(page, LOGINS.editor);
+	expect(editorId).toBeGreaterThan(0);
+	await page.goto(`/wp-admin/user-edit.php?user_id=${editorId}`);
 	const edit = page.locator('.xnetvn-agent-hub[data-view="keys"]');
 	await expect(edit).toBeVisible();
 	await expect(edit.locator('[data-filter]')).toHaveCount(0);
+	expect(await edit.getAttribute('data-all')).toBe('0');
+	expect(await edit.getAttribute('data-user-id')).toBe(String(editorId));
 	await page.unroute('**/xnetvn-agent-hub-wp/v1/keys**');
 });
 
@@ -186,10 +208,8 @@ test('UI-KY-01 cross-owner keys stay denied while managers revoke scoped rows', 
 
 test('UI-KY-02 overlapping key actions send at most one mutation', async ({ page }) => {
 	const mutations = [];
-	await loginAs(page, 'administrator');
-	// The fixture owner id is only known at runtime; read it on a plugin page that
-	// exposes the REST config, then intercept the listing before the first load.
-	await page.goto('/wp-admin/admin.php?page=xnetvn-agent-hub-wp');
+	await loginAs(page, 'editor');
+	await page.goto('/wp-admin/profile.php');
 	const ownerId = await myId(page);
 	await page.route('**/xnetvn-agent-hub-wp/v1/keys**', async route => {
 		const method = route.request().method();
@@ -219,7 +239,7 @@ test('UI-KY-02 overlapping key actions send at most one mutation', async ({ page
 			body: JSON.stringify(syntheticResult('single-create')),
 		});
 	});
-	await page.goto(KEYS_URL);
+	await page.goto('/wp-admin/profile.php');
 	const root = page.locator('.xnetvn-agent-hub[data-view="keys"]');
 	await expect(root).toBeVisible();
 	await expect(root.locator('[data-keys] tr').first()).toContainText('UI-KY single row 0');
@@ -264,8 +284,8 @@ test('UI-KY-02 lost responses stay uncertain and failed refreshes keep the secre
 		}
 		await route.continue();
 	});
-	await loginAs(page, 'administrator');
-	await page.goto(KEYS_URL);
+	await loginAs(page, 'editor');
+	await page.goto('/wp-admin/profile.php');
 	const root = page.locator('.xnetvn-agent-hub[data-view="keys"]');
 	await expect(root).toBeVisible();
 	const baseline = gets;
@@ -314,8 +334,8 @@ test('UI-KY-02 lost responses stay uncertain and failed refreshes keep the secre
 test('UI-KY-03 secret dialogs keep focus and clear on close', async ({ page }) => {
 	const errors = [];
 	page.on('pageerror', error => errors.push(error.message));
-	await loginAs(page, 'administrator');
-	await page.goto(KEYS_URL);
+	await loginAs(page, 'editor');
+	await page.goto('/wp-admin/profile.php');
 	const root = page.locator('.xnetvn-agent-hub[data-view="keys"]');
 	await expect(root).toBeVisible();
 	const name = `UI-KY focus ${Date.now()}`;
@@ -371,8 +391,8 @@ test('UI-KY-03 secret dialogs keep focus and clear on close', async ({ page }) =
 });
 
 test('UI-KY-04 destructive tiers require the current password and strangers are denied', async ({ page }) => {
-	await loginAs(page, 'administrator');
-	await page.goto(KEYS_URL);
+	await loginAs(page, 'editor');
+	await page.goto('/wp-admin/profile.php');
 	const root = page.locator('.xnetvn-agent-hub[data-view="keys"]');
 	await expect(root).toBeVisible();
 	const password = process.env.XNETVN_TEST_PASSWORD;
@@ -406,7 +426,7 @@ test('UI-KY-04 destructive tiers require the current password and strangers are 
 	await root.locator('[data-action-dialog]').getByRole('button', { name: 'Confirm', exact: true }).click();
 	await expect(created).toContainText('revoked');
 
-	await loginAs(page, 'subscriber');
+	await loginFresh(page, 'subscriber');
 	await page.goto(KEYS_URL);
 	// WordPress refuses the screen before the plugin renders it: no hub markup and a denial.
 	await expect(page.locator('.xnetvn-agent-hub')).toHaveCount(0);

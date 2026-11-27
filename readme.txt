@@ -12,7 +12,7 @@ A private MCP server for AI agents that limits every request to the WordPress pe
 
 == Description ==
 
-xNetVN Agent Hub WP gives an AI agent a reviewed set of WordPress tools without giving it the site. Each key belongs to a WordPress user, every request is rechecked against that user's current permissions and the key scope, and each call can leave an audit record you can review.
+xNetVN Agent Hub WP gives an AI agent a reviewed set of WordPress tools without giving it the site. Each key belongs to a WordPress user, every request is rechecked against that user's current permissions and the key scope, and each call can leave an audit record.
 
 = What you can do =
 
@@ -23,22 +23,13 @@ xNetVN Agent Hub WP gives an AI agent a reviewed set of WordPress tools without 
 * **Keep credentials out of reach.** A key is shown once; only an HMAC-SHA256 hash keyed with a separate random per-site pepper is stored. The MCP route takes bearer keys only; management routes take a cookie with a REST nonce.
 * **Bound abuse and control media.** Per-key and per-IP limits, a response cap, IP and origin allowlists and a TLS requirement run first. Remote media download is off by default and accepts public HTTPS only, with byte, pixel and MIME limits.
 
-= Get started in minutes =
-
-1. Install and activate the official MCP Adapter 0.7.x from https://wordpress.org/plugins/mcp-adapter/ to enable MCP. You can activate xNetVN Agent Hub WP first; it shows a notice and keeps MCP disabled until the adapter is active.
-2. Install and activate xNetVN Agent Hub WP, then create a key on your profile with the lowest tier and toolsets the client needs.
-3. Point the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp and send the key as a bearer token.
-
-= Who it is for =
-
-Site owners, agencies and developers who want an AI agent to work with posts, media, comments, taxonomy and users under a real WordPress identity, without code execution, SQL, file edits or security settings.
-
 = Compatibility =
 
 * WordPress 6.9 or later, PHP 8.2 or later.
-* Single-site and Multisite test suites target WordPress 6.9 and 7.1.2.
-* The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), installed and active to use MCP. The plugin can be activated without it; MCP stays disabled and an admin notice explains the missing dependency.
-* Clients that send a bearer token; OAuth is not implemented. The client gate covers MCP Inspector 2.9.0 and FastMCP Slim 4.0.11 CLI, not desktop GUI clients.
+* Single-site and Multisite suites target WordPress 6.9 and 7.1.2.
+* English readme; a translation template ships in languages/. No accessibility or performance claim is made.
+* The official MCP Adapter 0.7.x (0.7.0 or later, below 0.8.0), active to use MCP. The plugin can be activated without it; MCP stays disabled with an admin notice.
+* Clients that send a bearer token; OAuth is not implemented. Client gate covers MCP Inspector 2.9.0 and FastMCP Slim 4.0.11 CLI, not desktop GUIs.
 
 = Privacy, security and your data =
 
@@ -47,25 +38,14 @@ Site owners, agencies and developers who want an AI agent to work with posts, me
 * **Uninstall:** "Delete plugin data when uninstalled" is on by default and removes keys, activity, site options, events and notification preferences. The capability-less banned role and two per-user options (ban snapshot, password-reset timestamp) are not removed. Turn it off first to keep the site data.
 * **Source code:** https://github.com/xnetvn-com/xnetvn-agent-hub-wp
 
-= Translations and accessibility =
-
-A translation template ships in languages/; no translated language packs exist yet and this readme is English only. No accessibility conformance or performance claim is made for this release.
-
-= Documentation and support =
-
-* User guide: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/docs/user-guide.md
-* Project wiki: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/wiki
-* Support forum: https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/
-* Issues: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues
-
 = For developers =
 
-* Hooks include xnetvn_agent_hub_wp_loaded, xnetvn_agent_hub_wp_policy_decision, xnetvn_agent_hub_wp_tool_started, xnetvn_agent_hub_wp_tool_finished and xnetvn_agent_hub_wp_remote_url_allowed.
-* Management REST namespace /wp-json/xnetvn-agent-hub-wp/v1/, MCP endpoint /wp-json/xnetvn-agent-hub-wp/mcp, and two capabilities: use_xnetvn_agent_hub_wp and manage_xnetvn_agent_hub_wp, both evaluated dynamically. Banning a user creates a capability-less banned role when the site does not have one.
+* Hooks include xnetvn_agent_hub_wp_loaded, xnetvn_agent_hub_wp_policy_decision, xnetvn_agent_hub_wp_tool_started, xnetvn_agent_hub_wp_tool_finished, xnetvn_agent_hub_wp_remote_url_allowed and xnetvn_agent_hub_wp_lock_release_incomplete (an unacknowledged connection-bound lock release independent of the operation outcome; observational only, receives the owner ID and never changes the result or reacquires the lock).
+* Management REST namespace /wp-json/xnetvn-agent-hub-wp/v1/, MCP endpoint /wp-json/xnetvn-agent-hub-wp/mcp, and two capabilities: use_xnetvn_agent_hub_wp and manage_xnetvn_agent_hub_wp, both evaluated dynamically. Banning a user creates the capability-less banned role when missing.
 
 = Credits =
 
-* Uses the official MCP Adapter by WordPress.org (GPL-2.0-or-later) and the WordPress Abilities API; banner and icon are original artwork with no third-party logo or bundled font.
+* Uses the official MCP Adapter by WordPress.org (GPL-2.0-or-later) and the WordPress Abilities API; banner and icon are bundled with the plugin and use no third-party logo or bundled font.
 
 == External services ==
 
@@ -89,13 +69,6 @@ The plugin has no vendor service and contacts none on its own. It can make one k
 1. Download the plugin zip from WordPress.org.
 2. Go to Plugins > Add New Plugin > Upload Plugin, choose the zip and select Install Now.
 3. Activate the plugin.
-
-= After activation =
-
-1. Install and activate the official MCP Adapter 0.7.x to enable MCP. The plugin can be activated without it; MCP stays disabled and an admin notice explains the missing dependency.
-2. Create a key on your own Profile page, store it in the client secret store, and configure the client at https://example.com/wp-json/xnetvn-agent-hub-wp/mcp with the key as a bearer token.
-
-For a source checkout, run composer install before activation.
 
 == Frequently Asked Questions ==
 
@@ -125,15 +98,11 @@ Per-key request limits and per-IP failed-authentication limits, maximum key life
 
 = Does it work on Multisite? =
 
-Yes. Settings and data are stored per site. Network-wide deactivation clears scheduled events on every site, and uninstall checks each site's setting while keeping shared per-user preferences as long as any site keeps its data.
-
-= Which MCP clients work? =
-
-Any client that can send a bearer token in the Authorization header. OAuth is not implemented, so a client that requires an OAuth flow cannot connect.
+Yes. Settings and data are per site. Network-wide deactivation clears scheduled events on every site; uninstall checks each site's setting and keeps shared per-user preferences while any site keeps data.
 
 = What happens to my data when I uninstall? =
 
-Deleting the plugin removes its own data by default: keys and activity tables are dropped, its site options and events are deleted, and notification preferences are removed. The capability-less banned role and the per-user ban snapshot and password-reset timestamp stay. Content, media and terms created by agents are not deleted.
+Deleting the plugin removes its own data by default: keys and activity tables are dropped, its site options and events are deleted, and notification preferences are removed. The capability-less banned role and two per-user options stay. Content, media and terms created by agents are not deleted.
 
 = Why do I get a 401 response? =
 
@@ -145,7 +114,7 @@ A 403 is a request refused before the ability ran: non-HTTPS, an Origin outside 
 
 = Where can I get help? =
 
-Use https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/ or open an issue at https://github.com/xnetvn-com/xnetvn-agent-hub-wp/issues. Report security issues privately to security@xnetvn.net.
+User guide: https://github.com/xnetvn-com/xnetvn-agent-hub-wp/blob/main/docs/user-guide.md. Support: https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/. Report security issues privately to security@xnetvn.net.
 
 == Screenshots ==
 
@@ -167,9 +136,6 @@ Use https://wordpress.org/support/plugin/xnetvn-agent-hub-wp/ or open an issue a
 * The plugin can be activated before the MCP Adapter is installed; MCP stays disabled with an admin notice until a supported adapter is active.
 * Deactivation clears the plugin's owned scheduled events on the current site, and on every site for network-wide deactivation.
 * Remote media fetch honors the site's WP_HTTP_BLOCK_EXTERNAL and WP_ACCESSIBLE_HOSTS settings on every request and redirect hop.
-
-= 0.1.0 =
-* Initial pre-release foundation, runtime requirement checks and developer tooling.
 
 == Upgrade Notice ==
 

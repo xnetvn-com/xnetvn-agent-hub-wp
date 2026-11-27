@@ -1,0 +1,9 @@
+== Changelog ==
+
+= 0.1.0 =
+* Initial pre-release foundation, runtime requirement checks and developer tooling.
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+First public release. Requires WordPress 6.9, PHP 8.2 and the official MCP Adapter 0.7.x.

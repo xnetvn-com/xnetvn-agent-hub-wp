@@ -30,10 +30,15 @@ use XNetVN\AgentHubWP\Abilities\Packs\Users\UsersPack;
 use XNetVN\AgentHubWP\Abilities\Registry;
 use XNetVN\AgentHubWP\Abilities\SchemaBuilder;
 use XNetVN\AgentHubWP\Auth\Capabilities;
+use XNetVN\AgentHubWP\Auth\DelegationEligibility;
 use XNetVN\AgentHubWP\Contracts\AbilitySpec;
+use XNetVN\AgentHubWP\Domain\RiskTier;
+use XNetVN\AgentHubWP\Domain\SiteScope;
 use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\Persistence\WpSiteSettings;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
+use XNetVN\AgentHubWP\Policy\SitePolicy;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
 
 /** Pins the declaration, schema and cleanup contracts without network access. */
@@ -92,12 +97,12 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Declarations expose exactly the installed sixty-two tools.
+	 * Declarations expose exactly the installed sixty-three tools.
 	 */
 	public function test_declared_tool_set_matches_real_catalog(): void {
 		$declared = self::$declarations['tools'];
-		self::assertCount( 62, self::$catalog );
-		self::assertCount( 62, $declared );
+		self::assertCount( 63, self::$catalog );
+		self::assertCount( 63, $declared );
 		$catalog_names  = array_keys( self::$catalog );
 		$declared_names = array_keys( $declared );
 		sort( $catalog_names, SORT_STRING );
@@ -120,7 +125,7 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 		self::assertSame(
 			array(
 				'comments' => 10,
-				'content'  => 19,
+				'content'  => 20,
 				'media'    => 7,
 				'system'   => 5,
 				'taxonomy' => 9,
@@ -137,6 +142,9 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 		$actors = self::$declarations['actors'];
 		$seen   = array();
 		foreach ( self::$declarations['cases'] as $id => $case ) {
+			if ( isset( self::$declarations['site_keys'][ $case['actor'] ] ) ) {
+				continue;
+			}
 			self::assertSame( $id, $case['id'] );
 			self::assertContains( $case['actor'], $actors, $id );
 			self::assertContains( $case['expected'], array( 'allowed', 'denied', 'na' ), $id );
@@ -163,7 +171,6 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 	public function test_every_tool_has_allowed_and_denied_paths(): void {
 		$allowed = array();
 		$denied  = array();
-		$gaps    = array();
 		foreach ( self::$declarations['cases'] as $case ) {
 			if ( 'allowed' === $case['expected'] ) {
 				$allowed[ $case['tool'] ] = true;
@@ -171,19 +178,31 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 			if ( 'denied' === $case['expected'] ) {
 				$denied[ $case['tool'] ] = true;
 			}
-			if ( 'na' === $case['expected'] && 'remote_fetch_disabled_default' === $case['reason'] ) {
-				$gaps[ $case['tool'] ] = true;
-			}
 		}
+		$without_allowed = array();
 		foreach ( self::$declarations['tools'] as $name => $tool ) {
 			$wire = str_replace( '/', '-', $name );
 			self::assertArrayHasKey( $wire, $denied, $name );
-			if ( isset( $allowed[ $wire ] ) ) {
-				continue;
+			if ( ! isset( $allowed[ $wire ] ) ) {
+				$without_allowed[] = $name;
 			}
-			self::assertSame( 'xnetvn/upload-media-from-url', $name, $name );
-			self::assertArrayHasKey( $wire, $gaps, $name );
 		}
+		$expected = array(
+			'xnetvn/create-user',
+			'xnetvn/get-user',
+			'xnetvn/get-user-capabilities',
+			'xnetvn/list-roles',
+			'xnetvn/list-users',
+			'xnetvn/send-password-reset',
+			'xnetvn/set-user-role',
+			'xnetvn/set-user-status',
+			'xnetvn/terminate-user-sessions',
+			'xnetvn/update-user',
+			'xnetvn/upload-media-from-url',
+		);
+		sort( $expected, SORT_STRING );
+		sort( $without_allowed, SORT_STRING );
+		self::assertSame( $expected, $without_allowed );
 	}
 
 	/**
@@ -313,6 +332,10 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 		foreach ( array( 'admin', 'editor', 'author', 'contributor' ) as $actor ) {
 			self::assertTrue( user_can( (int) $ids[ $actor ], Capabilities::USE ), $actor );
 		}
+		// A personal credential for a protected account can never authenticate;
+		// DelegationEligibility and Authenticator own the refusal and the mapping.
+		self::assertSame( 'delegation_protected_account', ( new DelegationEligibility() )->check( (int) $ids['admin'] )->reason );
+		self::assertTrue( ( new DelegationEligibility() )->check( (int) $ids['editor'] )->allowed );
 		foreach ( array( 'subscriber', 'banned' ) as $actor ) {
 			self::assertFalse( user_can( (int) $ids[ $actor ], Capabilities::USE ), $actor );
 		}
@@ -326,14 +349,18 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 			if ( in_array( $case['actor'], array( 'anonymous', 'super-admin' ), true ) ) {
 				continue;
 			}
+			if ( isset( self::$declarations['site_keys'][ $case['actor'] ] ) ) {
+				continue;
+			}
 			$id = (int) $ids[ $case['actor'] ];
 			if ( isset( $case['variant_action'] ) ) {
 				self::assertSame( 'denied', $case['expected'], $case['id'] );
 				continue;
 			}
 			if ( 'denied' === $case['expected'] && 'policy' === $case['layer'] ) {
+				$evaluated     = ( 'catalog.info' === ( $case['payload'] ?? '' ) && isset( $case['extra'] ) ) ? (string) $case['extra'] : (string) $case['name'];
 				$scope         = self::$declarations['keys'][ $case['key'] ];
-				$tool          = self::$declarations['tools'][ $case['name'] ];
+				$tool          = self::$declarations['tools'][ $evaluated ];
 				$order         = array(
 					'read'        => 0,
 					'write'       => 1,
@@ -342,16 +369,128 @@ final class CatalogRoleMatrixTest extends WP_UnitTestCase {
 				);
 				$policy_denies = $order[ $tool['tier'] ] > $order[ $scope['tier'] ]
 					|| ! in_array( $tool['pack'], $scope['toolsets'], true )
-					|| ( isset( $scope['allow'] ) && ! in_array( $case['name'], $scope['allow'], true ) )
-					|| ( isset( $scope['deny'] ) && in_array( $case['name'], $scope['deny'], true ) )
+					|| ( isset( $scope['allow'] ) && ! in_array( $evaluated, $scope['allow'], true ) )
+					|| ( isset( $scope['deny'] ) && in_array( $evaluated, $scope['deny'], true ) )
 					|| false === (bool) user_can( $id, $tool['visibility'] );
 				self::assertTrue( $policy_denies, $case['id'] );
 				continue;
 			}
 			if ( 'allowed' === $case['expected'] || 'tool' === $case['layer'] ) {
-				self::assertTrue( (bool) user_can( $id, self::$declarations['tools'][ $case['name'] ]['visibility'] ), $case['id'] );
+				$evaluated = ( 'catalog.info' === ( $case['payload'] ?? '' ) && isset( $case['extra'] ) ) ? (string) $case['extra'] : (string) $case['name'];
+				self::assertTrue( (bool) user_can( $id, self::$declarations['tools'][ $evaluated ]['visibility'] ), $case['id'] );
 			}
 		}
+	}
+
+	/**
+	 * The machine and personal envelopes match the reviewed catalog exactly.
+	 */
+	public function test_machine_and_personal_envelope_matrix(): void {
+		self::assertCount( 63, self::$catalog );
+		self::assertCount( 51, SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS );
+		self::assertCount( 1, SafeMcpEnvelope::SITE_MODERATION_OPERATIONS );
+
+		$descriptors = array();
+		foreach ( self::$catalog as $definition ) {
+			$descriptors[] = $definition->descriptor();
+		}
+
+		$permanently_unavailable = array(
+			'xnetvn/create-user',
+			'xnetvn/get-user',
+			'xnetvn/get-user-capabilities',
+			'xnetvn/list-roles',
+			'xnetvn/list-users',
+			'xnetvn/send-password-reset',
+			'xnetvn/set-user-role',
+			'xnetvn/terminate-user-sessions',
+			'xnetvn/update-user',
+		);
+		$human_only              = array( 'xnetvn/get-my-profile', 'xnetvn/update-my-profile' );
+		$site_policy             = new SitePolicy(
+			new MemorySettings(
+				array(
+					'enabled'          => true,
+					'tier_ceiling'     => 'admin',
+					'allow_admin_tier' => true,
+				)
+			)
+		);
+
+		$granted = $this->split_site_scope( $site_policy, $descriptors, 'site_editorial' );
+		self::assertCount( 52, $granted['allowed'] );
+		self::assertCount( 11, $granted['denied'] );
+		self::assertSame(
+			$this->sorted_names( array_merge( $permanently_unavailable, $human_only ) ),
+			$granted['denied']
+		);
+
+		$plain = $this->split_site_scope( $site_policy, $descriptors, 'site_editorial_plain' );
+		self::assertCount( 51, $plain['allowed'] );
+		self::assertCount( 12, $plain['denied'] );
+		self::assertSame(
+			$this->sorted_names( array_merge( $permanently_unavailable, $human_only, array( 'xnetvn/set-user-status' ) ) ),
+			$plain['denied']
+		);
+
+		$envelope = new SafeMcpEnvelope();
+		$personal = array(
+			'allowed' => array(),
+			'denied'  => array(),
+		);
+		foreach ( $descriptors as $descriptor ) {
+			$key                = $envelope->evaluate( $descriptor->name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed ? 'allowed' : 'denied';
+			$personal[ $key ][] = $descriptor->name;
+		}
+		self::assertCount( 53, $personal['allowed'] );
+		self::assertCount( 10, $personal['denied'] );
+		self::assertSame(
+			$this->sorted_names( array_merge( $permanently_unavailable, array( 'xnetvn/set-user-status' ) ) ),
+			$this->sorted_names( $personal['denied'] )
+		);
+	}
+
+	/**
+	 * Build a declared site scope and split the catalog through the site policy.
+	 *
+	 * @param SitePolicy                                             $policy      Site policy.
+	 * @param array<int,\XNetVN\AgentHubWP\Domain\AbilityDescriptor> $descriptors Real descriptors.
+	 * @param string                                                 $alias       Declared site key alias.
+	 * @return array{allowed:array<int,string>,denied:array<int,string>}
+	 */
+	private function split_site_scope( SitePolicy $policy, array $descriptors, string $alias ): array {
+		$spec  = self::$declarations['site_keys'][ $alias ];
+		$scope = new SiteScope(
+			RiskTier::from( (string) $spec['tier'] ),
+			(array) $spec['toolsets'],
+			(array) $spec['allow'],
+			(array) $spec['deny'],
+			(array) $spec['permissions'],
+			(array) $spec['ip_allowlist'],
+			new \DateTimeImmutable( '+' . (int) $spec['expires_in_days'] . ' day' )
+		);
+		$split = array(
+			'allowed' => array(),
+			'denied'  => array(),
+		);
+		foreach ( $descriptors as $descriptor ) {
+			$key             = $policy->evaluate_scope( $descriptor, $scope )->allowed ? 'allowed' : 'denied';
+			$split[ $key ][] = $descriptor->name;
+		}
+		$split['allowed'] = $this->sorted_names( $split['allowed'] );
+		$split['denied']  = $this->sorted_names( $split['denied'] );
+		return $split;
+	}
+
+	/**
+	 * Sort canonical names for strict set comparison.
+	 *
+	 * @param array<int,string> $names Canonical names.
+	 * @return array<int,string>
+	 */
+	private function sorted_names( array $names ): array {
+		sort( $names, SORT_STRING );
+		return $names;
 	}
 
 	/**

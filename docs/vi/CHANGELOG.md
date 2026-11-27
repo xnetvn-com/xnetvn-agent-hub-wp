@@ -3,6 +3,8 @@
 Tất cả các thay đổi đáng chú ý của dự án **xNetVN Agent Hub WP** sẽ được ghi lại trong tài liệu này.
 Định dạng được dựa trên [Keep a Changelog](https://keepachangelog.com/vi/1.0.0/) và dự án tuân thủ [Semantic Versioning (SemVer)](https://semver.org/lang/vi/).
 
+> [`CHANGELOG.md`](../../CHANGELOG.md) ở thư mục gốc là nguồn chuẩn cho các thay đổi chưa phát hành. Tài liệu này phản chiếu bản tóm tắt đã phát hành cho bộ tài liệu.
+
 ---
 
 ## [1.0.0] - 2026-11-04

@@ -25,8 +25,11 @@ Bộ chạy gói cài Plugin Check từ WordPress.org khi site gói biệt lập
 
 ```bash
 python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" sync
-python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && composer build && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip'
+python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && composer build && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip wp69'
+python3 -I -B "$HOME/.agents/skills/lc-udev-remote-test-lab/scripts/rtl.py" exec toolbox -- bash -lc 'cd /work && bash infra/remote/check-package.sh /work/dist/xnetvn-agent-hub-wp-1.0.0.zip wp71'
 ```
+
+Chạy WordPress 6.9 trước, rồi 7.1.2. Tham số thứ hai chọn bản core và tiền tố bảng biệt lập; bỏ qua sẽ mặc định `wp71` để tương thích.
 
 Bản ghi này không phải phê duyệt của WordPress.org.
 

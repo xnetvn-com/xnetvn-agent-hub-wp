@@ -23,6 +23,7 @@ use XNetVN\AgentHubWP\Http\RequestScope;
 use XNetVN\AgentHubWP\Mcp\ServerGateway;
 use XNetVN\AgentHubWP\Policy\CapabilityMemo;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
 
 /** Proves the memo changes no decision and never replaces a live capability check. */
@@ -35,6 +36,13 @@ final class CapabilityMemoRegressionTest extends WP_UnitTestCase {
 	public function test_allowed_matches_the_live_decision_for_every_role_and_capability(): void {
 		$capabilities = $this->catalog_capabilities();
 		self::assertNotEmpty( $capabilities, 'The catalog must expose at least one visibility capability.' );
+		$reviewed = SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS;
+		self::assertLessThanOrEqual(
+			count( $reviewed ),
+			count( $capabilities ),
+			'The reviewed envelope must cover every distinct catalog visibility capability.'
+		);
+		$names = array_slice( $reviewed, 0, count( $capabilities ) );
 		foreach ( self::ROLES as $role ) {
 			$actor            = self::factory()->user->create( array( 'role' => $role ) );
 			$request          = new RequestScope();
@@ -50,7 +58,7 @@ final class CapabilityMemoRegressionTest extends WP_UnitTestCase {
 			$registry         = new Registry( $policy, $request, new OutputPipeline( new MemorySettings() ) );
 			$definitions      = array();
 			foreach ( $capabilities as $index => $capability ) {
-				$definition    = $this->definition( 'xnetvn/test-capability-' . $index, $capability );
+				$definition    = $this->definition( $names[ $index ], $capability );
 				$definitions[] = $definition;
 				$registry->add( $definition );
 			}
@@ -87,23 +95,28 @@ final class CapabilityMemoRegressionTest extends WP_UnitTestCase {
 			}
 		);
 		$registry         = new Registry( $policy, $request, new OutputPipeline( new MemorySettings() ) );
-		$names            = array( 'xnetvn/test-capability-read', 'xnetvn/test-capability-read-two', 'xnetvn/test-capability-edit' );
+		$names            = array_slice( SafeMcpEnvelope::REVIEWED_EDITORIAL_SYSTEM_OPERATIONS, 0, 3 );
 		$caps             = array( 'read', 'read', 'edit_posts' );
+		$definitions      = array();
 		foreach ( $names as $index => $name ) {
-			$registry->add( $this->definition( $name, $caps[ $index ] ) );
+			$definition    = $this->definition( $name, $caps[ $index ] );
+			$definitions[] = $definition;
+			$registry->add( $definition );
 		}
 		wp_set_current_user( $actor );
 		$gateway = new ServerGateway( $registry, $request, new MemorySettings(), static fn(): ?string => '0.7.0' );
 		$server  = $this->server();
 		$tools   = array();
-		foreach ( $names as $index => $name ) {
-			$tools[] = $this->tool( str_replace( '/', '-', $name ) );
+		foreach ( $definitions as $definition ) {
+			$tools[] = $this->tool( $definition->tool_name() );
 		}
 		$listed = $gateway->tools_list( $tools, $server, new \stdClass() );
 		self::assertCount( 3, $listed );
 		self::assertSame( 2, $calls, 'One round must check every distinct pair live exactly once.' );
 		$allow = false;
-		self::assertWPError( $gateway->pre_call( array(), 'xnetvn/test-capability-read', $tools[0], $server ) );
+		$calls = 0;
+		self::assertWPError( $gateway->pre_call( array(), $definitions[0]->tool_name(), $tools[0], $server ) );
+		self::assertSame( 1, $calls, 'A direct pre-call must check the capability live exactly once, never from the memo.' );
 		$calls = 0;
 		self::assertSame( array(), $gateway->tools_list( $tools, $server, new \stdClass() ) );
 		self::assertSame( 2, $calls, 'A new round must check every distinct pair live again.' );
@@ -137,7 +150,9 @@ final class CapabilityMemoRegressionTest extends WP_UnitTestCase {
 	 */
 	private function context( int $actor ): AuthContext {
 		return new AuthContext(
-			new ApiKey( 1, new KeyId( 'abcdefghijkl' ), $actor, 'Memo fixture', new Scope( RiskTier::Read, array( 'content' ) ), new \DateTimeImmutable( '@1791072000' ) ),
+			// The fixture toolset and the key scope must agree so the policy reaches
+			// Policy::permitted(); neither value is a production descriptor.
+			new ApiKey( 1, new KeyId( 'abcdefghijkl' ), $actor, 'Memo fixture', new Scope( RiskTier::Read, array( 'system' ) ), new \DateTimeImmutable( '@1791072000' ) ),
 			str_repeat( 'a', 16 )
 		);
 	}

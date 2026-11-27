@@ -1324,8 +1324,8 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_merge( string $private, array $
 			++$auth['http'][ $code ];
 		}
 	}
-	$rate           = $cases['CAT-rate-auth-burst-denied'] ?? array( 'ok' => false );
-	$report         = array(
+	$rate                            = $cases['CAT-rate-auth-burst-denied'] ?? array( 'ok' => false );
+	$report                          = array(
 		'suite'         => 'catalog-role-matrix',
 		'version'       => 1,
 		'target'        => (string) ( $main['target'] ?? '' ),
@@ -1357,7 +1357,10 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_merge( string $private, array $
 		'foreign_purge' => (int) ( $main['foreign_purge'] ?? 0 ),
 		'cleanup'       => false,
 	);
-	$report['gate'] = 0 === $failed && $a_h_ok && 0 === $auth['http'][429] && 186 === $auth['attempts'] && true === ( $rate['ok'] ?? false );
+	$missing                         = xnetvn_agent_hub_wp_catalog_role_matrix_missing_sets( $coverage );
+	$report['tools_missing_allowed'] = $missing['allowed'];
+	$report['tools_missing_denied']  = $missing['denied'];
+	$report['gate']                  = 0 === $failed && $a_h_ok && 0 === $auth['http'][429] && 189 === $auth['attempts'] && true === ( $rate['ok'] ?? false ) && xnetvn_agent_hub_wp_catalog_role_matrix_missing_ok( $missing['allowed'], $missing['denied'], (int) ( $main['foreign_purge'] ?? 0 ) );
 	return $report;
 }
 
@@ -1521,7 +1524,7 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_case( array $case, array $state
 			if ( $result['ok'] && 'catalog.discover' === $case['payload'] ) {
 				$expected = array();
 				foreach ( $data['tools'] as $name => $tool ) {
-					if ( $tool['pack'] === (string) $case['extra'] ) {
+					if ( $tool['pack'] === (string) $case['extra'] && xnetvn_agent_hub_wp_catalog_role_visible( $data, (string) $name, (string) $case['actor'] ) ) {
 						$expected[] = $name;
 					}
 				}
@@ -1677,6 +1680,69 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_created( string $payload, array
 }
 
 /**
+ * Collect tool names without an allowed or a denied observation.
+ *
+ * @param array<string,array<string,int>> $coverage Coverage rows.
+ * @return array{allowed:array<int,string>,denied:array<int,string>}
+ */
+function xnetvn_agent_hub_wp_catalog_role_matrix_missing_sets( array $coverage ): array {
+	$allowed = array();
+	$denied  = array();
+	foreach ( $coverage as $tool => $row ) {
+		if ( 0 === (int) $row['allowed_seen'] && 'xnetvn-upload-media-from-url' !== (string) $tool ) {
+			$allowed[] = (string) $tool;
+		}
+		if ( 0 === (int) $row['denied_seen'] ) {
+			$denied[] = (string) $tool;
+		}
+	}
+	return array(
+		'allowed' => $allowed,
+		'denied'  => $denied,
+	);
+}
+
+/**
+ * Return the exact wire set that may legitimately lack an allowed path.
+ *
+ * @param int $foreign_purge Foreign spam and trash count.
+ * @return array<int,string>
+ */
+function xnetvn_agent_hub_wp_catalog_role_matrix_missing_allowed_expected( int $foreign_purge ): array {
+	$expected = array(
+		'xnetvn-create-user',
+		'xnetvn-get-user',
+		'xnetvn-get-user-capabilities',
+		'xnetvn-list-roles',
+		'xnetvn-list-users',
+		'xnetvn-send-password-reset',
+		'xnetvn-set-user-role',
+		'xnetvn-set-user-status',
+		'xnetvn-terminate-user-sessions',
+		'xnetvn-update-user',
+	);
+	if ( 0 < $foreign_purge ) {
+		$expected[] = 'xnetvn-purge-comments';
+	}
+	sort( $expected, SORT_STRING );
+	return $expected;
+}
+
+/**
+ * Compare the reported missing sets with the exact expected wire sets.
+ *
+ * @param array<int,string> $missing_allowed Reported names without an allowed path.
+ * @param array<int,string> $missing_denied  Reported names without a denied path.
+ * @param int               $foreign_purge   Foreign spam and trash count.
+ * @return bool
+ */
+function xnetvn_agent_hub_wp_catalog_role_matrix_missing_ok( array $missing_allowed, array $missing_denied, int $foreign_purge ): bool {
+	sort( $missing_allowed, SORT_STRING );
+	$expected = xnetvn_agent_hub_wp_catalog_role_matrix_missing_allowed_expected( $foreign_purge );
+	return $expected === $missing_allowed && array() === $missing_denied;
+}
+
+/**
  * Build the report coverage block.
  *
  * @param array<string,mixed> $coverage Coverage.
@@ -1684,16 +1750,7 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_created( string $payload, array
  * @return array<string,mixed>
  */
 function xnetvn_agent_hub_wp_catalog_role_matrix_coverage( array $coverage, array $results ): array {
-	$missing_allowed = array();
-	$missing_denied  = array();
-	foreach ( $coverage as $tool => $row ) {
-		if ( 0 === $row['allowed_seen'] && 'xnetvn-upload-media-from-url' !== $tool ) {
-			$missing_allowed[] = $tool;
-		}
-		if ( 0 === $row['denied_seen'] ) {
-			$missing_denied[] = $tool;
-		}
-	}
+	$missing = xnetvn_agent_hub_wp_catalog_role_matrix_missing_sets( $coverage );
 	$failed  = 0;
 	$na      = 0;
 	$covered = 0;
@@ -1708,8 +1765,8 @@ function xnetvn_agent_hub_wp_catalog_role_matrix_coverage( array $coverage, arra
 	}
 	return array(
 		'coverage'              => $coverage,
-		'tools_missing_allowed' => $missing_allowed,
-		'tools_missing_denied'  => $missing_denied,
+		'tools_missing_allowed' => $missing['allowed'],
+		'tools_missing_denied'  => $missing['denied'],
 		'failed'                => $failed,
 		'na'                    => $na,
 		'covered'               => $covered,
@@ -1724,7 +1781,7 @@ try {
 	if ( ! is_array( $state ) || 'catalog-role-fixture' !== ( $state['suite'] ?? '' ) || ( $state['target'] ?? '' ) !== $GLOBALS['xnetvn_catalog_role_matrix_target'] || ( $state['campaign'] ?? '' ) !== $GLOBALS['xnetvn_catalog_role_matrix_campaign'] || (int) ( $state['blog'] ?? 0 ) !== (int) $GLOBALS['xnetvn_catalog_role_matrix_blog'] ) {
 		throw new RuntimeException( 'Catalog role matrix state ownership mismatch.' );
 	}
-	if ( ! is_array( $catalog_rows ) || 62 !== count( $catalog_rows ) ) {
+	if ( ! is_array( $catalog_rows ) || 63 !== count( $catalog_rows ) ) {
 		throw new RuntimeException( 'Catalog role matrix catalog shape mismatch.' );
 	}
 	$catalog = array();
@@ -1733,7 +1790,7 @@ try {
 			$catalog[ $row['name'] ] = $row;
 		}
 	}
-	if ( 62 !== count( $catalog ) ) {
+	if ( 63 !== count( $catalog ) ) {
 		throw new RuntimeException( 'Catalog role matrix catalog shape mismatch.' );
 	}
 	$base_host      = (string) ( parse_url( $GLOBALS['xnetvn_catalog_role_matrix_base'], PHP_URL_HOST ) ?? '' );
@@ -1759,7 +1816,8 @@ try {
 				static fn( array $case ): bool => (string) $case['actor'] === $phase_match[1]
 			)
 		);
-		$auth_cases_phase = array_slice( $actor_cases, ( (int) $phase_match[2] - 1 ) * 31, 31 );
+		$half             = (int) ceil( count( $actor_cases ) / 2 );
+		$auth_cases_phase = array_slice( $actor_cases, ( (int) $phase_match[2] - 1 ) * $half, $half );
 	}
 	$run_main      = in_array( $phase, array( 'main', 'all' ), true );
 	$run_auth      = 'all' === $phase || str_starts_with( $phase, 'auth-' );
@@ -2155,16 +2213,13 @@ try {
 	chmod( $matrix_file, 0600 );
 	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Machine-readable JSON evidence only.
 	echo Json::encode( $report ) . "\n";
-	$ignored_missing = array( 'xnetvn-upload-media-from-url' );
-	if ( 0 < $foreign_purge ) {
-		$ignored_missing[] = 'xnetvn-purge-comments';
-	}
+	$missing_ok = xnetvn_agent_hub_wp_catalog_role_matrix_missing_ok( (array) $summary['tools_missing_allowed'], (array) $summary['tools_missing_denied'], $foreign_purge );
 	if ( 'main' === $phase ) {
 		$fail = $summary['failed'] > 0 || ! $a_h_ok || ! $rate_ok;
 	} elseif ( str_starts_with( $phase, 'auth-' ) ) {
 		$fail = $summary['failed'] > 0;
 	} else {
-		$fail = $summary['failed'] > 0 || array() !== $summary['tools_missing_denied'] || array() !== array_diff( $summary['tools_missing_allowed'], $ignored_missing ) || ! $a_h_ok || ! $rate_ok;
+		$fail = $summary['failed'] > 0 || ! $missing_ok || ! $a_h_ok || ! $rate_ok;
 	}
 	exit( $fail ? 1 : 0 );
 } catch ( Throwable $xnetvn_catalog_role_matrix_error ) {

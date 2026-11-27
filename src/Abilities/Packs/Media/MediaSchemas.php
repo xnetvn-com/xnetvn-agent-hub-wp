@@ -85,6 +85,7 @@ final class MediaSchemas {
 				$p = array_merge(
 					self::changes(),
 					array(
+						'author'   => C::integer( 1 ),
 						'filename' => array(
 							'type'      => 'string',
 							'minLength' => 1,

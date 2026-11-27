@@ -1,6 +1,6 @@
 # Ability catalog and core REST coverage
 
-Six ability packs are implemented: system (5), content (19), taxonomy (9), media (7), comments (10) and users (12). Entries marked `Planned` require their milestone contracts and object-permission tests; implementation and runtime acceptance are tracked separately. The system execute-ability entry rechecks the target's full policy; its read entry tier grants no write/destructive/admin authority on the target.
+Six ability packs are implemented: system (5), content (20), taxonomy (9), media (7), comments (10) and users (12). Entries marked `Planned` require their milestone contracts and object-permission tests; implementation and runtime acceptance are tracked separately. The system execute-ability entry rechecks the target's full policy; its read entry tier grants no write/destructive/admin authority on the target. `xnetvn/list-content-authors` returns only `{id, name}` for eligible current-site authors and never administers WordPress users. For a website principal, the static machine envelope admits 52/63 operations: the 51 reviewed editorial and system operations plus the separately gated `xnetvn/set-user-status`. It excludes `xnetvn/get-my-profile` and `xnetvn/update-my-profile` (human-only) and `xnetvn/list-users`, `xnetvn/get-user`, `xnetvn/list-roles`, `xnetvn/get-user-capabilities`, `xnetvn/create-user`, `xnetvn/update-user`, `xnetvn/set-user-role`, `xnetvn/terminate-user-sessions` and `xnetvn/send-password-reset` (permanently unavailable to MCP).
 
 | Ability | Tier | Toolset | Proposed visibility capability | Backing | Milestone | Status |
 |---|---|---|---|---|---|---|
@@ -12,6 +12,7 @@ Six ability packs are implemented: system (5), content (19), taxonomy (9), media
 | xnetvn/list-post-types | read | content | edit_posts | REST | M2 | Implemented; acceptance pending |
 | xnetvn/list-post-statuses | read | content | edit_posts | REST | M2 | Implemented; acceptance pending |
 | xnetvn/list-posts | read | content | edit_posts | REST | M2 | Implemented; acceptance pending |
+| xnetvn/list-content-authors | read | content | edit_posts | Direct | M2 | Implemented; acceptance pending |
 | xnetvn/get-post | read | content | edit_posts | REST | M2 | Implemented; acceptance pending |
 | xnetvn/create-post | write | content | edit_posts | REST | M2 | Implemented; acceptance pending |
 | xnetvn/update-post | write | content | edit_posts | REST | M2 | Implemented; acceptance pending |

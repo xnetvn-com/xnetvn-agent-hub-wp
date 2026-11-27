@@ -10,6 +10,10 @@ To create a release ready for deployment to Production, follow these steps:
 
 ### 1.1 Source Code Quality Checks
 ```bash
+# Ensure dependency metadata and known advisories are checked first.
+composer validate --strict
+# Use any reviewed Composer >=2.4 (a project-local PHAR is optional):
+# php /path/to/composer.phar audit --locked --no-dev
 # Ensure 100% of checks succeed
 composer check
 ```

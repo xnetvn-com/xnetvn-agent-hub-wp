@@ -15,6 +15,7 @@ use XNetVN\AgentHubWP\Abilities\MutationResponse;
 use XNetVN\AgentHubWP\Abilities\MutationResult;
 use XNetVN\AgentHubWP\Abilities\PartialFailure;
 use XNetVN\AgentHubWP\Abilities\ReasonMapper as R;
+use XNetVN\AgentHubWP\Abilities\SafeEditorialHtml;
 use XNetVN\AgentHubWP\Abilities\RestBackedAbility;
 use XNetVN\AgentHubWP\Contracts\RateLimiter;
 
@@ -33,14 +34,22 @@ final class UserOperations {
 	 */
 	private UserProjection $projection;
 
+	/** Reviewed profile-field policy.
+	 *
+	 * @var ProfileFieldPolicy
+	 */
+	private ProfileFieldPolicy $policy;
+
 	/**
 	 * Bind pure infrastructure.
 	 *
-	 * @param RateLimiter $limits Optional budget checker.
+	 * @param RateLimiter|null       $limits Optional budget checker.
+	 * @param SafeEditorialHtml|null $html Optional plain-text boundary.
 	 */
-	public function __construct( private ?RateLimiter $limits = null ) {
+	public function __construct( private ?RateLimiter $limits = null, ?SafeEditorialHtml $html = null ) {
 		$this->rest       = new RestBackedAbility();
 		$this->projection = new UserProjection( static fn( int $id ): bool => current_user_can( 'edit_user', $id ) );
+		$this->policy     = new ProfileFieldPolicy( $html );
 	}
 
 	/**
@@ -534,6 +543,20 @@ final class UserOperations {
 				return $meta_check;
 			}
 		}
+		$registered = array();
+		try {
+			$schema     = ( new \WP_REST_User_Meta_Fields() )->get_field_schema();
+			$registered = is_array( $schema['properties'] ?? null ) ? $schema['properties'] : array();
+		} catch ( \Throwable ) {
+			if ( array_key_exists( 'meta', $changes ) ) {
+				return R::error( 'invalid_params' );
+			}
+		}
+		$filtered = $this->policy->changes( $changes, $registered );
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$changes = $filtered;
 		if ( isset( $changes['locale'] ) ) {
 			$locale_check = $this->check_locale( (string) $changes['locale'] );
 			if ( is_wp_error( $locale_check ) ) {
@@ -552,7 +575,7 @@ final class UserOperations {
 				return R::error( 'duplicate_user' );
 			}
 		}
-		$response = $this->rest->dispatch( 'POST', '/wp/v2/users/me', $changes, 'user', 'user' );
+		$response = $this->with_description_kses( fn(): mixed => $this->rest->dispatch( 'POST', '/wp/v2/users/me', $changes, 'user', 'user' ) );
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
@@ -578,6 +601,29 @@ final class UserOperations {
 				);
 			}
 		);
+	}
+
+	/**
+	 * Ensure core's biography KSES callback is present only for this dispatch.
+	 *
+	 * @template T
+	 * @param callable $work Dispatch work.
+	 * @return mixed
+	 * @phpstan-param callable():T $work
+	 * @phpstan-return T
+	 */
+	private function with_description_kses( callable $work ): mixed {
+		$present = false !== has_filter( 'pre_user_description', 'wp_filter_kses' );
+		if ( ! $present ) {
+			add_filter( 'pre_user_description', 'wp_filter_kses' );
+		}
+		try {
+			return $work();
+		} finally {
+			if ( ! $present ) {
+				remove_filter( 'pre_user_description', 'wp_filter_kses' );
+			}
+		}
 	}
 
 	/**
@@ -980,15 +1026,21 @@ final class UserOperations {
 			}
 			$direct[ $name ] = (bool) $enabled;
 		}
+		$reguard = $this->reguard( $id );
+		if ( null !== $reguard ) {
+			return $reguard;
+		}
 		$snapshot = BanSnapshot::build( array_values( (array) $user->roles ), $direct, (int) get_current_user_id(), $reason );
 		if ( ! BanSnapshot::validate( $snapshot ) ) {
 			return R::error( 'invalid_state' );
 		}
-		if ( ! BanSnapshot::save( $id, $snapshot ) ) {
+		$created = false;
+		if ( ! BanSnapshot::save( $id, $snapshot, $created ) ) {
 			return R::error( 'internal_error' );
 		}
 		$reguard = $this->reguard( $id );
 		if ( null !== $reguard ) {
+			$this->discard_created_snapshot( $id, $created );
 			return $reguard;
 		}
 		try {
@@ -1006,6 +1058,7 @@ final class UserOperations {
 				\WP_Session_Tokens::get_instance( $id )->destroy_all();
 			}
 		} catch ( \Throwable ) {
+			$this->discard_created_snapshot( $id, $created );
 			return R::error( 'internal_error' );
 		}
 		clean_user_cache( $id );
@@ -1024,6 +1077,28 @@ final class UserOperations {
 			'roles'           => array( 'banned' ),
 		);
 		return MutationResult::project( $id, false, static fn(): array => $result );
+	}
+
+	/**
+	 * Delete only the snapshot this invocation inserted while no ban is visible.
+	 *
+	 * A reused snapshot belongs to an earlier ban, and a confirmed banned role
+	 * may come from a concurrent ban that depends on the stored record. Neither
+	 * case may be cleared by a refused attempt.
+	 *
+	 * @param int  $id Target.
+	 * @param bool $created Whether this invocation inserted the stored snapshot.
+	 * @return void
+	 */
+	private function discard_created_snapshot( int $id, bool $created ): void {
+		if ( ! $created ) {
+			return;
+		}
+		$fresh = get_userdata( $id );
+		if ( $fresh instanceof WP_User && in_array( 'banned', (array) $fresh->roles, true ) ) {
+			return;
+		}
+		BanSnapshot::clear( $id );
 	}
 
 	/**
@@ -1109,7 +1184,6 @@ final class UserOperations {
 			foreach ( $caps_to_restore as $cap => $enabled ) {
 				$fresh->add_cap( (string) $cap, $enabled );
 			}
-			BanSnapshot::clear( $id );
 		} catch ( \Throwable ) {
 			return R::error( 'internal_error' );
 		}
@@ -1121,6 +1195,10 @@ final class UserOperations {
 		if ( UserTargetGuard::is_protected_user( $after ) ) {
 			return new PartialFailure( $id, false );
 		}
+		if ( ! $this->restore_verified( $after, $roles_to_restore, $caps_to_restore ) ) {
+			return new PartialFailure( $id, false );
+		}
+		BanSnapshot::clear( $id );
 		$result = array(
 			'id'              => $id,
 			'status'          => 'active',
@@ -1129,6 +1207,36 @@ final class UserOperations {
 			'roles'           => array_values( (array) $after->roles ),
 		);
 		return MutationResult::project( $id, false, static fn(): array => $result );
+	}
+
+	/**
+	 * Whether the stored account state matches the requested restore.
+	 *
+	 * @param WP_User            $after            Freshly read target.
+	 * @param array<string>      $roles_to_restore Requested roles.
+	 * @param array<string,bool> $caps_to_restore  Requested direct capabilities.
+	 * @return bool
+	 */
+	private function restore_verified( WP_User $after, array $roles_to_restore, array $caps_to_restore ): bool {
+		try {
+			$actual_roles = array_values( array_unique( array_map( 'strval', (array) $after->roles ) ) );
+			$wanted_roles = array_values( array_unique( array_map( 'strval', $roles_to_restore ) ) );
+			sort( $actual_roles );
+			sort( $wanted_roles );
+			if ( $actual_roles !== $wanted_roles ) {
+				return false;
+			}
+			$direct = is_array( $after->caps ) ? $after->caps : array();
+			foreach ( $caps_to_restore as $cap => $enabled ) {
+				$name = (string) $cap;
+				if ( ! array_key_exists( $name, $direct ) || (bool) $direct[ $name ] !== (bool) $enabled ) {
+					return false;
+				}
+			}
+			return true;
+		} catch ( \Throwable ) {
+			return false;
+		}
 	}
 
 	/**

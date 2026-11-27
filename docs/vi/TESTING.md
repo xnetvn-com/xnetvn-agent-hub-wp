@@ -292,7 +292,7 @@ Giới hạn của **một** lệnh `rtl.py exec` là 600 s, nên một phase d�
 
 ## 5. Mục Tiêu Đối Chiếu Kết Quả Quan Sát (Hồ Sơ Nghiệm Thu)
 
-`git diff --check` chỉ chứng minh whitespace; không bao giờ chứng minh runtime, hosted CI, real-client, host hay sẵn sàng production. Nghiệm thu toàn diện P13 đã chạy ngày 2026-11-04: 198/198 trên `wp69` và `wp71`, 6/6 trên network main và child, Chromium/Firefox/WebKit, không bỏ qua ca nào. Evidence: `.local/remote-test/20261104T102449Z` (`wp69`), `.local/remote-test/20261104T103736Z` (`wp71`), `.local/remote-test/20261104T105310Z` (network main), `.local/remote-test/20261104T105421Z` (network child).
+`git diff --check` chỉ chứng minh whitespace; không bao giờ chứng minh runtime, hosted CI, real-client, host hay sẵn sàng production. Nghiệm thu toàn diện P13 đã chạy ngày 2026-11-04: 198/198 trên `wp69` và `wp71`, 6/6 trên network main và child, Chromium/Firefox/WebKit, không bỏ qua ca nào. Evidence: `.local/remote-test/20261104T102449Z` (`wp69`), `.local/remote-test/20261104T103736Z` (`wp71`), `.local/remote-test/20261104T105310Z` (network main), `.local/remote-test/20261104T105421Z` (network child). Bằng chứng này được ghi trên artifact đóng băng ngày 2026-11-04 trước các commit sau audit; revision hiện tại cần chạy lại P13.
 
 | Claim | Mục tiêu | Kết quả quan sát trong revision này |
 |---|---|---|
@@ -304,7 +304,7 @@ Giới hạn của **một** lệnh `rtl.py exec` là 600 s, nên một phase d�
 | TLS được tin cậy, real-client MCP (Claude, ChatGPT và khác), hosted CI, host và production | Có evidence riêng | Chưa xác minh trong revision này; ngoại lệ chứng thư tự ký chỉ áp cho client của lab. |
 | Kiểm axe tự động | 0 lỗi axe trên UI thay đổi | Chỉ là tín hiệu; không đọc thành tuân thủ WCAG. |
 | Tuân thủ WCAG 2.2 AA | Tuân thủ theo [Tiêu Chuẩn UI/UX](standards/ui-ux-standards.md) | Chưa xác lập; kiểm thủ công WCAG, bàn phím và trình đọc màn hình vẫn thuộc phần nghiệm thu riêng. |
-| Nghiệm thu P13 | Ba browser, hai site, multisite xanh | PASS — 198/198 trên `wp69` và `wp71`; 6/6 trên network main và child; Chromium, Firefox và WebKit; 0 fail, 0 skip (đường dẫn evidence ngày 2026-11-04 ở trên). |
+| Nghiệm thu P13 | Ba browser, hai site, multisite xanh | Đã có bằng chứng ngày 2026-11-04 trên artifact trước audit; revision hiện tại đang chờ chạy lại. |
 | Thủ công, trình đọc màn hình, real-client, hosted CI, host, production | Có evidence riêng | Chưa xác minh trong revision này. |
 
 Mỗi lượt chạy ghi thời điểm, revision, site (`wp69`/`wp71`), browser, role, lệnh và nguồn `UI_BASE_URL` (`rtl.py handoff`); không ghi credential, hash hay giá trị argument vào log và artifact.

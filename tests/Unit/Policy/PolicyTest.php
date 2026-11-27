@@ -19,6 +19,7 @@ use XNetVN\AgentHubWP\Domain\KeyId;
 use XNetVN\AgentHubWP\Domain\RiskTier;
 use XNetVN\AgentHubWP\Domain\Scope;
 use XNetVN\AgentHubWP\Policy\Policy;
+use XNetVN\AgentHubWP\Policy\SafeMcpEnvelope;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
 
 /** Every independent policy term must succeed; filters may only deny more. */
@@ -43,7 +44,7 @@ final class PolicyTest extends TestCase {
 			static fn(): bool => true,
 			static fn( Decision $decision ): Decision => $decision
 		);
-		$ability = new AbilityDescriptor( 'xnetvn/test-operation', $ability_tier, 'content', 'edit_posts' );
+		$ability = new AbilityDescriptor( 'xnetvn/get-post', $ability_tier, 'content', 'edit_posts' );
 		self::assertSame( $expected, $policy->evaluate( $ability, $this->context( new Scope( $key_tier, array( 'content' ) ) ), 'http' )->allowed );
 	}
 	/**
@@ -82,14 +83,59 @@ final class PolicyTest extends TestCase {
 		self::assertFalse( $policy->evaluate( $ability, $this->context( new Scope( RiskTier::Read, array( 'content' ), array(), array( 'xnetvn/get-post' ) ) ), 'http' )->allowed );
 		self::assertFalse( ( new Policy( new MemorySettings(), static fn(): bool => false, $identity ) )->evaluate( $ability, $this->context( new Scope( RiskTier::Read, array( 'content' ) ) ), 'http' )->allowed );
 		self::assertFalse( ( new Policy( new MemorySettings( array( 'enabled' => false ) ), $pass, $identity ) )->evaluate( $ability, null, 'stdio' )->allowed );
-		$admin = new AbilityDescriptor( 'xnetvn/test-admin', RiskTier::Admin, 'content', 'manage_options' );
+		$admin = new AbilityDescriptor( 'xnetvn/update-post', RiskTier::Admin, 'content', 'manage_options' );
 		self::assertFalse( ( new Policy( new MemorySettings( array( 'tier_ceiling' => 'admin' ) ), $pass, $identity ) )->evaluate( $admin, $this->context( new Scope( RiskTier::Admin, array( 'content' ) ) ), 'http' )->allowed );
 		$denied = new Policy( new MemorySettings(), $pass, static fn(): Decision => Decision::deny( 'extension_denied' ) );
 		self::assertSame( 'extension_denied', $denied->evaluate( $ability, $this->context( new Scope( RiskTier::Read, array( 'content' ) ) ), 'http' )->reason );
 	}
+	/** The static envelope admits only reviewed names per principal kind. */
+	public function test_safe_envelope_truth_table(): void {
+		$envelope = new SafeMcpEnvelope();
+
+		foreach ( array( 'xnetvn/get-post', 'xnetvn/discover-abilities', 'xnetvn/list-content-authors' ) as $name ) {
+			self::assertTrue( $envelope->evaluate( $name, SafeMcpEnvelope::PRINCIPAL_USER )->allowed );
+			self::assertTrue( $envelope->evaluate( $name, SafeMcpEnvelope::PRINCIPAL_SITE )->allowed );
+		}
+		self::assertTrue( $envelope->evaluate( 'xnetvn/get-my-profile', SafeMcpEnvelope::PRINCIPAL_USER )->allowed );
+		self::assertFalse( $envelope->evaluate( 'xnetvn/get-my-profile', SafeMcpEnvelope::PRINCIPAL_SITE )->allowed );
+		self::assertTrue( $envelope->evaluate( 'xnetvn/set-user-status', SafeMcpEnvelope::PRINCIPAL_SITE )->allowed );
+		self::assertFalse( $envelope->evaluate( 'xnetvn/set-user-status', SafeMcpEnvelope::PRINCIPAL_USER )->allowed );
+
+		foreach ( array( 'xnetvn/create-user', 'xnetvn/list-users', 'xnetvn/fixture-read', 'other/get-data' ) as $name ) {
+			$decision = $envelope->evaluate( $name, SafeMcpEnvelope::PRINCIPAL_SITE );
+			self::assertFalse( $decision->allowed );
+			self::assertSame( 'operation_outside_safe_envelope', $decision->reason );
+		}
+		self::assertFalse( $envelope->evaluate( 'xnetvn/get-post', 'unknown' )->allowed );
+	}
+
+	/** Envelope refusal precedes every configurable policy term. */
+	public function test_safe_envelope_denies_before_policy_terms(): void {
+		$policy  = new Policy(
+			new MemorySettings(
+				array(
+					'tier_ceiling'     => 'admin',
+					'allow_admin_tier' => true,
+				)
+			),
+			static fn(): bool => true,
+			static fn(): Decision => Decision::permit()
+		);
+		$ability = new AbilityDescriptor( 'xnetvn/create-user', RiskTier::Read, 'users', 'read' );
+		$context = $this->context( new Scope( RiskTier::Admin, array( 'users' ) ) );
+		$denied  = $policy->evaluate( $ability, $context, 'http' );
+		self::assertFalse( $denied->allowed );
+		self::assertSame( 'operation_outside_safe_envelope', $denied->reason );
+
+		$reviewed = new AbilityDescriptor( 'xnetvn/get-post', RiskTier::Read, 'content', 'read' );
+		self::assertTrue( $policy->evaluate( $reviewed, $this->context( new Scope( RiskTier::Read, array( 'content' ) ) ), 'http' )->allowed );
+		$profile = new AbilityDescriptor( 'xnetvn/update-my-profile', RiskTier::Read, 'users', 'read' );
+		self::assertTrue( $policy->evaluate( $profile, $this->context( new Scope( RiskTier::Admin, array( 'users' ) ) ), 'http' )->allowed );
+	}
+
 	/** A third-party definition must be explicitly approved. */
 	public function test_third_party_requires_approval(): void {
-		$ability = new AbilityDescriptor( 'other/get-data', RiskTier::Read, 'content', 'read', true );
+		$ability = new AbilityDescriptor( 'xnetvn/get-post', RiskTier::Read, 'content', 'read', true );
 		$context = $this->context( new Scope( RiskTier::Read, array( 'content' ) ) );
 		$policy  = new Policy( new MemorySettings(), static fn(): bool => true, static fn( Decision $decision ): Decision => $decision );
 		self::assertFalse( $policy->evaluate( $ability, $context, 'http' )->allowed );

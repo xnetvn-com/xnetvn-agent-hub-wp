@@ -13,6 +13,7 @@ use Brain\Monkey;
 use Brain\Monkey\Functions;
 use PHPUnit\Framework\TestCase;
 use XNetVN\AgentHubWP\Auth\Authenticator;
+use XNetVN\AgentHubWP\Auth\Capabilities;
 use XNetVN\AgentHubWP\Auth\FailureReason;
 use XNetVN\AgentHubWP\Auth\HeaderExtractor;
 use XNetVN\AgentHubWP\Auth\KeyHasher;
@@ -31,6 +32,58 @@ use XNetVN\AgentHubWP\Http\TransportGuard;
 use XNetVN\AgentHubWP\Persistence\StorageException;
 use XNetVN\AgentHubWP\Tests\Support\FrozenClock;
 use XNetVN\AgentHubWP\Tests\Support\MemorySettings;
+
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound -- Test-only WordPress doubles must live beside the test.
+
+/** Minimal user double for bearer eligibility. */
+final class AuthUser {
+	/** User identity.
+	 *
+	 * @var int
+	 */
+	public int $ID;
+	/** Role slugs.
+	 *
+	 * @var array<string>
+	 */
+	public array $roles;
+	/** Direct capabilities.
+	 *
+	 * @var array<string,bool>
+	 */
+	public array $caps;
+
+	/**
+	 * Bind the fixture identity.
+	 *
+	 * @param int                $id Identity.
+	 * @param array<string>      $roles Roles.
+	 * @param array<string,bool> $caps Direct caps.
+	 */
+	public function __construct( int $id, array $roles, array $caps = array() ) {
+		$this->ID    = $id;
+		$this->roles = $roles;
+		$this->caps  = $caps;
+	}
+}
+
+/** Minimal role registry double. */
+final class AuthRoles {
+	/** Role definitions.
+	 *
+	 * @var array<string,mixed>
+	 */
+	public array $roles;
+
+	/**
+	 * Bind role definitions.
+	 *
+	 * @param array<string,mixed> $roles Roles.
+	 */
+	public function __construct( array $roles ) {
+		$this->roles = $roles;
+	}
+}
 
 /**
  * Real token/HMAC/request logic; function substitutes are not hosted HTTP evidence.
@@ -69,6 +122,16 @@ final class RestAuthenticationTest extends TestCase {
 	 * @var MemorySettings
 	 */
 	private MemorySettings $settings;
+	/** Mutable target identity.
+	 *
+	 * @var AuthUser
+	 */
+	private AuthUser $wp_user;
+	/** Mutable role registry.
+	 *
+	 * @var AuthRoles
+	 */
+	private AuthRoles $wp_roles;
 
 	/** Bind deterministic crypto and substitute only external storage/platform operations. */
 	protected function setUp(): void {
@@ -85,8 +148,36 @@ final class RestAuthenticationTest extends TestCase {
 				'value' => base64_encode( str_repeat( 'P', 32 ) ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Fixed non-production pepper bytes.
 			)
 		);
-		Functions\when( 'get_userdata' )->justReturn( (object) array( 'ID' => 7 ) );
-		Functions\when( 'user_can' )->justReturn( true );
+		if ( ! class_exists( 'WP_User', false ) ) {
+			class_alias( AuthUser::class, 'WP_User' );
+		}
+		if ( ! class_exists( 'WP_Roles', false ) ) {
+			class_alias( AuthRoles::class, 'WP_Roles' );
+		}
+		$this->wp_user  = new AuthUser( 7, array( 'editor' ) );
+		$this->wp_roles = new AuthRoles(
+			array(
+				'editor'        => array(
+					'capabilities' => array(
+						'edit_posts'      => true,
+						'unfiltered_html' => true,
+					),
+				),
+				'administrator' => array(
+					'capabilities' => array(
+						'manage_options' => true,
+						'edit_posts'     => true,
+					),
+				),
+			)
+		);
+		Functions\when( 'get_userdata' )->alias( fn(): mixed => $this->wp_user );
+		Functions\when( 'is_multisite' )->justReturn( false );
+		Functions\when( 'wp_roles' )->alias( fn(): AuthRoles => $this->wp_roles );
+		Functions\when( 'apply_filters' )->alias( static fn( string $tag, mixed $value ): mixed => $value );
+		Functions\when( 'user_can' )->alias(
+			static fn( mixed $user, string $capability ): bool => Capabilities::USE === $capability || 'edit_posts' === $capability
+		);
 		Functions\when( 'is_ssl' )->justReturn( true );
 		Functions\when( 'wp_get_environment_type' )->justReturn( 'production' );
 		Functions\when( 'is_wp_error' )->alias( static fn( mixed $value ): bool => $value instanceof \WP_Error );
@@ -180,6 +271,28 @@ final class RestAuthenticationTest extends TestCase {
 		Functions\when( 'is_ssl' )->justReturn( false );
 		self::assertSame( 0, $this->auth->authenticate() );
 		self::assertSame( FailureReason::InsecureTransport, $this->request->failure );
+	}
+
+	/** A protected owner is refused at the bearer boundary before last-use recording. */
+	public function test_protected_owner_bearer_is_refused(): void {
+		$this->wp_user->roles  = array( 'administrator' );
+		$this->wp_roles->roles = array(
+			'administrator' => array(
+				'capabilities' => array(
+					'manage_options' => true,
+					'edit_posts'     => true,
+				),
+			),
+		);
+
+		$this->keys->expects( self::never() )->method( 'touch_last_used' );
+
+		$result = $this->auth->rest_result( null );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 403, $result->data['status'] );
+		self::assertSame( FailureReason::OwnerForbidden, $this->request->failure );
+		self::assertNull( $this->request->context );
+		self::assertSame( 0, $this->current_user );
 	}
 
 	/**

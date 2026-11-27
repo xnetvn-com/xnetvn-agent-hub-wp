@@ -26,6 +26,10 @@ final class WpOwnerLock implements OwnerLock {
 	/**
 	 * Acquire a non-blocking owner lock and release it even on exceptions.
 	 *
+	 * A completed mutation keeps its result: an unacknowledged release is announced
+	 * instead of being reported as a failed write, and an operation exception always
+	 * stays the exception the caller observes.
+	 *
 	 * @template T
 	 * @param int      $user_id Owner.
 	 * @param callable $operation Bounded mutation.
@@ -47,10 +51,39 @@ final class WpOwnerLock implements OwnerLock {
 		try {
 			return $operation();
 		} finally {
-			$released = $this->run_query( fn() => $this->db->get_var( PreparedSql::make( $this->db, 'SELECT RELEASE_LOCK(%s)', array( $name ) ) ) );
-			if ( '1' !== (string) $released ) {
-				throw new StorageException( 'Credential mutation is unavailable.' );
+			if ( ! $this->release( $name ) ) {
+				$this->announce_incomplete_release( $user_id );
 			}
+		}
+	}
+
+	/**
+	 * Release the connection-bound lock without exposing its name or values.
+	 *
+	 * @param string $name Lock name.
+	 * @return bool Whether the server acknowledged the release.
+	 */
+	private function release( string $name ): bool {
+		try {
+			$released = $this->run_query( fn() => $this->db->get_var( PreparedSql::make( $this->db, 'SELECT RELEASE_LOCK(%s)', array( $name ) ) ) );
+			return '1' === (string) $released;
+		} catch ( \Throwable ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Announce an incomplete release without changing the operation outcome.
+	 *
+	 * @param int $user_id Owner.
+	 * @return void
+	 */
+	private function announce_incomplete_release( int $user_id ): void {
+		try {
+			do_action( 'xnetvn_agent_hub_wp_lock_release_incomplete', $user_id );
+		} catch ( \Throwable ) {
+			// A listener must never replace a committed result or the original exception.
+			return;
 		}
 	}
 }

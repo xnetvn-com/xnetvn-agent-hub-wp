@@ -13,6 +13,13 @@ paths = ['''(?:^|/)tests/Unit/Domain/ScopeTest\.php$''']
 regexTarget = "secret"
 regexes = ['''^0123456789abcdef$''']
 
+[[rules.allowlists]]
+description = "Sequential-hex correlator fixtures used across the test suite; public test values, not secrets"
+condition = "AND"
+paths = ['''(?:^|/)tests/''']
+regexTarget = "secret"
+regexes = ['''^0123456789abcdef$''', '''^fedcba9876543210$''']
+
 [[rules]]
 id = "xnetvn-agent-hub-token"
 description = "Agent Hub bearer token with a non-fixture secret"
