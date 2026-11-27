@@ -82,6 +82,50 @@ final class CapabilitiesTest extends WP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * A banned actor loses both plugin decisions, before any settings lookup.
+	 *
+	 * This is the one branch of `filter()` that must not depend on the stored
+	 * policy, on the current role or on `is_network_admin()`: a banned account
+	 * keeps whatever core role it had, so the only thing that can revoke
+	 * delegated use is this early return. Asserting it also pins the shape, not
+	 * just the value: the filter returns the array unchanged apart from the two
+	 * plugin keys, and it never writes to the role definitions.
+	 */
+	public function test_banned_actor_loses_both_plugin_decisions(): void {
+		$settings = new WpSiteSettings();
+		if ( null === get_role( 'banned' ) ) {
+			add_role( 'banned', 'Banned fixture', array( 'read' => true ) );
+		}
+		// Grant the override that would otherwise admit a subscriber, so the test
+		// proves `banned` wins over an explicit administrative grant. The role must
+		// exist first: the settings layer validates that every named role resolves.
+		$settings->update( array( 'allowed_roles_override' => array( 'subscriber', 'banned' ) ) );
+		$provider = new Capabilities( $settings );
+		$provider->register();
+		$before = wp_roles()->roles;
+		try {
+			$id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+			$user = get_user_by( 'id', $id );
+			self::assertNotFalse( $user );
+			$user->set_role( 'banned' );
+
+			self::assertFalse( user_can( $id, Capabilities::USE ), 'a banned actor must lose delegated use' );
+			self::assertFalse( user_can( $id, Capabilities::MANAGE ), 'a banned actor must lose management' );
+
+			// An unrelated capability of the same actor is untouched: the branch
+			// revokes exactly the two plugin decisions and nothing else.
+			self::assertTrue( user_can( $id, 'read' ), 'an unrelated capability must survive the ban' );
+
+			// The filter never mutates the stored role definitions.
+			self::assertSame( $before, wp_roles()->roles );
+		} finally {
+			remove_filter( 'user_has_cap', array( $provider, 'filter' ), 10 );
+			remove_role( 'banned' );
+			delete_option( WpSiteSettings::OPTION );
+		}
+	}
+
 	/** Settings reject malformed values instead of coercing them into grants. */
 	public function test_settings_are_strict(): void {
 		$settings = new WpSiteSettings();
